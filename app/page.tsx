@@ -70,6 +70,8 @@ export default function Page() {
 		{},
 	);
 	const [error, setError] = useState<string | null>(null);
+	const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+	const [imagePreview, setImagePreview] = useState<string | null>(null);
 
 	const orderedSlides = useMemo(() => {
 		return Object.entries(slidesByPage)
@@ -168,16 +170,116 @@ export default function Page() {
 					</div>
 
 					<div className="space-y-2">
-						<label className="block text-sm font-medium" htmlFor="image">
+						<label className="block text-sm font-medium">
 							画像入力（任意）
 						</label>
-						<input
-							id="image"
-							name="image"
-							type="file"
-							accept="image/*"
-							className="block w-full text-sm"
-						/>
+						{imagePreview ? (
+							<div className="relative">
+								<div className="relative rounded-lg border-2 border-primary overflow-hidden">
+									<img
+										src={imagePreview}
+										alt="選択された画像"
+										className="w-full max-h-64 object-contain bg-muted/30"
+									/>
+									<div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors group">
+										<label
+											htmlFor="image"
+											className="absolute inset-0 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+										>
+											<span className="bg-background/90 text-foreground px-3 py-1.5 rounded-md text-sm font-medium">
+												画像を変更
+											</span>
+										</label>
+									</div>
+								</div>
+								<div className="mt-2 flex items-center justify-between">
+									<p className="text-sm text-muted-foreground truncate flex-1">
+										{selectedFileName}
+									</p>
+									<button
+										type="button"
+										onClick={() => {
+											setSelectedFileName(null);
+											setImagePreview(null);
+											const input = document.getElementById("image") as HTMLInputElement;
+											if (input) input.value = "";
+										}}
+										className="ml-2 text-xs text-destructive hover:underline"
+									>
+										削除
+									</button>
+								</div>
+								<input
+									id="image"
+									name="image"
+									type="file"
+									accept="image/*"
+									className="hidden"
+									onChange={(e) => {
+										const file = e.target.files?.[0];
+										setSelectedFileName(file ? file.name : null);
+										if (file) {
+											const reader = new FileReader();
+											reader.onloadend = () => {
+												setImagePreview(reader.result as string);
+											};
+											reader.readAsDataURL(file);
+										} else {
+											setImagePreview(null);
+										}
+									}}
+								/>
+							</div>
+						) : (
+							<label
+								htmlFor="image"
+								className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted transition-colors"
+							>
+								<div className="flex flex-col items-center justify-center pt-5 pb-6">
+									<svg
+										className="w-8 h-8 mb-2 text-muted-foreground"
+										aria-hidden="true"
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 20 16"
+									>
+										<path
+											stroke="currentColor"
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											strokeWidth="2"
+											d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+										/>
+									</svg>
+									<p className="mb-1 text-sm text-muted-foreground">
+										<span className="font-semibold">クリックして画像を選択</span>
+									</p>
+									<p className="text-xs text-muted-foreground">
+										PNG, JPG, WEBP など
+									</p>
+								</div>
+								<input
+									id="image"
+									name="image"
+									type="file"
+									accept="image/*"
+									className="hidden"
+									onChange={(e) => {
+										const file = e.target.files?.[0];
+										setSelectedFileName(file ? file.name : null);
+										if (file) {
+											const reader = new FileReader();
+											reader.onloadend = () => {
+												setImagePreview(reader.result as string);
+											};
+											reader.readAsDataURL(file);
+										} else {
+											setImagePreview(null);
+										}
+									}}
+								/>
+							</label>
+						)}
 						<p className="text-xs text-muted-foreground">
 							画像が選択されている場合は画像を優先します。
 						</p>
