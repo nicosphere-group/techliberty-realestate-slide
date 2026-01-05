@@ -173,6 +173,26 @@ export default function Page() {
 						<label className="block text-sm font-medium">
 							画像入力（任意）
 						</label>
+						<input
+							id="image"
+							name="image"
+							type="file"
+							accept="image/*"
+							className="hidden"
+							onChange={(e) => {
+								const file = e.target.files?.[0];
+								setSelectedFileName(file ? file.name : null);
+								if (file) {
+									const reader = new FileReader();
+									reader.onloadend = () => {
+										setImagePreview(reader.result as string);
+									};
+									reader.readAsDataURL(file);
+								} else {
+									setImagePreview(null);
+								}
+							}}
+						/>
 						{imagePreview ? (
 							<div className="relative">
 								<div className="relative rounded-lg border-2 border-primary overflow-hidden">
@@ -209,26 +229,6 @@ export default function Page() {
 										削除
 									</button>
 								</div>
-								<input
-									id="image"
-									name="image"
-									type="file"
-									accept="image/*"
-									className="hidden"
-									onChange={(e) => {
-										const file = e.target.files?.[0];
-										setSelectedFileName(file ? file.name : null);
-										if (file) {
-											const reader = new FileReader();
-											reader.onloadend = () => {
-												setImagePreview(reader.result as string);
-											};
-											reader.readAsDataURL(file);
-										} else {
-											setImagePreview(null);
-										}
-									}}
-								/>
 							</div>
 						) : (
 							<label
@@ -258,26 +258,6 @@ export default function Page() {
 										PNG, JPG, WEBP など
 									</p>
 								</div>
-								<input
-									id="image"
-									name="image"
-									type="file"
-									accept="image/*"
-									className="hidden"
-									onChange={(e) => {
-										const file = e.target.files?.[0];
-										setSelectedFileName(file ? file.name : null);
-										if (file) {
-											const reader = new FileReader();
-											reader.onloadend = () => {
-												setImagePreview(reader.result as string);
-											};
-											reader.readAsDataURL(file);
-										} else {
-											setImagePreview(null);
-										}
-									}}
-								/>
 							</label>
 						)}
 						<p className="text-xs text-muted-foreground">
