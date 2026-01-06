@@ -32,22 +32,11 @@ export interface ResearchSource {
 	excerpt?: string;
 }
 
-/** スライドに利用する画像候補 */
-export interface ResearchImage {
-	imageUrl: string;
-	pageUrl: string;
-	alt?: string;
-	title?: string;
-	license?: string;
-	attribution?: string;
-}
-
 /** スライド単位のリサーチ結果 */
 export interface SlideResearchResult {
 	summary: string;
 	keyFacts: Array<{ fact: string; sourceUrls: string[] }>;
 	sources: ResearchSource[];
-	images: ResearchImage[];
 }
 
 /** ジェネレーターから返されるイベント */
@@ -135,27 +124,6 @@ const slideResearchResultSchema = z.object({
 			}),
 		)
 		.default([]),
-	images: z
-		.array(
-			z.object({
-				imageUrl: z.string().url().describe("直接参照できる画像URL"),
-				pageUrl: z.string().url().describe("画像の掲載ページURL（出典）"),
-				alt: z.string().optional(),
-				title: z.string().optional(),
-				license: z
-					.string()
-					.optional()
-					.describe("可能ならライセンス/利用条件（例: Unsplash License）"),
-				attribution: z
-					.string()
-					.optional()
-					.describe("可能ならクレジット表記（例: Photo by ...）"),
-			}),
-		)
-		.default([])
-		.describe(
-			"スライドに使える画像候補。著作権/利用条件が明確で再利用しやすいものを優先",
-		),
 });
 
 const designSystemSchema = z.object({
@@ -372,16 +340,15 @@ export class SlideGenerator {
 			},
 			stopWhen: stepCountIs(6),
 			system: `あなたは不動産リサーチャーです。
-指定されたスライドを作成するために必要な正確な情報と、視覚的に魅力的な画像を探してください。
+指定されたスライドを作成するために必要な正確な情報を探してください。
 
 重要:
-- 画像はスライドのクオリティを左右します。高画質で、内容に合致するものを優先してください。
 - 事実は正確に、出典を明記してください。`,
 			messages: [
 				{ role: "user", content: userContent },
 				{
 					role: "user",
-					content: `# ターゲットスライド\n- タイトル: ${slide.title}\n- 概要: ${slide.description}\n- レイアウト: ${slide.layout}\n\n# 調査トピック\n${topics.join("\n")}\n\nこのスライドに必要な情報と画像を収集してください。`,
+					content: `# ターゲットスライド\n- タイトル: ${slide.title}\n- 概要: ${slide.description}\n- レイアウト: ${slide.layout}\n\n# 調査トピック\n${topics.join("\n")}\n\nこのスライドに必要な情報を収集してください。`,
 				},
 			],
 			output: Output.object({
@@ -395,7 +362,6 @@ export class SlideGenerator {
 			summary: output.summary,
 			keyFacts: output.keyFacts,
 			sources: this.dedupeSources(output.sources),
-			images: this.dedupeImages(output.images),
 		};
 	}
 
@@ -417,19 +383,6 @@ export class SlideGenerator {
 			if (seen.has(url)) continue;
 			seen.add(url);
 			out.push({ ...source, url });
-		}
-		return out;
-	}
-
-	private dedupeImages(images: ResearchImage[]): ResearchImage[] {
-		const seen = new Set<string>();
-		const out: ResearchImage[] = [];
-		for (const image of images) {
-			const imageUrl = image.imageUrl.trim();
-			if (!imageUrl) continue;
-			if (seen.has(imageUrl)) continue;
-			seen.add(imageUrl);
-			out.push(image);
 		}
 		return out;
 	}
@@ -457,8 +410,7 @@ HTMLとCSSを駆使して、美しく、プロフェッショナルな不動産�
 1. **解像度**: 必ず \`width: 1920px; height: 1080px;\` のコンテナを作成し、その中にコンテンツを収めること。
 2. **レイアウト**: 指定された \`layout\` タイプ (${definition.layout}) に最適な構図で作ること。
 3. **デザインシステム**: 提供されたCSS変数をルートまたはコンテナに適用し、一貫性を保つこと。
-4. **画像**: リサーチ結果の画像を最大限活用すること。画像がない場合はプレースホルダーを使用せず、美しいタイポグラフィで構成すること。
-5. **出力**: HTMLのみを出力すること（Markdownコードブロックは不要）。
+4. **出力**: HTMLのみを出力すること（Markdownコードブロックは不要）。
 
 # コンテナの基本スタイル（参考）
 \`\`\`css
