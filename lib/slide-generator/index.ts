@@ -1,3 +1,4 @@
+export { type PrimaryInput, primaryInputSchema } from "./schemas";
 export { SlideGenerator } from "./slide-generator";
 export type {
 	EndEvent,
@@ -7,7 +8,6 @@ export type {
 	PlanEvent,
 	ResearchSource,
 	SlideEvent,
-	SlideInput,
 	SlideResearchResult,
 	StartEvent,
 } from "./types";

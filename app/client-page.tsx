@@ -1,39 +1,43 @@
 "use client";
 
 import { readStreamableValue } from "@ai-sdk/rsc";
+import { useForm } from "@tanstack/react-form";
 import {
 	AlertCircle,
-	FileText,
 	ImageIcon,
 	LayoutTemplate,
 	Loader2,
 	Sparkles,
-	Upload,
-	X,
 } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+	Dropzone,
+	DropzoneContent,
+	DropzoneEmptyState,
+} from "@/components/dropzone";
 import { SlidePreview } from "@/components/slide-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
-import type { Event, SlideEvent } from "@/lib/slide-generator";
+import {
+	type Event,
+	type PrimaryInput,
+	primaryInputSchema,
+	type SlideEvent,
+} from "@/lib/slide-generator";
 import { run } from "./actions";
 
 type SlideState = SlideEvent;
 
 export default function ClientPage() {
-	const [isPending, startTransition] = useTransition();
 	const [events, setEvents] = useState<Event[]>([]);
 	const [slidesByPage, setSlidesByPage] = useState<Record<number, SlideState>>(
 		{},
 	);
-
-	const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
-	const [imagePreview, setImagePreview] = useState<string | null>(null);
 
 	const isDevelopment = process.env.NODE_ENV === "development";
 
@@ -41,44 +45,56 @@ export default function ClientPage() {
 		return Object.values(slidesByPage).sort((a, b) => a.index - b.index);
 	}, [slidesByPage]);
 
-	async function onSubmit(formData: FormData) {
-		setEvents([]);
-		setSlidesByPage({});
+	const form = useForm({
+		defaultValues: {
+			customerName: "",
+			agentName: "",
+			agentPhoneNumber: "",
+			agentEmailAddress: "",
+			flyerFiles: [],
+		} as PrimaryInput,
+		validators: {
+			onSubmit: primaryInputSchema,
+		},
+		onSubmit: async ({ value }) => {
+			setEvents([]);
+			setSlidesByPage({});
 
-		try {
-			const stream = await run(formData);
-			for await (const event of readStreamableValue(stream)) {
-				if (!event) continue;
+			try {
+				const stream = await run(value);
+				for await (const event of readStreamableValue(stream)) {
+					if (!event) continue;
 
-				setEvents((prev) => [...prev, event]);
+					setEvents((prev) => [...prev, event]);
 
-				switch (event.type) {
-					case "slide:start":
-					case "slide:researching":
-					case "slide:generating":
-					case "slide:end":
-						setSlidesByPage((prev) => ({
-							...prev,
-							[event.index]: event,
-						}));
-						break;
-					case "error":
-						// Use toast for error notification
-						toast.error(event.message, {
-							icon: <AlertCircle className="h-4 w-4" />,
-						});
-						break;
-					default:
-						break;
+					switch (event.type) {
+						case "slide:start":
+						case "slide:researching":
+						case "slide:generating":
+						case "slide:end":
+							setSlidesByPage((prev) => ({
+								...prev,
+								[event.index]: event,
+							}));
+							break;
+						case "error":
+							// Use toast for error notification
+							toast.error(event.message, {
+								icon: <AlertCircle className="h-4 w-4" />,
+							});
+							break;
+						default:
+							break;
+					}
 				}
+			} catch (e) {
+				console.error(e);
+				toast.error("予期せぬエラーが発生しました。", {
+					description: "もう一度お試しください。",
+				});
 			}
-		} catch (e) {
-			console.error(e);
-			toast.error("予期せぬエラーが発生しました。", {
-				description: "もう一度お試しください。",
-			});
-		}
-	}
+		},
+	});
 
 	return (
 		<div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -117,130 +133,205 @@ export default function ClientPage() {
 							</div>
 
 							<form
-								action={(fd) => startTransition(() => onSubmit(fd))}
+								id="generate-slides-form"
 								className="space-y-8"
+								onSubmit={(e) => {
+									e.preventDefault();
+									form.handleSubmit();
+								}}
 							>
-								{/* Image Input */}
-								<div className="space-y-4">
-									<Label className="text-base font-medium flex items-center gap-2">
-										<ImageIcon className="h-4 w-4 text-primary" />
-										物件資料・間取り図
-										<Badge variant="secondary" className="text-xs font-normal">
-											推奨
-										</Badge>
-									</Label>
-
-									{!imagePreview ? (
-										<div className="relative group">
-											<input
-												id="image"
-												name="image"
-												type="file"
-												accept="image/*"
-												className="hidden"
-												onChange={(e) => {
-													const file = e.target.files?.[0];
-													setSelectedFileName(file ? file.name : null);
-													if (file) {
-														const reader = new FileReader();
-														reader.onloadend = () => {
-															setImagePreview(reader.result as string);
-														};
-														reader.readAsDataURL(file);
-													} else {
-														setImagePreview(null);
-													}
-												}}
-											/>
-											<label
-												htmlFor="image"
-												className="flex flex-col items-center justify-center w-full h-40 border border-dashed rounded-xl border-muted-foreground/25 bg-muted/30 hover:bg-muted/60 hover:border-primary/50 transition-all duration-200 cursor-pointer"
-											>
-												<div className="flex flex-col items-center justify-center py-4 text-muted-foreground group-hover:text-primary transition-colors">
-													<div className="p-3 bg-background rounded-full shadow-sm mb-3 group-hover:scale-105 transition-transform">
-														<Upload className="w-5 h-5" />
-													</div>
-													<p className="text-sm font-medium">
-														画像をアップロード
-													</p>
-													<p className="text-xs opacity-60 mt-1">
-														クリックまたはドラッグ＆ドロップ
-													</p>
-												</div>
-											</label>
-										</div>
-									) : (
-										<div className="relative rounded-xl overflow-hidden border bg-background shadow-sm group">
-											<div className="relative aspect-video w-full bg-muted/20">
-												<img
-													src={imagePreview}
-													alt="Selected preview"
-													className="h-full w-full object-contain"
-												/>
-											</div>
-											<div className="absolute top-2 right-2">
-												<Button
-													type="button"
-													variant="destructive"
-													size="icon"
-													className="h-8 w-8 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-													onClick={() => {
-														setSelectedFileName(null);
-														setImagePreview(null);
-														const input = document.getElementById(
-															"image",
-														) as HTMLInputElement;
-														if (input) input.value = "";
-													}}
+								{/* Customer Name */}
+								<form.Field
+									name="customerName"
+									children={(field) => {
+										const isInvalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={isInvalid}>
+												<FieldLabel
+													htmlFor={field.name}
+													className="text-base font-medium"
 												>
-													<X className="h-4 w-4" />
-												</Button>
-											</div>
-											<div className="absolute bottom-0 left-0 right-0 bg-background/90 backdrop-blur-sm border-t px-3 py-2">
-												<p className="text-xs font-medium truncate flex items-center gap-2">
-													<ImageIcon className="w-3 h-3 text-muted-foreground" />
-													{selectedFileName}
-												</p>
-											</div>
-											<input
-												id="image"
-												name="image"
-												type="file"
-												accept="image/*"
-												className="hidden"
-											/>
-										</div>
-									)}
-								</div>
+													顧客名
+												</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													value={field.state.value}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													aria-invalid={isInvalid}
+													placeholder="例: 山田 太郎"
+													autoComplete="off"
+												/>
+												{isInvalid && (
+													<FieldError errors={field.state.meta.errors} />
+												)}
+											</Field>
+										);
+									}}
+								/>
 
-								{/* Text Input */}
-								<div className="space-y-4">
-									<Label
-										htmlFor="text"
-										className="text-base font-medium flex items-center gap-2"
-									>
-										<FileText className="h-4 w-4 text-primary" />
-										補足テキスト情報
-									</Label>
-									<Textarea
-										id="text"
-										name="text"
-										rows={8}
-										className="resize-none min-h-40 font-mono text-sm leading-relaxed"
-										placeholder="物件の詳細情報、アピールポイント、価格、所在地などを入力してください..."
-									/>
-								</div>
+								{/* Agent Name */}
+								<form.Field
+									name="agentName"
+									children={(field) => {
+										const isInvalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={isInvalid}>
+												<FieldLabel
+													htmlFor={field.name}
+													className="text-base font-medium"
+												>
+													担当者名
+												</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													value={field.state.value}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													aria-invalid={isInvalid}
+													placeholder="例: 鈴木 一郎"
+													autoComplete="name"
+												/>
+												{isInvalid && (
+													<FieldError errors={field.state.meta.errors} />
+												)}
+											</Field>
+										);
+									}}
+								/>
+
+								{/* Agent Phone Number */}
+								<form.Field
+									name="agentPhoneNumber"
+									children={(field) => {
+										return (
+											<Field>
+												<FieldLabel
+													htmlFor={field.name}
+													className="text-base font-medium"
+												>
+													担当者電話番号
+													<Badge
+														variant="secondary"
+														className="ml-2 text-xs font-normal"
+													>
+														任意
+													</Badge>
+												</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													type="tel"
+													value={field.state.value || ""}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													placeholder="例: 03-1234-5678"
+													autoComplete="tel"
+												/>
+											</Field>
+										);
+									}}
+								/>
+
+								{/* Agent Email */}
+								<form.Field
+									name="agentEmailAddress"
+									children={(field) => {
+										return (
+											<Field>
+												<FieldLabel
+													htmlFor={field.name}
+													className="text-base font-medium"
+												>
+													担当者メールアドレス
+													<Badge
+														variant="secondary"
+														className="ml-2 text-xs font-normal"
+													>
+														任意
+													</Badge>
+												</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													type="email"
+													value={field.state.value || ""}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													placeholder="例: example@company.com"
+													autoComplete="email"
+												/>
+											</Field>
+										);
+									}}
+								/>
+
+								<Separator />
+
+								{/* Image Input */}
+								<form.Field
+									name="flyerFiles"
+									children={(field) => {
+										return (
+											<Field>
+												<FieldLabel className="text-base font-medium flex items-center gap-2">
+													<ImageIcon className="h-4 w-4 text-primary" />
+													マイソク
+													<Badge
+														variant="secondary"
+														className="ml-2 text-xs font-normal"
+													>
+														任意
+													</Badge>
+												</FieldLabel>
+												<Dropzone
+													accept={{
+														"image/*": [
+															".png",
+															".jpg",
+															".jpeg",
+															".gif",
+															".webp",
+														],
+													}}
+													maxFiles={1}
+													maxSize={10 * 1024 * 1024}
+													src={field.state.value || []}
+													onDrop={(acceptedFiles) => {
+														field.handleChange(acceptedFiles);
+													}}
+													onError={(error) => {
+														toast.error(
+															"ファイルのアップロードに失敗しました",
+															{
+																description: error.message,
+															},
+														);
+													}}
+													className="h-40"
+												>
+													<DropzoneEmptyState />
+													<DropzoneContent />
+												</Dropzone>
+											</Field>
+										);
+									}}
+								/>
 
 								<Separator />
 
 								{/* Submit Button */}
 								<Button
 									type="submit"
-									disabled={isPending}
+									disabled={form.state.isSubmitting}
 									size="lg"
 									className="w-full text-base font-medium shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow h-12"
 								>
-									{isPending ? (
+									{form.state.isSubmitting ? (
 										<>
 											<Loader2 className="mr-2 h-5 w-5 animate-spin" />
 											生成中...

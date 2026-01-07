@@ -4,6 +4,18 @@ import z from "zod";
 // Schemas
 // ========================================
 
+export const primaryInputSchema = z.object({
+	customerName: z.string().min(1, "顧客名は必須です"),
+
+	agentName: z.string().min(1, "担当者名は必須です"),
+	agentPhoneNumber: z.string().optional(),
+	agentEmailAddress: z.string().optional(),
+
+	flyerFiles: z.instanceof(File).array(),
+});
+
+export type PrimaryInput = z.infer<typeof primaryInputSchema>;
+
 export const slideLayoutSchema = z.enum([
 	"title", // タイトルスライド
 	"section", // セクション区切り

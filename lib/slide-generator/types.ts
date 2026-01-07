@@ -4,11 +4,6 @@
 
 import type { SlideDefinition } from "./schemas";
 
-/** 入力タイプ: テキストまたは画像 */
-export type SlideInput =
-	| { type: "text"; content: string }
-	| { type: "image"; data: Buffer; mimeType: string };
-
 /** 生成されたスライド */
 export interface GeneratedSlide {
 	html: string;

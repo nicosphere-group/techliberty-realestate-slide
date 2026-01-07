@@ -10,6 +10,7 @@ import {
 import {
 	type DesignSystem,
 	designSystemSchema,
+	type PrimaryInput,
 	type SlideDefinition,
 	slideDefinitionSchema,
 	slideResearchResultSchema,
@@ -18,7 +19,6 @@ import type {
 	Event,
 	GeneratedSlide,
 	ResearchSource,
-	SlideInput,
 	SlideResearchResult,
 } from "./types";
 
@@ -27,15 +27,16 @@ import type {
 // ========================================
 
 export class SlideGenerator {
-	private lowModel = google("gemini-3-flash-preview");
-	private highModel = google("gemini-3-pro-preview");
-	private imageModel = google("gemini-3-pro-image-preview");
+	// private lowModel = google("gemini-2.5-flash-lite");
+	private middleModel = google("gemini-3-flash-preview");
+	// private highModel = google("gemini-3-pro-preview");
+	// private imageModel = google("gemini-3-pro-image-preview");
 
 	/**
 	 * スライド生成を実行
 	 * 各ステップでイベントをyieldするジェネレーター
 	 */
-	async *run(input: SlideInput): AsyncGenerator<Event> {
+	async *run(input: PrimaryInput): AsyncGenerator<Event> {
 		try {
 			// 全体の開始
 			yield { type: "start" };
@@ -125,11 +126,11 @@ export class SlideGenerator {
 	/**
 	 * Step 2: スライドの構成をプランニング
 	 */
-	private async planSlides(input: SlideInput): Promise<SlideDefinition[]> {
-		const userContent = this.buildUserContent(input);
+	private async planSlides(input: PrimaryInput): Promise<SlideDefinition[]> {
+		const userContent = await this.buildUserContent(input);
 
 		const { output } = await generateText({
-			model: this.lowModel,
+			model: this.middleModel,
 			system: `あなたは不動産プレゼンテーション資料の構成作家です。
 提供された情報を分析し、論理的で説得力のあるスライド構成を設計してください。
 
@@ -168,11 +169,11 @@ export class SlideGenerator {
 	 * Step 2.5: 全スライドで共通利用するデザインガイドを生成
 	 */
 	private async createDesignSystem(
-		input: SlideInput,
+		input: PrimaryInput,
 		slides: SlideDefinition[],
 	): Promise<DesignSystem> {
 		const { output } = await generateText({
-			model: this.lowModel,
+			model: this.middleModel,
 			system: `あなたは世界的なアートディレクターです。
 高級不動産のプレゼンテーションにふさわしい、洗練されたデザインシステムを作成してください。
 
@@ -211,12 +212,12 @@ export class SlideGenerator {
 	 */
 	private async researchForSlide(
 		slide: SlideDefinition,
-		input: SlideInput,
+		input: PrimaryInput,
 		topics: string[],
 	): Promise<SlideResearchResult> {
-		const userContent = this.buildUserContent(input);
+		const userContent = await this.buildUserContent(input);
 		const { output } = await generateText({
-			model: this.lowModel,
+			model: this.middleModel,
 			tools: {
 				google_search: google.tools.googleSearch({}),
 			},
@@ -276,7 +277,7 @@ export class SlideGenerator {
 		definition: SlideDefinition,
 		research: SlideResearchResult,
 		designSystem: DesignSystem,
-		input: SlideInput,
+		input: PrimaryInput,
 	): AsyncIterableStream<string> {
 		// CSS変数の文字列化
 		const cssVarsString = designSystem.cssVariables
@@ -284,7 +285,7 @@ export class SlideGenerator {
 			.join("\n");
 
 		const { textStream } = streamText({
-			model: this.lowModel,
+			model: this.middleModel,
 			system: `あなたは世界最高峰のWebデザイナーです。
 HTMLとCSSを駆使して、美しく、プロフェッショナルな不動産スライドを作成してください。
 
@@ -338,23 +339,55 @@ ${this.getInputSummary(input)}
 		return textStream;
 	}
 
-	private buildUserContent(input: SlideInput): UserContent {
-		if (input.type === "text") {
-			return input.content;
+	private async buildUserContent(input: PrimaryInput): Promise<UserContent> {
+		const userContent: UserContent = [];
+
+		// チラシ画像がある場合は追加
+		if (input.flyerFiles.length) {
+			const flyerFile = input.flyerFiles[0];
+
+			userContent.push(
+				{ type: "image", image: await flyerFile.arrayBuffer() },
+				{
+					type: "text",
+					text: "上記の画像は不動産物件のチラシです。記載されている全ての情報（物件名、価格、所在地、面積、間取り、特徴、設備、アクセス情報など）を詳細に抽出してください。",
+				},
+			);
 		}
-		return [
-			{ type: "image", image: input.data },
-			{
-				type: "text",
-				text: "この画像は不動産物件の資料です。内容を詳細に分析してください。",
-			},
-		];
+
+		// テキスト情報を構造化して追加
+		const textParts: string[] = [];
+
+		textParts.push(`# 顧客情報`);
+		textParts.push(`- 顧客名: ${input.customerName}`);
+
+		textParts.push(`\n# 担当者情報`);
+		textParts.push(`- 担当者名: ${input.agentName}`);
+		if (input.agentPhoneNumber) {
+			textParts.push(`- 電話番号: ${input.agentPhoneNumber}`);
+		}
+		if (input.agentEmailAddress) {
+			textParts.push(`- メールアドレス: ${input.agentEmailAddress}`);
+		}
+
+		userContent.push({
+			type: "text",
+			text: textParts.join("\n"),
+		});
+
+		return userContent;
 	}
 
-	private getInputSummary(input: SlideInput): string {
-		if (input.type === "text") {
-			return `${input.content.slice(0, 500)}...`;
+	private getInputSummary(input: PrimaryInput): string {
+		const summary: string[] = [];
+
+		summary.push(`顧客: ${input.customerName}`);
+		summary.push(`担当者: ${input.agentName}`);
+
+		if (input.flyerFiles.length) {
+			summary.push(`チラシ画像: あり (${input.flyerFiles[0].type})`);
 		}
-		return "[画像入力: 物件資料]";
+
+		return summary.join(" | ");
 	}
 }
