@@ -93,7 +93,7 @@ export class SlideGenerator {
 						type: "slide:generating",
 						index: slideDef.pageNumber,
 						title: slideDef.title,
-						data: slide,
+						data: { ...slide },
 					};
 				}
 
@@ -107,7 +107,7 @@ export class SlideGenerator {
 					index: slideDef.pageNumber,
 					title: slideDef.title,
 					data: {
-						slide,
+						slide: { ...slide },
 						research,
 					},
 				};

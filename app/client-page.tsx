@@ -437,7 +437,7 @@ export default function ClientPage() {
 															{slide.index}
 														</span>
 														<span className="text-sm font-semibold text-foreground/80 truncate max-w-50">
-															{slide.title || `スライド ${slide.index}`}
+															{slide.title}
 														</span>
 													</div>
 													<div className="flex items-center gap-2">
