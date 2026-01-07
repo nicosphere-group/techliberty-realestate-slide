@@ -353,7 +353,7 @@ ${this.getInputSummary(input)}
 
 	private getInputSummary(input: SlideInput): string {
 		if (input.type === "text") {
-			return input.content.slice(0, 500) + "...";
+			return `${input.content.slice(0, 500)}...`;
 		}
 		return "[画像入力: 物件資料]";
 	}
