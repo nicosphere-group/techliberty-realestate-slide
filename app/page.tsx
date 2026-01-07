@@ -294,99 +294,43 @@ export default function Page() {
 					</p>
 				) : (
 					<div className="space-y-6">
-						{orderedSlides.map(
-							({ pageNumber, slide, research, partialHtml, status }) => {
-								const html = slide?.html ?? partialHtml;
-								return (
-									<div
-										key={pageNumber}
-										className="rounded-lg border p-4 space-y-3"
-									>
-										<div className="flex items-baseline justify-between gap-4">
-											<div className="font-medium">{pageNumber}ページ</div>
-											<div className="text-xs text-muted-foreground">
-												{status === "researching"
-													? "リサーチ中"
-													: status === "generating"
-														? "生成中"
-														: status === "done"
-															? "完了"
-															: ""}
-											</div>
+						{orderedSlides.map(({ pageNumber, slide, partialHtml, status }) => {
+							const html = slide?.html ?? partialHtml;
+							return (
+								<div
+									key={pageNumber}
+									className="rounded-lg border p-4 space-y-3"
+								>
+									<div className="flex items-baseline justify-between gap-4">
+										<div className="font-medium">{pageNumber}ページ</div>
+										<div className="text-xs text-muted-foreground">
+											{status === "researching"
+												? "リサーチ中"
+												: status === "generating"
+													? "生成中"
+													: status === "done"
+														? "完了"
+														: ""}
 										</div>
-
-										{html ? (
-											<div className="space-y-2">
-												<div className="text-sm font-medium">プレビュー</div>
-												<SlidePreview html={html} />
-											</div>
-										) : null}
-
-										{research?.images?.length ? (
-											<div className="space-y-2">
-												<div className="text-sm font-medium">
-													画像候補（出典付き）
-												</div>
-												<div className="space-y-2">
-													{research.images.map((img, idx) => (
-														<div
-															key={img.imageUrl}
-															className="rounded-md border p-3 text-sm space-y-1"
-														>
-															<div className="font-medium">
-																{img.title ?? img.alt ?? `画像 ${idx + 1}`}
-															</div>
-															<div className="text-xs break-all">
-																<div>
-																	画像URL:{" "}
-																	<a
-																		className="underline"
-																		href={img.imageUrl}
-																		target="_blank"
-																		rel="noreferrer"
-																	>
-																		{img.imageUrl}
-																	</a>
-																</div>
-																<div>
-																	出典:{" "}
-																	<a
-																		className="underline"
-																		href={img.pageUrl}
-																		target="_blank"
-																		rel="noreferrer"
-																	>
-																		{img.pageUrl}
-																	</a>
-																</div>
-															</div>
-															{img.license ? (
-																<div className="text-xs text-muted-foreground">
-																	license: {img.license}
-																</div>
-															) : null}
-															{img.attribution ? (
-																<div className="text-xs text-muted-foreground">
-																	credit: {img.attribution}
-																</div>
-															) : null}
-														</div>
-													))}
-												</div>
-											</div>
-										) : null}
 									</div>
-								);
-							},
-						)}
+
+									{html ? (
+										<div className="space-y-2">
+											<div className="text-sm font-medium">プレビュー</div>
+											<SlidePreview html={html} />
+										</div>
+									) : null}
+								</div>
+							);
+						})}
 					</div>
 				)}
 			</section>
 
 			<section className="space-y-2">
 				<h2 className="text-lg font-semibold">イベントログ</h2>
-				<div className="rounded-md border bg-background p-3 text-xs overflow-auto max-h-[320px]">
-					<pre className="whitespace-pre-wrap break-words">
+				<div className="rounded-md border bg-background p-3 text-xs overflow-auto max-h-80">
+					<pre className="whitespace-pre-wrap wrap-break-word">
 						{events.map((e, i) => `${i + 1}. ${JSON.stringify(e)}\n`).join("")}
 					</pre>
 				</div>
