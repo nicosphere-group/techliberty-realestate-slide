@@ -129,7 +129,7 @@ export default function ClientPage() {
 			<div className="flex flex-1 flex-col lg:flex-row h-[calc(100vh-64px)] overflow-hidden">
 				{/* Left Sidebar: Input Configuration */}
 				<aside className="w-full shrink-0 border-r bg-muted/10 lg:w-105 xl:w-120 overflow-y-auto">
-					<div className="flex flex-col h-full bg-white dark:bg-zinc-950">
+					<div className="flex flex-col h-full bg-background">
 						<div className="p-6 space-y-8 flex-1">
 							<div>
 								<h2 className="text-lg font-semibold tracking-tight">
@@ -500,14 +500,14 @@ export default function ClientPage() {
 															</Badge>
 														)}
 														{isGenerating && (
-															<Badge className="text-[10px] bg-blue-500 animate-pulse">
+															<Badge className="text-[10px] bg-blue-500 text-white dark:bg-blue-600 dark:text-blue-50 animate-pulse">
 																生成中
 															</Badge>
 														)}
 														{isCompleted && (
 															<Badge
 																variant="outline"
-																className="text-[10px] text-green-600 border-green-200 bg-green-50"
+																className="text-[10px] text-green-600 border-green-200 bg-green-50 dark:text-green-400 dark:border-green-800 dark:bg-green-950/30"
 															>
 																完了
 															</Badge>
@@ -533,7 +533,7 @@ export default function ClientPage() {
 															</>
 														) : isGenerating ? (
 															<>
-																<Loader2 className="h-8 w-8 animate-spin text-blue-500/40" />
+																<Loader2 className="h-8 w-8 animate-spin text-blue-500/40 dark:text-blue-400/60" />
 																<p className="text-xs font-medium relative z-10">
 																	デザインを作成中...
 																</p>
