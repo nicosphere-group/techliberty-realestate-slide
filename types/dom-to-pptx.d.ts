@@ -21,6 +21,6 @@ declare module "dom-to-pptx" {
 		exportToPptx: typeof exportToPptx;
 	};
 
-	export type { exportToPptx };
+	export { exportToPptx };
 	export default domToPptx;
 }
