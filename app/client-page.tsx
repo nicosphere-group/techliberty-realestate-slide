@@ -25,16 +25,19 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
 	type Event,
+	type PlanEvent,
 	type PrimaryInput,
 	primaryInputSchema,
 	type SlideEvent,
 } from "@/lib/slide-generator";
 import { run } from "./actions";
 
+type PlanState = PlanEvent;
 type SlideState = SlideEvent;
 
 export default function ClientPage() {
 	const [events, setEvents] = useState<Event[]>([]);
+	const [plan, setPlan] = useState<PlanState>();
 	const [slidesByPage, setSlidesByPage] = useState<Record<number, SlideState>>(
 		{},
 	);
@@ -68,6 +71,11 @@ export default function ClientPage() {
 					setEvents((prev) => [...prev, event]);
 
 					switch (event.type) {
+						case "plan:start":
+						case "plan:end":
+							setPlan(event);
+							break;
+
 						case "slide:start":
 						case "slide:researching":
 						case "slide:generating":
@@ -404,21 +412,63 @@ export default function ClientPage() {
 							</div>
 
 							{orderedSlides.length === 0 ? (
-								<div className="flex flex-col items-center justify-center py-20 lg:py-32 text-center rounded-xl border-2 border-dashed border-muted-foreground/10 bg-muted/5">
-									<div className="p-6 bg-background rounded-full shadow-sm mb-6">
-										<PresentationPlaceholder className="w-12 h-12 text-muted-foreground/40" />
+								form.state.isSubmitting ? (
+									<div className="flex flex-col items-center justify-center py-20 lg:py-32 text-center rounded-xl border-2 border-dashed border-primary/20 bg-primary/5">
+										<div className="flex flex-col items-center gap-4 max-w-md w-full px-6">
+											<Loader2 className="h-12 w-12 animate-spin text-primary" />
+											<h3 className="text-xl font-semibold text-foreground">
+												{plan?.type === "plan:end"
+													? "構成案が完成しました"
+													: "AIが物件情報を分析中..."}
+											</h3>
+											<p className="text-muted-foreground">
+												{plan?.type === "plan:end"
+													? "各スライドの生成を開始します。"
+													: "最適なプレゼンテーション構成を考えています。"}
+											</p>
+
+											{plan?.type === "plan:end" && (
+												<div className="mt-4 p-4 bg-background/80 backdrop-blur rounded-lg text-left text-sm w-full border shadow-sm max-h-60 overflow-y-auto">
+													<p className="font-medium mb-3 text-foreground flex items-center gap-2">
+														<span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+															{plan.slides.length}
+														</span>
+														生成予定のスライド
+													</p>
+													<ul className="space-y-2">
+														{plan.slides.map((slide, i) => (
+															<li
+																key={i}
+																className="text-muted-foreground flex gap-2 text-xs"
+															>
+																<span className="opacity-50 min-w-4">
+																	{i + 1}.
+																</span>
+																<span>{slide.title}</span>
+															</li>
+														))}
+													</ul>
+												</div>
+											)}
+										</div>
 									</div>
-									<h3 className="text-xl font-semibold text-foreground">
-										スライドはまだありません
-									</h3>
-									<p className="text-muted-foreground max-w-sm mt-2 mb-8">
-										左側のフォームから情報を入力して、最初のプレゼンテーションを生成しましょう。
-									</p>
-									<Button variant="outline" disabled className="opacity-50">
-										<Sparkles className="mr-2 h-4 w-4" />
-										生成待ち...
-									</Button>
-								</div>
+								) : (
+									<div className="flex flex-col items-center justify-center py-20 lg:py-32 text-center rounded-xl border-2 border-dashed border-muted-foreground/10 bg-muted/5">
+										<div className="p-6 bg-background rounded-full shadow-sm mb-6">
+											<PresentationPlaceholder className="w-12 h-12 text-muted-foreground/40" />
+										</div>
+										<h3 className="text-xl font-semibold text-foreground">
+											スライドはまだありません
+										</h3>
+										<p className="text-muted-foreground max-w-sm mt-2 mb-8">
+											左側のフォームから情報を入力して、最初のプレゼンテーションを生成しましょう。
+										</p>
+										<Button variant="outline" disabled className="opacity-50">
+											<Sparkles className="mr-2 h-4 w-4" />
+											生成待ち...
+										</Button>
+									</div>
+								)
 							) : (
 								<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-8">
 									{orderedSlides.map((slide) => {
