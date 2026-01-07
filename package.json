@@ -12,6 +12,7 @@
 		"@ai-sdk/google": "^3.0.2",
 		"@ai-sdk/rsc": "^2.0.5",
 		"@base-ui/react": "^1.0.0",
+		"@tanstack/react-form": "^1.27.7",
 		"ai": "^6.0.5",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
