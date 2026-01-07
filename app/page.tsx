@@ -1,6 +1,7 @@
 "use client";
 
 import { readStreamableValue } from "@ai-sdk/rsc";
+import { exportToPptx } from "dom-to-pptx";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type {
 	GeneratedSlide,
@@ -221,7 +222,9 @@ export default function Page() {
 										onClick={() => {
 											setSelectedFileName(null);
 											setImagePreview(null);
-											const input = document.getElementById("image") as HTMLInputElement;
+											const input = document.getElementById(
+												"image",
+											) as HTMLInputElement;
 											if (input) input.value = "";
 										}}
 										className="ml-2 text-xs text-destructive hover:underline"
@@ -252,7 +255,9 @@ export default function Page() {
 										/>
 									</svg>
 									<p className="mb-1 text-sm text-muted-foreground">
-										<span className="font-semibold">クリックして画像を選択</span>
+										<span className="font-semibold">
+											クリックして画像を選択
+										</span>
 									</p>
 									<p className="text-xs text-muted-foreground">
 										PNG, JPG, WEBP など
