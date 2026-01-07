@@ -154,7 +154,9 @@ type DesignSystem = z.infer<typeof designSystemSchema>;
 // ========================================
 
 export class SlideGenerator {
-	private model = google("gemini-3-flash-preview");
+	private lowModel = google("gemini-3-flash-preview");
+	private highModel = google("gemini-3-pro-preview");
+	private imageModel = google("gemini-3-pro-image-preview");
 
 	/**
 	 * スライド生成を実行
@@ -247,7 +249,7 @@ export class SlideGenerator {
 		const userContent = this.buildUserContent(input);
 
 		const { output } = await generateText({
-			model: this.model,
+			model: this.lowModel,
 			system: `あなたは不動産プレゼンテーション資料の構成作家です。
 提供された情報を分析し、論理的で説得力のあるスライド構成を設計してください。
 
@@ -290,7 +292,7 @@ export class SlideGenerator {
 		slides: SlideDefinition[],
 	): Promise<DesignSystem> {
 		const { output } = await generateText({
-			model: this.model,
+			model: this.lowModel,
 			system: `あなたは世界的なアートディレクターです。
 高級不動産のプレゼンテーションにふさわしい、洗練されたデザインシステムを作成してください。
 
@@ -334,7 +336,7 @@ export class SlideGenerator {
 	): Promise<SlideResearchResult> {
 		const userContent = this.buildUserContent(input);
 		const { output } = await generateText({
-			model: this.model,
+			model: this.lowModel,
 			tools: {
 				google_search: google.tools.googleSearch({}),
 			},
@@ -402,7 +404,7 @@ export class SlideGenerator {
 			.join("\n");
 
 		const { textStream } = streamText({
-			model: this.model,
+			model: this.lowModel,
 			system: `あなたは世界最高峰のWebデザイナーです。
 HTMLとCSSを駆使して、美しく、プロフェッショナルな不動産スライドを作成してください。
 
