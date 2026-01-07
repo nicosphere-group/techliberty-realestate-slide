@@ -15,8 +15,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-	title: "RealEstate Slide Generator",
+	title: {
+		template: "%s | RealEstate Slide Generator",
+		default: "RealEstate Slide Generator",
+	},
 	description: "不動産プレゼンテーションスライド生成ツール",
+	authors: [{ name: "RealEstate Slide Generator" }],
+	// このプロジェクトでLPなどを公開したり、SEO対策を行う場合は、以下の設定を削除してください
+	robots: {
+		index: false,
+		follow: false,
+	},
 };
 
 export default function RootLayout({
