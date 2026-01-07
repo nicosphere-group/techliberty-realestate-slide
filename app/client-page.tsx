@@ -312,17 +312,13 @@ export default function ClientPage() {
 								<form.Field
 									name="flyerFiles"
 									children={(field) => {
+										const isInvalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
 										return (
-											<Field>
+											<Field data-invalid={isInvalid}>
 												<FieldLabel className="text-base font-medium flex items-center gap-2">
 													<ImageIcon className="h-4 w-4 text-primary" />
 													マイソク
-													<Badge
-														variant="secondary"
-														className="ml-2 text-xs font-normal"
-													>
-														任意
-													</Badge>
 												</FieldLabel>
 												<Dropzone
 													accept={{
@@ -353,6 +349,9 @@ export default function ClientPage() {
 													<DropzoneEmptyState />
 													<DropzoneContent />
 												</Dropzone>
+												{isInvalid && (
+													<FieldError errors={field.state.meta.errors} />
+												)}
 											</Field>
 										);
 									}}
@@ -467,12 +466,12 @@ export default function ClientPage() {
 												<div className="mt-4 p-4 bg-background/80 backdrop-blur rounded-lg text-left text-sm w-full border shadow-sm max-h-60 overflow-y-auto">
 													<p className="font-medium mb-3 text-foreground flex items-center gap-2">
 														<span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
-															{plan.slides.length}
+															{plan.plan.length}
 														</span>
 														生成予定のスライド
 													</p>
 													<ul className="space-y-2">
-														{plan.slides.map((slide, i) => (
+														{plan.plan.map((slideDef, i) => (
 															<li
 																key={i}
 																className="text-muted-foreground flex gap-2 text-xs"
@@ -480,7 +479,7 @@ export default function ClientPage() {
 																<span className="opacity-50 min-w-4">
 																	{i + 1}.
 																</span>
-																<span>{slide.title}</span>
+																<span>{slideDef.title}</span>
 															</li>
 														))}
 													</ul>

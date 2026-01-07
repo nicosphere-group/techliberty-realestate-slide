@@ -40,7 +40,7 @@ export type PlanStartEvent = BaseEvent & {
 
 export type PlanEndEvent = BaseEvent & {
 	type: "plan:end";
-	slides: SlideDefinition[];
+	plan: SlideDefinition[];
 };
 
 export type PlanEvent = PlanStartEvent | PlanEndEvent;
