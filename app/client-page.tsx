@@ -2,14 +2,16 @@
 
 import { readStreamableValue } from "@ai-sdk/rsc";
 import { useForm } from "@tanstack/react-form";
+import { exportToPptx } from "dom-to-pptx";
 import {
 	AlertCircle,
+	Download,
 	ImageIcon,
 	LayoutTemplate,
 	Loader2,
 	Sparkles,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
 	Dropzone,
@@ -41,6 +43,7 @@ export default function ClientPage() {
 	const [slidesByPage, setSlidesByPage] = useState<Record<number, SlideState>>(
 		{},
 	);
+	const slideIframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
 
 	const isDevelopment = process.env.NODE_ENV === "development";
 
@@ -61,7 +64,9 @@ export default function ClientPage() {
 		},
 		onSubmit: async ({ value }) => {
 			setEvents([]);
+			setPlan(undefined);
 			setSlidesByPage({});
+			slideIframeRefs.current.clear();
 
 			try {
 				const stream = await run(value);
@@ -103,6 +108,29 @@ export default function ClientPage() {
 			}
 		},
 	});
+
+	const handleExportToPptx = async () => {
+		const slideIframes = Array.from(slideIframeRefs.current.values());
+		if (slideIframes.length === 0) {
+			toast.error("エクスポートするスライドがありません。");
+			return;
+		}
+
+		const slideElements = slideIframes
+			.map((iframe) =>
+				iframe.contentDocument
+					? iframe.contentDocument.getElementById("slide-container")
+					: null,
+			)
+			.filter((element) => element !== null);
+
+		try {
+			await exportToPptx(slideElements);
+		} catch (e) {
+			console.error(e);
+			toast.error("PPTXのエクスポートに失敗しました。");
+		}
+	};
 
 	return (
 		<div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -406,7 +434,15 @@ export default function ClientPage() {
 											</span>{" "}
 											枚のスライド
 										</div>
-										{/* Future: Download PPTX button here */}
+										<Button
+											onClick={handleExportToPptx}
+											disabled={form.state.isSubmitting}
+											size="default"
+											className="shadow-md hover:shadow-lg transition-shadow"
+										>
+											<Download className="mr-2 h-4 w-4" />
+											PPTXエクスポート
+										</Button>
 									</div>
 								)}
 							</div>
@@ -517,6 +553,11 @@ export default function ClientPage() {
 
 												{isCompleted ? (
 													<SlidePreview
+														iframeRef={(el) => {
+															if (el)
+																slideIframeRefs.current.set(slide.index, el);
+															else slideIframeRefs.current.delete(slide.index);
+														}}
 														html={slide.data.slide.html}
 														title={slide.title}
 														className="shadow-sm ring-1 ring-border group-hover:ring-primary/50 transition-all duration-300"

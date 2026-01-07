@@ -330,7 +330,7 @@ ${JSON.stringify(research)}
 ${this.getInputSummary(input)}
 
 上記の要素を組み合わせて、1枚の完成されたHTMLスライドを出力してください。
-ルート要素は \`<div class="slide-container" style="...">\` とし、インラインスタイルまたは \`<style>\` タグを使ってスタイリングしてください。
+ルート要素は \`<div id="slide-container" class="slide-container" style="...">\` とし、インラインスタイルまたは \`<style>\` タグを使ってスタイリングしてください。
 `,
 				},
 			],

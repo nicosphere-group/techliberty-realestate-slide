@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Maximize2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type Ref, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -15,15 +15,18 @@ const SLIDE_WIDTH = 1920;
 const SLIDE_HEIGHT = 1080;
 
 interface SlidePreviewProps {
+	iframeRef?: Ref<HTMLIFrameElement>;
 	html: string;
 	title?: string;
 	className?: string;
 }
 
 function ScaledFrame({
+	iframeRef,
 	html,
 	maxWidth = "100%",
 }: {
+	iframeRef?: Ref<HTMLIFrameElement>;
 	html: string;
 	maxWidth?: string;
 }) {
@@ -60,6 +63,7 @@ function ScaledFrame({
 				</div>
 			)}
 			<iframe
+				ref={iframeRef}
 				srcDoc={html}
 				title="Slide Content"
 				onLoad={() => setLoading(false)}
@@ -76,6 +80,7 @@ function ScaledFrame({
 }
 
 export function SlidePreview({
+	iframeRef,
 	html,
 	title = "Slide",
 	className,
@@ -88,7 +93,7 @@ export function SlidePreview({
 				className={`group relative w-full overflow-hidden rounded-lg border bg-background shadow-sm transition-all hover:shadow-md ${className}`}
 			>
 				{/* Main Preview */}
-				<ScaledFrame html={html} />
+				<ScaledFrame iframeRef={iframeRef} html={html} />
 
 				{/* Overlay & Action Button */}
 				<div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/5 pointer-events-none" />
