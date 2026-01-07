@@ -2,13 +2,13 @@
 
 import { createStreamableValue } from "@ai-sdk/rsc";
 import {
+	type Event,
 	SlideGenerator,
-	type SlideGeneratorEvent,
 	type SlideInput,
 } from "../lib/slide-generator";
 
 export async function run(formData: FormData) {
-	const streamable = createStreamableValue<SlideGeneratorEvent>();
+	const streamable = createStreamableValue<Event>();
 
 	(async () => {
 		try {

@@ -7,147 +7,20 @@ import {
 	streamText,
 	type UserContent,
 } from "ai";
-import { z } from "zod";
-
-// ========================================
-// Types
-// ========================================
-
-/** 入力タイプ: テキストまたは画像 */
-export type SlideInput =
-	| { type: "text"; content: string }
-	| { type: "image"; data: Buffer; mimeType: string };
-
-/** 生成されたスライド */
-export interface GeneratedSlide {
-	pageNumber: number;
-	html: string;
-	sources?: ResearchSource[];
-}
-
-/** リサーチの情報源 */
-export interface ResearchSource {
-	title?: string;
-	url: string;
-	excerpt?: string;
-}
-
-/** スライド単位のリサーチ結果 */
-export interface SlideResearchResult {
-	summary: string;
-	keyFacts: Array<{ fact: string; sourceUrls: string[] }>;
-	sources: ResearchSource[];
-}
-
-/** ジェネレーターから返されるイベント */
-export type SlideGeneratorEvent =
-	| { type: "start" }
-	| { type: "planning:start" }
-	| { type: "planning:end"; slides: SlideDefinition[] }
-	| {
-			type: "research:start";
-			pageNumber: number;
-			title: string;
-			topics: string[];
-	  }
-	| {
-			type: "research:end";
-			pageNumber: number;
-			title: string;
-			research: SlideResearchResult;
-	  }
-	| { type: "slide:start"; pageNumber: number; title: string }
-	| {
-			type: "slide:generating";
-			pageNumber: number;
-			title: string;
-			html: string;
-	  }
-	| { type: "slide:end"; slide: GeneratedSlide; research: SlideResearchResult }
-	| { type: "end"; slides: GeneratedSlide[] }
-	| { type: "error"; message: string };
-
-// ========================================
-// Schemas
-// ========================================
-
-const slideLayoutSchema = z.enum([
-	"title", // タイトルスライド
-	"section", // セクション区切り
-	"content-left", // 左に画像/右にテキスト
-	"content-right", // 右に画像/左にテキスト
-	"three-column", // 3列レイアウト（特徴紹介など）
-	"grid", // グリッドレイアウト（ギャラリーなど）
-	"full-image", // 全画面画像 + テキストオーバーレイ
-	"data-focus", // 数字やグラフ中心
-	"contact", // お問い合わせ
-]);
-
-export type SlideLayout = z.infer<typeof slideLayoutSchema>;
-
-const slideDefinitionSchema = z.object({
-	pageNumber: z.number().describe("スライドのページ番号（1から開始）"),
-	layout: slideLayoutSchema.describe("このスライドに最適なレイアウトタイプ"),
-	title: z.string().describe("スライドのタイトル"),
-	description: z.string().describe("スライドの内容の概要"),
-	contentHints: z
-		.array(z.string())
-		.describe("スライドに含めるべきコンテンツのヒント"),
-	researchTopics: z
-		.array(z.string())
-		.optional()
-		.describe(
-			"スライド生成前に調査すべきトピック（contentHintsと同義。無い場合はcontentHintsを使用）",
-		),
-});
-
-export type SlideDefinition = z.infer<typeof slideDefinitionSchema>;
-
-const slideResearchResultSchema = z.object({
-	summary: z.string().describe("スライド作成に使える要約"),
-	keyFacts: z
-		.array(
-			z.object({
-				fact: z.string().describe("スライドに載せられる事実/主張"),
-				sourceUrls: z
-					.array(z.string().url())
-					.describe("このfactを裏付けるURL（複数可）"),
-			}),
-		)
-		.default([]),
-	sources: z
-		.array(
-			z.object({
-				title: z.string().optional(),
-				url: z.string().url(),
-				excerpt: z.string().optional(),
-			}),
-		)
-		.default([]),
-});
-
-const designSystemSchema = z.object({
-	themeName: z.string().describe("デザインテーマの名前（例: Modern Luxury）"),
-	cssVariables: z
-		.array(
-			z.object({
-				key: z.string().describe("CSS変数名（例: --bg-primary）"),
-				value: z.string().describe("CSS変数値（例: #ffffff）"),
-			}),
-		)
-		.describe("CSS変数定義のリスト"),
-	typography: z.object({
-		fontFamily: z.string(),
-		h1: z.string().describe("CSS font shorthand or size/weight"),
-		h2: z.string(),
-		body: z.string(),
-	}),
-	styleGuidelines: z
-		.string()
-		.describe("AIへのデザイン指示（余白の取り方、画像の扱い方など）"),
-});
-
-type DesignSystem = z.infer<typeof designSystemSchema>;
+import {
+	type DesignSystem,
+	designSystemSchema,
+	type SlideDefinition,
+	slideDefinitionSchema,
+	slideResearchResultSchema,
+} from "./schemas";
+import type {
+	Event,
+	GeneratedSlide,
+	ResearchSource,
+	SlideInput,
+	SlideResearchResult,
+} from "./types";
 
 // ========================================
 // SlideGenerator Class
@@ -162,15 +35,15 @@ export class SlideGenerator {
 	 * スライド生成を実行
 	 * 各ステップでイベントをyieldするジェネレーター
 	 */
-	async *run(input: SlideInput): AsyncGenerator<SlideGeneratorEvent> {
+	async *run(input: SlideInput): AsyncGenerator<Event> {
 		try {
 			// 全体の開始
 			yield { type: "start" };
 
 			// Step 1: スライドのプランニング
-			yield { type: "planning:start" };
+			yield { type: "plan:start" };
 			const slideDefinitions = await this.planSlides(input);
-			yield { type: "planning:end", slides: slideDefinitions };
+			yield { type: "plan:end", slides: slideDefinitions };
 
 			// Step 2: 全スライド共通のデザインガイドを確定（デザイン一貫性の担保）
 			const designSystem = await this.createDesignSystem(
@@ -179,28 +52,25 @@ export class SlideGenerator {
 			);
 
 			// Step 3: 1ページずつ (research -> slide) を実行
-			const generatedSlides: GeneratedSlide[] = [];
+			const generatedSlides: {
+				slide: GeneratedSlide;
+				research: SlideResearchResult;
+			}[] = [];
 			for (const slideDef of slideDefinitions) {
-				const topics = this.getResearchTopics(slideDef);
-				yield {
-					type: "research:start",
-					pageNumber: slideDef.pageNumber,
-					title: slideDef.title,
-					topics,
-				};
-
-				const research = await this.researchForSlide(slideDef, input, topics);
-				yield {
-					type: "research:end",
-					pageNumber: slideDef.pageNumber,
-					title: slideDef.title,
-					research,
-				};
-
 				yield {
 					type: "slide:start",
-					pageNumber: slideDef.pageNumber,
+					index: slideDef.pageNumber,
 					title: slideDef.title,
+				};
+
+				const topics = this.getResearchTopics(slideDef);
+				const research = await this.researchForSlide(slideDef, input, topics);
+
+				yield {
+					type: "slide:researching",
+					index: slideDef.pageNumber,
+					title: slideDef.title,
+					data: research,
 				};
 
 				const slideStream = this.generateSlide(
@@ -211,7 +81,6 @@ export class SlideGenerator {
 				);
 
 				const slide: GeneratedSlide = {
-					pageNumber: slideDef.pageNumber,
 					html: "",
 					sources: research.sources,
 				};
@@ -221,19 +90,30 @@ export class SlideGenerator {
 
 					yield {
 						type: "slide:generating",
-						pageNumber: slideDef.pageNumber,
+						index: slideDef.pageNumber,
 						title: slideDef.title,
-						html: slide.html,
+						data: slide,
 					};
 				}
 
-				generatedSlides.push(slide);
+				generatedSlides.push({
+					slide,
+					research,
+				});
 
-				yield { type: "slide:end", slide, research };
+				yield {
+					type: "slide:end",
+					index: slideDef.pageNumber,
+					title: slideDef.title,
+					data: {
+						slide,
+						research,
+					},
+				};
 			}
 
 			// 全体の完了
-			yield { type: "end", slides: generatedSlides };
+			yield { type: "end", data: generatedSlides };
 		} catch (error) {
 			yield {
 				type: "error",

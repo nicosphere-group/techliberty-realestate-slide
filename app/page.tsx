@@ -3,11 +3,7 @@
 import { readStreamableValue } from "@ai-sdk/rsc";
 import { exportToPptx } from "dom-to-pptx";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import type {
-	GeneratedSlide,
-	SlideGeneratorEvent,
-	SlideResearchResult,
-} from "../lib/slide-generator";
+import type { Event, SlideEvent } from "@/lib/slide-generator";
 import { run } from "./actions";
 
 const SLIDE_WIDTH = 1920;
@@ -57,16 +53,11 @@ function SlidePreview({ html }: { html: string }) {
 	);
 }
 
-type SlideState = {
-	slide?: GeneratedSlide;
-	research?: SlideResearchResult;
-	partialHtml?: string;
-	status?: "researching" | "generating" | "done" | "error";
-};
+type SlideState = SlideEvent;
 
 export default function Page() {
 	const [isPending, startTransition] = useTransition();
-	const [events, setEvents] = useState<SlideGeneratorEvent[]>([]);
+	const [events, setEvents] = useState<Event[]>([]);
 	const [slidesByPage, setSlidesByPage] = useState<Record<number, SlideState>>(
 		{},
 	);
@@ -75,9 +66,7 @@ export default function Page() {
 	const [imagePreview, setImagePreview] = useState<string | null>(null);
 
 	const orderedSlides = useMemo(() => {
-		return Object.entries(slidesByPage)
-			.map(([k, v]) => ({ pageNumber: Number(k), ...v }))
-			.sort((a, b) => a.pageNumber - b.pageNumber);
+		return Object.values(slidesByPage).sort((a, b) => a.index - b.index);
 	}, [slidesByPage]);
 
 	async function onSubmit(formData: FormData) {
@@ -92,54 +81,20 @@ export default function Page() {
 			setEvents((prev) => [...prev, event]);
 
 			switch (event.type) {
-				case "research:start": {
+				case "slide:start":
+				case "slide:researching":
+				case "slide:generating":
+				case "slide:end":
 					setSlidesByPage((prev) => ({
 						...prev,
-						[event.pageNumber]: {
-							...(prev[event.pageNumber] ?? {}),
-							status: "researching",
-						},
+						[event.index]: event,
 					}));
 					break;
-				}
-				case "research:end": {
-					setSlidesByPage((prev) => ({
-						...prev,
-						[event.pageNumber]: {
-							...(prev[event.pageNumber] ?? {}),
-							research: event.research,
-						},
-					}));
-					break;
-				}
-				case "slide:generating": {
-					setSlidesByPage((prev) => ({
-						...prev,
-						[event.pageNumber]: {
-							...(prev[event.pageNumber] ?? {}),
-							status: "generating",
-							partialHtml: event.html ?? prev[event.pageNumber]?.partialHtml,
-						},
-					}));
-					break;
-				}
-				case "slide:end": {
-					setSlidesByPage((prev) => ({
-						...prev,
-						[event.slide.pageNumber]: {
-							...(prev[event.slide.pageNumber] ?? {}),
-							status: "done",
-							slide: event.slide,
-							research: event.research,
-							partialHtml: undefined,
-						},
-					}));
-					break;
-				}
-				case "error": {
+
+				case "error":
 					setError(event.message);
 					break;
-				}
+
 				default:
 					break;
 			}
@@ -294,34 +249,59 @@ export default function Page() {
 					</p>
 				) : (
 					<div className="space-y-6">
-						{orderedSlides.map(({ pageNumber, slide, partialHtml, status }) => {
-							const html = slide?.html ?? partialHtml;
-							return (
-								<div
-									key={pageNumber}
-									className="rounded-lg border p-4 space-y-3"
-								>
-									<div className="flex items-baseline justify-between gap-4">
-										<div className="font-medium">{pageNumber}ページ</div>
-										<div className="text-xs text-muted-foreground">
-											{status === "researching"
-												? "リサーチ中"
-												: status === "generating"
-													? "生成中"
-													: status === "done"
-														? "完了"
-														: ""}
+						{orderedSlides.map((slide) => {
+							switch (slide.type) {
+								case "slide:start":
+									return (
+										<div key={slide.index} className="rounded-lg border p-4">
+											<div className="font-medium">
+												{slide.index}ページ: {slide.title}
+											</div>
+											<div className="text-sm text-muted-foreground">
+												スライドの生成を開始しました。
+											</div>
 										</div>
-									</div>
-
-									{html ? (
-										<div className="space-y-2">
-											<div className="text-sm font-medium">プレビュー</div>
-											<SlidePreview html={html} />
+									);
+								case "slide:researching":
+									return (
+										<div key={slide.index} className="rounded-lg border p-4">
+											<div className="font-medium">
+												{slide.index}ページ: {slide.title}
+											</div>
+											<div className="text-sm text-muted-foreground">
+												リサーチ中…
+											</div>
 										</div>
-									) : null}
-								</div>
-							);
+									);
+								case "slide:generating":
+									return (
+										<div key={slide.index} className="rounded-lg border p-4">
+											<div className="font-medium">
+												{slide.index}ページ: {slide.title}
+											</div>
+											<div className="text-sm text-muted-foreground">
+												スライドを生成中…
+											</div>
+										</div>
+									);
+								case "slide:end":
+									return (
+										<div
+											key={slide.index}
+											className="rounded-lg border p-4 space-y-3"
+										>
+											<div className="font-medium">
+												{slide.index}ページ: {slide.title}
+											</div>
+											<div className="space-y-2">
+												<div className="text-sm font-medium">プレビュー</div>
+												<SlidePreview html={slide.data.slide.html} />
+											</div>
+										</div>
+									);
+								default:
+									return null;
+							}
 						})}
 					</div>
 				)}
