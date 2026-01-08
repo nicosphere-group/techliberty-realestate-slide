@@ -58,6 +58,11 @@ export default function ClientPage() {
 			agentPhoneNumber: "",
 			agentEmailAddress: "",
 			flyerFiles: [],
+			// 資金計画シミュレーション用
+			annualIncome: undefined,
+			downPayment: undefined,
+			interestRate: undefined,
+			loanTermYears: undefined,
 		} as PrimaryInput,
 		validators: {
 			onSubmit: primaryInputSchema,
@@ -305,6 +310,135 @@ export default function ClientPage() {
 										);
 									}}
 								/>
+
+								<Separator />
+
+								{/* 資金計画シミュレーション セクション */}
+								<div>
+									<h3 className="text-base font-medium mb-1">
+										資金計画シミュレーション
+										<Badge
+											variant="secondary"
+											className="ml-2 text-xs font-normal"
+										>
+											任意
+										</Badge>
+									</h3>
+									<div className="grid grid-cols-2 gap-4">
+										{/* Annual Income */}
+										<form.Field
+											name="annualIncome"
+											children={(field) => (
+												<Field>
+													<FieldLabel
+														htmlFor={field.name}
+														className="text-sm font-medium"
+													>
+														年収（万円）
+													</FieldLabel>
+													<Input
+														id={field.name}
+														name={field.name}
+														type="number"
+														value={field.state.value ?? ""}
+														onBlur={field.handleBlur}
+														onChange={(e) =>
+															field.handleChange(
+																e.target.value ? Number(e.target.value) : undefined,
+															)
+														}
+														placeholder="例: 600"
+													/>
+												</Field>
+											)}
+										/>
+
+										{/* Down Payment */}
+										<form.Field
+											name="downPayment"
+											children={(field) => (
+												<Field>
+													<FieldLabel
+														htmlFor={field.name}
+														className="text-sm font-medium"
+													>
+														自己資金（万円）
+													</FieldLabel>
+													<Input
+														id={field.name}
+														name={field.name}
+														type="number"
+														value={field.state.value ?? ""}
+														onBlur={field.handleBlur}
+														onChange={(e) =>
+															field.handleChange(
+																e.target.value ? Number(e.target.value) : undefined,
+															)
+														}
+														placeholder="例: 500"
+													/>
+												</Field>
+											)}
+										/>
+
+										{/* Interest Rate */}
+										<form.Field
+											name="interestRate"
+											children={(field) => (
+												<Field>
+													<FieldLabel
+														htmlFor={field.name}
+														className="text-sm font-medium"
+													>
+														想定金利（%）
+													</FieldLabel>
+													<Input
+														id={field.name}
+														name={field.name}
+														type="number"
+														step="0.1"
+														value={field.state.value ?? ""}
+														onBlur={field.handleBlur}
+														onChange={(e) =>
+															field.handleChange(
+																e.target.value ? Number(e.target.value) : undefined,
+															)
+														}
+														placeholder="例: 1.5"
+													/>
+												</Field>
+											)}
+										/>
+
+										{/* Loan Term */}
+										<form.Field
+											name="loanTermYears"
+											children={(field) => (
+												<Field>
+													<FieldLabel
+														htmlFor={field.name}
+														className="text-sm font-medium"
+													>
+														返済期間（年）
+													</FieldLabel>
+													<Input
+														id={field.name}
+														name={field.name}
+														type="number"
+														value={field.state.value ?? ""}
+														onBlur={field.handleBlur}
+														onChange={(e) =>
+															field.handleChange(
+																e.target.value ? Number(e.target.value) : undefined,
+															)
+														}
+														placeholder="例: 35"
+													/>
+												</Field>
+											)}
+										/>
+									</div>
+								</div>
 
 								<Separator />
 

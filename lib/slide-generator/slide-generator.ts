@@ -98,8 +98,23 @@ export class SlideGenerator {
 					title: slideDef.title,
 				};
 
-				const topics = this.getResearchTopics(slideDef);
-				const research = await this.researchForSlide(slideDef, topics);
+				// dataSource が "research" の場合のみリサーチを実行
+				let research: SlideResearchResult;
+				if (slideDef.dataSource === "research") {
+					const topics = this.getResearchTopics(slideDef);
+					research = await this.researchForSlide(slideDef, topics);
+				} else {
+					// リサーチ不要の場合は空のリサーチ結果を使用
+					research = {
+						summary: "",
+						keyFacts: [],
+						sources: [],
+					};
+				}
+
+				// TODO: dataSource による分岐処理を追加
+				// - "calculated": 入力値（年収、自己資金、金利、返済期間）から正確な計算を行い、結果をスライド生成に渡す
+				// - "static-template": 固定のHTMLテンプレートを返し、AI生成をスキップする
 
 				yield {
 					type: "slide:researching",
@@ -108,22 +123,22 @@ export class SlideGenerator {
 					data: research,
 				};
 
-				const slideStream = this.generateSlide(
-					slideDef,
-					research,
-					designSystem,
-				);
+				let slide: GeneratedSlide;
 
-				const slide: GeneratedSlide = {
-					html: "",
-					sources: research.sources,
-				};
-
-				let bodyContent = "";
-
-				for await (const chunk of slideStream) {
-					bodyContent += chunk;
-					slide.html = this.template(bodyContent, designSystem);
+				// マイソクスライド: AI生成をスキップし、アップロード画像をそのまま表示
+				if (
+					slideDef.dataSource === "primary" &&
+					slideDef.layout === "full-image"
+				) {
+					const imageDataUrls = await this.filesToDataUrls(input.flyerFiles);
+					const bodyContent = this.createMaisokuSlideHtml(
+						imageDataUrls,
+						designSystem,
+					);
+					slide = {
+						html: this.template(bodyContent, designSystem),
+						sources: [],
+					};
 
 					yield {
 						type: "slide:generating",
@@ -131,6 +146,32 @@ export class SlideGenerator {
 						title: slideDef.title,
 						data: { ...slide },
 					};
+				} else {
+					// 通常のAI生成フロー
+					const slideStream = this.generateSlide(
+						slideDef,
+						research,
+						designSystem,
+					);
+
+					slide = {
+						html: "",
+						sources: research.sources,
+					};
+
+					let bodyContent = "";
+
+					for await (const chunk of slideStream) {
+						bodyContent += chunk;
+						slide.html = this.template(bodyContent, designSystem);
+
+						yield {
+							type: "slide:generating",
+							index: slideDef.index,
+							title: slideDef.title,
+							data: { ...slide },
+						};
+					}
 				}
 
 				generatedSlides.push({
@@ -190,24 +231,108 @@ export class SlideGenerator {
 		const { output } = await generateText({
 			model: this.middleModel,
 			system: `あなたは不動産プレゼンテーション資料の構成作家です。
-提供された情報を分析し、論理的で説得力のあるスライド構成を設計してください。
+提供された情報を分析し、以下の**12枚構成**でスライドを設計してください。
 
-構成のガイドライン:
-1. **タイトルスライド**: 物件名と魅力的なキャッチコピー
-2. **物件概要**: 基本情報（価格、所在地、面積など）を明確に
-3. **特徴・魅力**: 複数のスライドに分けても良い。写真映えするレイアウトを選ぶ
-4. **周辺環境**: 地図やアクセス情報
-5. **間取り・設備**: 具体的な生活イメージ
-6. **投資価値/まとめ**: クロージング
-7. **お問い合わせ**: 連絡先
+# スライド構成（必須・12枚）
 
-各スライドには最適な \`layout\` タイプを選択してください。`,
+## スライド1: タイトル
+- layout: "title"
+- dataSource: "primary"
+- **内容**: 物件名、顧客名、作成日（本日の日付）、担当者名・連絡先
+- **情報源**: マイソク + 入力された顧客情報・担当者情報
+
+## スライド2: 物件ハイライト
+- layout: "three-column"
+- dataSource: "ai-generated"
+- **内容**: 物件の推しポイント3点（価格・面積・築年・最寄駅・間取り等から抽出）
+- **情報源**: マイソクからAI生成
+- **注意**: 景表法に抵触する表現は避ける
+
+## スライド3: 間取り詳細
+- layout: "content-left"
+- dataSource: "ai-generated"
+- **内容**: 間取り図、部屋の使い方提案、動線コメント、採光・眺望コメント
+- **情報源**: マイソクの間取り情報からAI生成
+
+## スライド4: アクセス情報
+- layout: "content-right"
+- dataSource: "research"
+- **内容**: 最寄駅情報、主要駅への所要時間、路線図イメージ
+- **情報源**: マイソク + 交通情報（リサーチで補完）
+
+## スライド5: 周辺環境
+- layout: "grid"
+- dataSource: "research"
+- **内容**: 周辺施設一覧（スーパー、コンビニ、公園、病院）、周辺地図
+- **情報源**: 物件住所からPOI検索（リサーチで補完）
+
+## スライド6: 価格分析
+- layout: "data-focus"
+- dataSource: "research"
+- **内容**: 周辺相場比較、価格分析コメント
+- **情報源**: 不動産相場データ + AI分析
+
+## スライド7: 災害リスク
+- layout: "content-right"
+- dataSource: "research"
+- **内容**: ハザードマップ情報、災害リスクコメント（洪水・土砂災害・高潮等）
+- **情報源**: 国土交通省ハザードマップポータル（リサーチで補完）
+
+## スライド8: 資金計画シミュレーション
+- layout: "data-focus"
+- dataSource: "calculated"
+- **内容**: 月々返済額、総返済額、借入可能額の試算
+- **情報源**: 物件価格から計算
+
+## スライド9: 諸費用一覧
+- layout: "data-focus"
+- dataSource: "calculated"
+- **内容**: 仲介手数料、登記費用、火災保険等の概算
+- **情報源**: 物件価格から計算
+
+## スライド10: 住宅ローン控除・税制情報
+- layout: "content-left"
+- dataSource: "static-template"
+- **内容**: 住宅ローン控除の概要、適用条件、節税効果
+- **情報源**: 一般的な税制情報（静的テンプレート）
+
+## スライド11: 購入手続きフロー
+- layout: "section"
+- dataSource: "static-template"
+- **内容**: 申込→契約→決済の標準フロー図解
+- **情報源**: 標準フロー（静的テンプレート）
+
+## スライド12: マイソク
+- layout: "full-image"
+- dataSource: "primary"
+- **内容**: マイソク画像をそのまま表示
+- **情報源**: 入力されたマイソク画像
+
+# 景表法コンプライアンス（重要）
+以下の表現は**絶対に使用しないでください**：
+- 断定表現: 絶対、必ず、間違いなく、完全、完璧、万全
+- 裏付けのない表現: 日本一、業界初、世界一、地域No.1、地域最大級
+- 確約できない表現: 特選、厳選、最高、最高値
+- 期日をコミットする表現: 即座に、即売れ
+- 他社への誹謗中傷
+- おとり表現: 購入希望者がいます
+- 過度な特別感: 今だけ、期間限定
+
+# 出力形式
+各スライドには以下を必ず含めてください:
+- index: スライド番号（1-12）
+- layout: 指定されたレイアウト
+- title: スライドタイトル
+- description: 内容の概要
+- contentHints: 含めるべき具体的なコンテンツ
+- researchTopics: dataSourceが"research"の場合の調査トピック
+- dataSource: 情報源タイプ（リサーチ要否はこれで判断）`,
 			messages: [
 				...this.messages,
 				{
 					role: "user",
 					content:
-						"上記の情報を分析し、全5-8枚程度のスライド構成を設計してください。",
+						"上記の情報を分析し、全12枚のスライド構成を設計してください。各スライドには具体的なcontentHints、researchTopics、dataSourceを含めてください。",
 				},
 			],
 			output: Output.object({
@@ -380,6 +505,58 @@ ${designSystem.styleGuidelines}
 		return textStream;
 	}
 
+	/**
+	 * ファイル配列をData URL配列に変換
+	 */
+	private async filesToDataUrls(files: File[]): Promise<string[]> {
+		return Promise.all(
+			files.map(async (file) => {
+				const arrayBuffer = await file.arrayBuffer();
+				const uint8Array = new Uint8Array(arrayBuffer);
+				let binary = "";
+				for (let i = 0; i < uint8Array.byteLength; i++) {
+					binary += String.fromCharCode(uint8Array[i]);
+				}
+				const base64 = btoa(binary);
+				const mimeType = file.type || "image/png";
+				return `data:${mimeType};base64,${base64}`;
+			}),
+		);
+	}
+
+	/**
+	 * マイソクスライド用のHTMLを生成
+	 * 複数画像がある場合はグリッド表示
+	 */
+	private createMaisokuSlideHtml(
+		imageDataUrls: string[],
+		designSystem: DesignSystem,
+	): string {
+		const bgClass = designSystem.commonClasses.slideBackground;
+
+		if (imageDataUrls.length === 1) {
+			// 単一画像: センター配置
+			return `<div id="slide-container" class="w-[1920px] h-[1080px] overflow-hidden relative ${bgClass} flex items-center justify-center p-8">
+	<img src="${imageDataUrls[0]}" alt="マイソク" class="max-w-full max-h-full object-contain shadow-lg" />
+</div>`;
+		}
+
+		// 複数画像: グリッド表示
+		const gridCols = imageDataUrls.length <= 2 ? "grid-cols-2" : "grid-cols-3";
+		const images = imageDataUrls
+			.map(
+				(url, i) =>
+					`<img src="${url}" alt="マイソク ${i + 1}" class="w-full h-full object-contain" />`,
+			)
+			.join("\n\t\t");
+
+		return `<div id="slide-container" class="w-[1920px] h-[1080px] overflow-hidden relative ${bgClass} p-8">
+	<div class="w-full h-full grid ${gridCols} gap-4 place-items-center">
+		${images}
+	</div>
+</div>`;
+	}
+
 	private async buildUserContent(input: PrimaryInput): Promise<UserContent> {
 		const userContent: UserContent = [];
 
@@ -407,6 +584,28 @@ ${designSystem.styleGuidelines}
 		}
 		if (input.agentEmailAddress) {
 			textParts.push(`- メールアドレス: ${input.agentEmailAddress}`);
+		}
+
+		// 資金計画シミュレーション用の入力（オプション）
+		const hasFinancialInfo =
+			input.annualIncome ||
+			input.downPayment ||
+			input.interestRate ||
+			input.loanTermYears;
+		if (hasFinancialInfo) {
+			textParts.push(`\n# 資金計画シミュレーション用情報`);
+			if (input.annualIncome) {
+				textParts.push(`- 年収: ${input.annualIncome}万円`);
+			}
+			if (input.downPayment) {
+				textParts.push(`- 自己資金: ${input.downPayment}万円`);
+			}
+			if (input.interestRate) {
+				textParts.push(`- 想定金利: ${input.interestRate}%`);
+			}
+			if (input.loanTermYears) {
+				textParts.push(`- 返済期間: ${input.loanTermYears}年`);
+			}
 		}
 
 		userContent.push({
