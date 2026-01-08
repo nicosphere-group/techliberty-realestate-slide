@@ -92,4 +92,23 @@ export type ErrorEvent = BaseEvent & {
 	message: string;
 };
 
-export type Event = StartEvent | PlanEvent | SlideEvent | EndEvent | ErrorEvent;
+/** トークン使用量 */
+export interface UsageInfo {
+	promptTokens: number;
+	completionTokens: number;
+	totalTokens: number;
+}
+
+export type UsageEvent = BaseEvent & {
+	type: "usage";
+	usage: UsageInfo;
+	step: string;
+};
+
+export type Event =
+	| StartEvent
+	| PlanEvent
+	| SlideEvent
+	| EndEvent
+	| ErrorEvent
+	| UsageEvent;

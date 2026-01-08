@@ -25,17 +25,25 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
 	type Event,
 	type PlanEvent,
 	type PrimaryInput,
 	primaryInputSchema,
 	type SlideEvent,
+	type UsageInfo,
 } from "@/lib/slide-generator";
 import { run } from "./actions";
 
 type PlanState = PlanEvent;
 type SlideState = SlideEvent;
+
+// コスト計算用の料金レート（per 1M tokens）
+const PRICING = {
+	flash: { input: 0.5, output: 3.0 },
+	pro: { input: 2.0, output: 12.0 },
+} as const;
 
 export default function ClientPage() {
 	const [events, setEvents] = useState<Event[]>([]);
@@ -43,6 +51,11 @@ export default function ClientPage() {
 	const [slidesByPage, setSlidesByPage] = useState<Record<number, SlideState>>(
 		{},
 	);
+	const [totalUsage, setTotalUsage] = useState<UsageInfo>({
+		promptTokens: 0,
+		completionTokens: 0,
+		totalTokens: 0,
+	});
 	const slideIframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
 
 	const isDevelopment = process.env.NODE_ENV === "development";
@@ -63,6 +76,8 @@ export default function ClientPage() {
 			downPayment: undefined,
 			interestRate: undefined,
 			loanTermYears: undefined,
+			// 開発用
+			modelType: "flash",
 		} as PrimaryInput,
 		validators: {
 			onSubmit: primaryInputSchema,
@@ -71,6 +86,7 @@ export default function ClientPage() {
 			setEvents([]);
 			setPlan(undefined);
 			setSlidesByPage({});
+			setTotalUsage({ promptTokens: 0, completionTokens: 0, totalTokens: 0 });
 			slideIframeRefs.current.clear();
 
 			try {
@@ -100,6 +116,15 @@ export default function ClientPage() {
 							toast.error(event.message, {
 								icon: <AlertCircle className="h-4 w-4" />,
 							});
+							break;
+						case "usage":
+							// トークン使用量を累積
+							setTotalUsage((prev) => ({
+								promptTokens: prev.promptTokens + event.usage.promptTokens,
+								completionTokens:
+									prev.completionTokens + event.usage.completionTokens,
+								totalTokens: prev.totalTokens + event.usage.totalTokens,
+							}));
 							break;
 						default:
 							break;
@@ -515,16 +540,87 @@ export default function ClientPage() {
 							</form>
 						</div>
 
-						{/* Dev Logs - Only in Development */}
+						{/* Dev Settings & Logs - Only in Development */}
 						{isDevelopment && (
 							<div className="border-t bg-muted/20">
 								<div className="px-6 py-3 border-b flex items-center justify-between">
 									<h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-										開発ログ
+										開発設定
 									</h3>
 									<Badge variant="outline" className="text-[10px] font-mono">
 										DEV MODE
 									</Badge>
+								</div>
+								<div className="px-6 py-3 border-b space-y-3">
+									<form.Field
+										name="modelType"
+										children={(field) => {
+											const modelType = field.state.value || "flash";
+											const pricing = PRICING[modelType];
+											const inputCost =
+												(totalUsage.promptTokens / 1_000_000) * pricing.input;
+											const outputCost =
+												(totalUsage.completionTokens / 1_000_000) *
+												pricing.output;
+											const totalCost = inputCost + outputCost;
+
+											return (
+												<>
+													<div className="flex items-center justify-between">
+														<span className="text-xs text-muted-foreground">
+															モデル
+														</span>
+														<ToggleGroup
+															type="single"
+															value={field.state.value}
+															onValueChange={(value) => {
+																if (value)
+																	field.handleChange(value as "flash" | "pro");
+															}}
+															variant="outline"
+															size="sm"
+														>
+															<ToggleGroupItem
+																value="flash"
+																className="text-xs px-3"
+															>
+																Flash
+															</ToggleGroupItem>
+															<ToggleGroupItem
+																value="pro"
+																className="text-xs px-3"
+															>
+																Pro
+															</ToggleGroupItem>
+														</ToggleGroup>
+													</div>
+													<div className="flex items-center justify-between">
+														<span className="text-xs text-muted-foreground">
+															トークン
+														</span>
+														<span className="text-xs font-mono">
+															入力 {totalUsage.promptTokens.toLocaleString()} /
+															出力 {totalUsage.completionTokens.toLocaleString()}
+														</span>
+													</div>
+													<div className="flex items-center justify-between">
+														<span className="text-xs text-muted-foreground">
+															推定コスト
+														</span>
+														<span className="text-xs font-mono font-semibold text-primary">
+															${totalCost.toFixed(4)} (¥
+															{Math.round(totalCost * 150).toLocaleString()})
+														</span>
+													</div>
+												</>
+											);
+										}}
+									/>
+								</div>
+								<div className="px-6 py-3 border-b flex items-center justify-between">
+									<h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+										開発ログ
+									</h3>
 								</div>
 								<ScrollArea className="h-50">
 									<div className="p-4 space-y-3 font-mono text-xs">

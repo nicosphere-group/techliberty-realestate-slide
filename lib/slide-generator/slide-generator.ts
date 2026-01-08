@@ -21,18 +21,25 @@ import type {
 	GeneratedSlide,
 	ResearchSource,
 	SlideResearchResult,
+	UsageInfo,
 } from "./types";
 
 // ========================================
 // SlideGenerator Class
 // ========================================
 
+export type ModelType = "flash" | "pro";
+
 export class SlideGenerator {
-	// private lowModel = google("gemini-2.5-flash-lite");
-	private middleModel = google("gemini-3-flash-preview");
-	// private highModel = google("gemini-3-pro-preview");
-	// private imageModel = google("gemini-3-pro-image-preview");
+	private model;
 	private messages: ModelMessage[] = [];
+
+	constructor(modelType: ModelType = "flash") {
+		this.model =
+			modelType === "pro"
+				? google("gemini-3-pro-preview")
+				: google("gemini-3-flash-preview");
+	}
 
 	private template(body: string, designSystem: DesignSystem): string {
 		const themeCss = `@theme {
@@ -80,11 +87,14 @@ export class SlideGenerator {
 
 			// Step 1: スライドのプランニング
 			yield { type: "plan:start" };
-			const plan = await this.createPlan();
+			const { plan, usage: planUsage } = await this.createPlan();
 			yield { type: "plan:end", plan: plan };
+			yield { type: "usage", usage: planUsage, step: "plan" };
 
 			// Step 2: 全スライド共通のデザインガイドを確定（デザイン一貫性の担保）
-			const designSystem = await this.createDesignSystem(plan);
+			const { designSystem, usage: designUsage } =
+				await this.createDesignSystem(plan);
+			yield { type: "usage", usage: designUsage, step: "design" };
 
 			// Step 3: 1ページずつ (research -> slide) を実行
 			const generatedSlides: {
@@ -102,7 +112,14 @@ export class SlideGenerator {
 				let research: SlideResearchResult;
 				if (slideDef.dataSource === "research") {
 					const topics = this.getResearchTopics(slideDef);
-					research = await this.researchForSlide(slideDef, topics);
+					const { research: researchResult, usage: researchUsage } =
+						await this.researchForSlide(slideDef, topics);
+					research = researchResult;
+					yield {
+						type: "usage",
+						usage: researchUsage,
+						step: `research-${slideDef.index}`,
+					};
 				} else {
 					// リサーチ不要の場合は空のリサーチ結果を使用
 					research = {
@@ -148,7 +165,7 @@ export class SlideGenerator {
 					};
 				} else {
 					// 通常のAI生成フロー
-					const slideStream = this.generateSlide(
+					const { textStream, getUsage } = this.generateSlide(
 						slideDef,
 						research,
 						designSystem,
@@ -161,7 +178,7 @@ export class SlideGenerator {
 
 					let bodyContent = "";
 
-					for await (const chunk of slideStream) {
+					for await (const chunk of textStream) {
 						bodyContent += chunk;
 						slide.html = this.template(bodyContent, designSystem);
 
@@ -172,6 +189,14 @@ export class SlideGenerator {
 							data: { ...slide },
 						};
 					}
+
+					// スライド生成完了後にusageを取得
+					const slideUsage = await getUsage();
+					yield {
+						type: "usage",
+						usage: slideUsage,
+						step: `slide-${slideDef.index}`,
+					};
 				}
 
 				generatedSlides.push({
@@ -227,9 +252,12 @@ export class SlideGenerator {
 	/**
 	 * Step 2: スライドの構成をプランニング
 	 */
-	private async createPlan(): Promise<SlideDefinition[]> {
-		const { output } = await generateText({
-			model: this.middleModel,
+	private async createPlan(): Promise<{
+		plan: SlideDefinition[];
+		usage: UsageInfo;
+	}> {
+		const { output, usage } = await generateText({
+			model: this.model,
 			system: `あなたは不動産プレゼンテーション資料の構成作家です。
 提供された情報を分析し、以下の**12枚構成**でスライドを設計してください。
 
@@ -342,7 +370,14 @@ export class SlideGenerator {
 			}),
 		});
 
-		return output;
+		return {
+			plan: output,
+			usage: {
+				promptTokens: usage.inputTokens ?? 0,
+				completionTokens: usage.outputTokens ?? 0,
+				totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
+			},
+		};
 	}
 
 	/**
@@ -350,9 +385,9 @@ export class SlideGenerator {
 	 */
 	private async createDesignSystem(
 		plan: SlideDefinition[],
-	): Promise<DesignSystem> {
-		const { output } = await generateText({
-			model: this.middleModel,
+	): Promise<{ designSystem: DesignSystem; usage: UsageInfo }> {
+		const { output, usage } = await generateText({
+			model: this.model,
 			system: `あなたは世界的なアートディレクターです。
 高級不動産のプレゼンテーションにふさわしい、洗練されたデザインシステムを定義してください。
 
@@ -383,7 +418,14 @@ export class SlideGenerator {
 			}),
 		});
 
-		return output;
+		return {
+			designSystem: output,
+			usage: {
+				promptTokens: usage.inputTokens ?? 0,
+				completionTokens: usage.outputTokens ?? 0,
+				totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
+			},
+		};
 	}
 
 	/**
@@ -392,9 +434,9 @@ export class SlideGenerator {
 	private async researchForSlide(
 		slideDef: SlideDefinition,
 		topics: string[],
-	): Promise<SlideResearchResult> {
-		const { output } = await generateText({
-			model: this.middleModel,
+	): Promise<{ research: SlideResearchResult; usage: UsageInfo }> {
+		const { output, usage } = await generateText({
+			model: this.model,
 			tools: {
 				google_search: google.tools.googleSearch({}),
 			},
@@ -419,9 +461,16 @@ export class SlideGenerator {
 		});
 
 		return {
-			summary: output.summary,
-			keyFacts: output.keyFacts,
-			sources: this.dedupeSources(output.sources),
+			research: {
+				summary: output.summary,
+				keyFacts: output.keyFacts,
+				sources: this.dedupeSources(output.sources),
+			},
+			usage: {
+				promptTokens: usage.inputTokens ?? 0,
+				completionTokens: usage.outputTokens ?? 0,
+				totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
+			},
 		};
 	}
 
@@ -454,7 +503,10 @@ export class SlideGenerator {
 		definition: SlideDefinition,
 		research: SlideResearchResult,
 		designSystem: DesignSystem,
-	): AsyncIterableStream<string> {
+	): {
+		textStream: AsyncIterableStream<string>;
+		getUsage: () => Promise<UsageInfo>;
+	} {
 		this.messages.push({
 			role: "user",
 			content: `
@@ -483,8 +535,8 @@ ${JSON.stringify(research)}
 `,
 		});
 
-		const { response, textStream } = streamText({
-			model: this.middleModel,
+		const { response, textStream, usage } = streamText({
+			model: this.model,
 			system: `あなたは世界最高峰のWebデザイナーです。
 Tailwind CSSを駆使して、美しく、プロフェッショナルな不動産スライドを作成してください。
 
@@ -502,22 +554,30 @@ ${designSystem.styleGuidelines}
 
 		response.then(({ messages }) => this.messages.push(...messages));
 
-		return textStream;
+		return {
+			textStream,
+			getUsage: async () => {
+				const usageData = await usage;
+				return {
+					promptTokens: usageData.inputTokens ?? 0,
+					completionTokens: usageData.outputTokens ?? 0,
+					totalTokens:
+						(usageData.inputTokens ?? 0) + (usageData.outputTokens ?? 0),
+				};
+			},
+		};
 	}
 
 	/**
 	 * ファイル配列をData URL配列に変換
+	 * Node.js環境ではBufferを使用して効率的にエンコード
 	 */
 	private async filesToDataUrls(files: File[]): Promise<string[]> {
 		return Promise.all(
 			files.map(async (file) => {
 				const arrayBuffer = await file.arrayBuffer();
-				const uint8Array = new Uint8Array(arrayBuffer);
-				let binary = "";
-				for (let i = 0; i < uint8Array.byteLength; i++) {
-					binary += String.fromCharCode(uint8Array[i]);
-				}
-				const base64 = btoa(binary);
+				// Node.js環境ではBufferを使用（より効率的）
+				const base64 = Buffer.from(arrayBuffer).toString("base64");
 				const mimeType = file.type || "image/png";
 				return `data:${mimeType};base64,${base64}`;
 			}),
@@ -534,10 +594,17 @@ ${designSystem.styleGuidelines}
 	): string {
 		const bgClass = designSystem.commonClasses.slideBackground;
 
+		// 画像がない場合のフォールバック
+		if (imageDataUrls.length === 0) {
+			return `<div id="slide-container" class="w-[1920px] h-[1080px] overflow-hidden relative ${bgClass} flex items-center justify-center">
+	<p class="text-2xl text-gray-400">マイソク画像がありません</p>
+</div>`;
+		}
+
 		if (imageDataUrls.length === 1) {
-			// 単一画像: センター配置
-			return `<div id="slide-container" class="w-[1920px] h-[1080px] overflow-hidden relative ${bgClass} flex items-center justify-center p-8">
-	<img src="${imageDataUrls[0]}" alt="マイソク" class="max-w-full max-h-full object-contain shadow-lg" />
+			// 単一画像: センター配置、最大サイズで表示
+			return `<div id="slide-container" class="w-[1920px] h-[1080px] overflow-hidden relative ${bgClass} flex items-center justify-center p-12">
+	<img src="${imageDataUrls[0]}" alt="マイソク" class="max-w-full max-h-full object-contain drop-shadow-2xl" />
 </div>`;
 		}
 
@@ -546,12 +613,12 @@ ${designSystem.styleGuidelines}
 		const images = imageDataUrls
 			.map(
 				(url, i) =>
-					`<img src="${url}" alt="マイソク ${i + 1}" class="w-full h-full object-contain" />`,
+					`<img src="${url}" alt="マイソク ${i + 1}" class="max-w-full max-h-full object-contain drop-shadow-lg" />`,
 			)
 			.join("\n\t\t");
 
-		return `<div id="slide-container" class="w-[1920px] h-[1080px] overflow-hidden relative ${bgClass} p-8">
-	<div class="w-full h-full grid ${gridCols} gap-4 place-items-center">
+		return `<div id="slide-container" class="w-[1920px] h-[1080px] overflow-hidden relative ${bgClass} p-12">
+	<div class="w-full h-full grid ${gridCols} gap-8 place-items-center">
 		${images}
 	</div>
 </div>`;

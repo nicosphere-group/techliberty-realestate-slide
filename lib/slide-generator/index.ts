@@ -1,5 +1,5 @@
 export { type PrimaryInput, primaryInputSchema } from "./schemas";
-export { SlideGenerator } from "./slide-generator";
+export { type ModelType, SlideGenerator } from "./slide-generator";
 export type {
 	EndEvent,
 	ErrorEvent,
@@ -10,4 +10,6 @@ export type {
 	SlideEvent,
 	SlideResearchResult,
 	StartEvent,
+	UsageEvent,
+	UsageInfo,
 } from "./types";

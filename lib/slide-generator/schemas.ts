@@ -21,6 +21,12 @@ export const primaryInputSchema = z.object({
 	downPayment: z.number().optional().describe("自己資金（万円）"),
 	interestRate: z.number().optional().describe("想定金利（%）"),
 	loanTermYears: z.number().optional().describe("返済期間（年）"),
+
+	// 開発用オプション
+	modelType: z
+		.enum(["flash", "pro"])
+		.optional()
+		.describe("使用するモデル（開発用）"),
 });
 
 export type PrimaryInput = z.infer<typeof primaryInputSchema>;

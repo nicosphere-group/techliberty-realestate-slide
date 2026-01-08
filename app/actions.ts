@@ -3,6 +3,7 @@
 import { createStreamableValue } from "@ai-sdk/rsc";
 import {
 	type Event,
+	type ModelType,
 	type PrimaryInput,
 	SlideGenerator,
 } from "../lib/slide-generator";
@@ -12,7 +13,7 @@ export async function run(input: PrimaryInput) {
 
 	(async () => {
 		try {
-			const generator = new SlideGenerator();
+			const generator = new SlideGenerator(input.modelType as ModelType);
 			for await (const event of generator.run(input)) {
 				streamable.update(event);
 			}
