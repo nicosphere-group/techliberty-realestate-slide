@@ -58,7 +58,8 @@ export default function ClientPage() {
 	});
 	const slideIframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
 
-	const isDevelopment = process.env.NODE_ENV === "development";
+	// const isDevelopment = process.env.NODE_ENV === "development";
+	const isDevelopment = true;
 
 	const orderedSlides = useMemo(() => {
 		return Object.values(slidesByPage).sort((a, b) => a.index - b.index);
