@@ -56,6 +56,8 @@ export default function ClientPage() {
 		completionTokens: 0,
 		totalTokens: 0,
 	});
+	const [generationDurationMs, setGenerationDurationMs] = useState<number>(0);
+	const generationStartTimeRef = useRef<number>(0);
 	const slideIframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
 
 	// const isDevelopment = process.env.NODE_ENV === "development";
@@ -88,6 +90,8 @@ export default function ClientPage() {
 			setPlan(undefined);
 			setSlidesByPage({});
 			setTotalUsage({ promptTokens: 0, completionTokens: 0, totalTokens: 0 });
+			setGenerationDurationMs(0);
+			generationStartTimeRef.current = Date.now();
 			slideIframeRefs.current.clear();
 
 			try {
@@ -126,6 +130,12 @@ export default function ClientPage() {
 									prev.completionTokens + event.usage.completionTokens,
 								totalTokens: prev.totalTokens + event.usage.totalTokens,
 							}));
+							break;
+						case "end":
+							// 生成完了時に経過時間を記録
+							setGenerationDurationMs(
+								Date.now() - generationStartTimeRef.current,
+							);
 							break;
 						default:
 							break;
@@ -611,6 +621,16 @@ export default function ClientPage() {
 														<span className="text-xs font-mono font-semibold text-primary">
 															${totalCost.toFixed(4)} (¥
 															{Math.round(totalCost * 150).toLocaleString()})
+														</span>
+													</div>
+													<div className="flex items-center justify-between">
+														<span className="text-xs text-muted-foreground">
+															生成時間
+														</span>
+														<span className="text-xs font-mono">
+															{generationDurationMs > 0
+																? `${(generationDurationMs / 1000).toFixed(1)}秒`
+																: "-"}
 														</span>
 													</div>
 												</>
