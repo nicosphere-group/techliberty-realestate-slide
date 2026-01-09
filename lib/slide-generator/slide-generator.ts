@@ -24,21 +24,90 @@ import type {
 	UsageInfo,
 } from "./types";
 
+class AsyncQueue<T> {
+	private queue: T[] = [];
+	private resolvers: ((value: IteratorResult<T>) => void)[] = [];
+	private finished = false;
+
+	// タスク側からイベントを送信
+	push(value: T) {
+		if (this.finished) return;
+		const resolve = this.resolvers.shift();
+		if (resolve) {
+			resolve({ value, done: false });
+		} else {
+			this.queue.push(value);
+		}
+	}
+
+	// すべてのタスクが完了したことを通知
+	close() {
+		this.finished = true;
+		// 待機中のものがあれば終了を通知
+		let resolve = this.resolvers.shift();
+		while (resolve) {
+			resolve({ value: undefined, done: true });
+			resolve = this.resolvers.shift();
+		}
+	}
+
+	// ジェネレーター側でこれを使用（for await...of で回せる）
+	[Symbol.asyncIterator](): AsyncIterator<T> {
+		return {
+			next: (): Promise<IteratorResult<T>> => {
+				const queue = this.queue.shift();
+				if (queue) {
+					return Promise.resolve({ value: queue, done: false });
+				}
+				if (this.finished) {
+					return Promise.resolve({ value: undefined, done: true });
+				}
+				// 値が来るまで待機
+				return new Promise((resolve) => {
+					this.resolvers.push(resolve);
+				});
+			},
+		};
+	}
+}
+
 // ========================================
 // SlideGenerator Class
 // ========================================
 
-export type ModelType = "flash" | "pro";
+export type ModelType = "low" | "middle" | "high";
+
+export interface SlideGeneratorOptions {
+	modelType?: ModelType;
+	parallel?: boolean;
+}
+
+// デフォルトのオプション
+const defaultOptions = {
+	modelType: "middle",
+	parallel: true,
+} satisfies SlideGeneratorOptions;
 
 export class SlideGenerator {
 	private model;
+	private parallel;
 	private messages: ModelMessage[] = [];
 
-	constructor(modelType: ModelType = "flash") {
-		this.model =
-			modelType === "pro"
-				? google("gemini-3-pro-preview")
-				: google("gemini-3-flash-preview");
+	constructor(options: SlideGeneratorOptions = {}) {
+		switch (options.modelType || defaultOptions.modelType) {
+			case "low":
+				this.model = google("gemini-2.5-flash-lite");
+				break;
+			case "middle":
+				this.model = google("gemini-3-flash-preview");
+				break;
+			case "high":
+				this.model = google("gemini-3-pro-preview");
+				break;
+			default:
+				throw new Error(`Unsupported model type: ${options.modelType}`);
+		}
+		this.parallel = options.parallel ?? defaultOptions.parallel;
 	}
 
 	private template(body: string, designSystem: DesignSystem): string {
@@ -101,86 +170,187 @@ export class SlideGenerator {
 				slide: GeneratedSlide;
 				research: SlideResearchResult;
 			}[] = [];
-			for (const slideDef of plan) {
-				yield {
-					type: "slide:start",
-					index: slideDef.index,
-					title: slideDef.title,
-				};
+			if (this.parallel) {
+				const channel = new AsyncQueue<Event>();
+				const promises = Promise.all(
+					plan.map(async (slideDef) => {
+						channel.push({
+							type: "slide:start",
+							index: slideDef.index,
+							title: slideDef.title,
+						});
 
-				// dataSource が "research" の場合のみリサーチを実行
-				let research: SlideResearchResult;
-				if (slideDef.dataSource === "research") {
-					const topics = this.getResearchTopics(slideDef);
-					const { research: researchResult, usage: researchUsage } =
-						await this.researchForSlide(slideDef, topics);
-					research = researchResult;
-					yield {
-						type: "usage",
-						usage: researchUsage,
-						step: `research-${slideDef.index}`,
-					};
-				} else {
-					// リサーチ不要の場合は空のリサーチ結果を使用
-					research = {
-						summary: "",
-						keyFacts: [],
-						sources: [],
-					};
+						// dataSource が "research" の場合のみリサーチを実行
+						let research: SlideResearchResult;
+						if (slideDef.dataSource === "research") {
+							const topics = this.getResearchTopics(slideDef);
+							const { research: researchResult, usage: researchUsage } =
+								await this.researchForSlide(slideDef, topics);
+							research = researchResult;
+							channel.push({
+								type: "usage",
+								usage: researchUsage,
+								step: `research-${slideDef.index}`,
+							});
+						} else {
+							// リサーチ不要の場合は空のリサーチ結果を使用
+							research = {
+								summary: "",
+								keyFacts: [],
+								sources: [],
+							};
+						}
+
+						// TODO: dataSource による分岐処理を追加
+						// - "calculated": 入力値（年収、自己資金、金利、返済期間）から正確な計算を行い、結果をスライド生成に渡す
+						// - "static-template": 固定のHTMLテンプレートを返し、AI生成をスキップする
+
+						channel.push({
+							type: "slide:researching",
+							index: slideDef.index,
+							title: slideDef.title,
+							data: research,
+						});
+
+						let slide: GeneratedSlide;
+
+						// マイソクスライド: AI生成をスキップし、アップロード画像をそのまま表示
+						if (
+							slideDef.dataSource === "primary" &&
+							slideDef.layout === "full-image"
+						) {
+							const imageDataUrls = await this.filesToDataUrls(
+								input.flyerFiles,
+							);
+							const bodyContent = this.createMaisokuSlideHtml(
+								imageDataUrls,
+								designSystem,
+							);
+							slide = {
+								html: this.template(bodyContent, designSystem),
+								sources: [],
+							};
+
+							channel.push({
+								type: "slide:generating",
+								index: slideDef.index,
+								title: slideDef.title,
+								data: { ...slide },
+							});
+						} else {
+							// 通常のAI生成フロー
+							const { textStream, getUsage } = this.generateSlide(
+								slideDef,
+								research,
+								designSystem,
+							);
+
+							slide = {
+								html: "",
+								sources: research.sources,
+							};
+
+							let bodyContent = "";
+
+							for await (const chunk of textStream) {
+								bodyContent += chunk;
+								slide.html = this.template(bodyContent, designSystem);
+
+								channel.push({
+									type: "slide:generating",
+									index: slideDef.index,
+									title: slideDef.title,
+									data: { ...slide },
+								});
+							}
+
+							// スライド生成完了後にusageを取得
+							const slideUsage = await getUsage();
+							channel.push({
+								type: "usage",
+								usage: slideUsage,
+								step: `slide-${slideDef.index}`,
+							});
+						}
+
+						generatedSlides.push({
+							slide,
+							research,
+						});
+
+						channel.push({
+							type: "slide:end",
+							index: slideDef.index,
+							title: slideDef.title,
+							data: {
+								slide: { ...slide },
+								research,
+							},
+						});
+					}),
+				);
+				promises.then(() => channel.close());
+				promises.catch(() => channel.close());
+				for await (const event of channel) {
+					yield event;
 				}
-
-				// TODO: dataSource による分岐処理を追加
-				// - "calculated": 入力値（年収、自己資金、金利、返済期間）から正確な計算を行い、結果をスライド生成に渡す
-				// - "static-template": 固定のHTMLテンプレートを返し、AI生成をスキップする
-
-				yield {
-					type: "slide:researching",
-					index: slideDef.index,
-					title: slideDef.title,
-					data: research,
-				};
-
-				let slide: GeneratedSlide;
-
-				// マイソクスライド: AI生成をスキップし、アップロード画像をそのまま表示
-				if (
-					slideDef.dataSource === "primary" &&
-					slideDef.layout === "full-image"
-				) {
-					const imageDataUrls = await this.filesToDataUrls(input.flyerFiles);
-					const bodyContent = this.createMaisokuSlideHtml(
-						imageDataUrls,
-						designSystem,
-					);
-					slide = {
-						html: this.template(bodyContent, designSystem),
-						sources: [],
-					};
-
+				await promises;
+			} else {
+				for (const slideDef of plan) {
 					yield {
-						type: "slide:generating",
+						type: "slide:start",
 						index: slideDef.index,
 						title: slideDef.title,
-						data: { ...slide },
-					};
-				} else {
-					// 通常のAI生成フロー
-					const { textStream, getUsage } = this.generateSlide(
-						slideDef,
-						research,
-						designSystem,
-					);
-
-					slide = {
-						html: "",
-						sources: research.sources,
 					};
 
-					let bodyContent = "";
+					// dataSource が "research" の場合のみリサーチを実行
+					let research: SlideResearchResult;
+					if (slideDef.dataSource === "research") {
+						const topics = this.getResearchTopics(slideDef);
+						const { research: researchResult, usage: researchUsage } =
+							await this.researchForSlide(slideDef, topics);
+						research = researchResult;
+						yield {
+							type: "usage",
+							usage: researchUsage,
+							step: `research-${slideDef.index}`,
+						};
+					} else {
+						// リサーチ不要の場合は空のリサーチ結果を使用
+						research = {
+							summary: "",
+							keyFacts: [],
+							sources: [],
+						};
+					}
 
-					for await (const chunk of textStream) {
-						bodyContent += chunk;
-						slide.html = this.template(bodyContent, designSystem);
+					// TODO: dataSource による分岐処理を追加
+					// - "calculated": 入力値（年収、自己資金、金利、返済期間）から正確な計算を行い、結果をスライド生成に渡す
+					// - "static-template": 固定のHTMLテンプレートを返し、AI生成をスキップする
+
+					yield {
+						type: "slide:researching",
+						index: slideDef.index,
+						title: slideDef.title,
+						data: research,
+					};
+
+					let slide: GeneratedSlide;
+
+					// マイソクスライド: AI生成をスキップし、アップロード画像をそのまま表示
+					if (
+						slideDef.dataSource === "primary" &&
+						slideDef.layout === "full-image"
+					) {
+						const imageDataUrls = await this.filesToDataUrls(input.flyerFiles);
+						const bodyContent = this.createMaisokuSlideHtml(
+							imageDataUrls,
+							designSystem,
+						);
+						slide = {
+							html: this.template(bodyContent, designSystem),
+							sources: [],
+						};
 
 						yield {
 							type: "slide:generating",
@@ -188,31 +358,57 @@ export class SlideGenerator {
 							title: slideDef.title,
 							data: { ...slide },
 						};
+					} else {
+						// 通常のAI生成フロー
+						const { textStream, getUsage } = this.generateSlide(
+							slideDef,
+							research,
+							designSystem,
+						);
+
+						slide = {
+							html: "",
+							sources: research.sources,
+						};
+
+						let bodyContent = "";
+
+						for await (const chunk of textStream) {
+							bodyContent += chunk;
+							slide.html = this.template(bodyContent, designSystem);
+
+							yield {
+								type: "slide:generating",
+								index: slideDef.index,
+								title: slideDef.title,
+								data: { ...slide },
+							};
+						}
+
+						// スライド生成完了後にusageを取得
+						const slideUsage = await getUsage();
+						yield {
+							type: "usage",
+							usage: slideUsage,
+							step: `slide-${slideDef.index}`,
+						};
 					}
 
-					// スライド生成完了後にusageを取得
-					const slideUsage = await getUsage();
+					generatedSlides.push({
+						slide,
+						research,
+					});
+
 					yield {
-						type: "usage",
-						usage: slideUsage,
-						step: `slide-${slideDef.index}`,
+						type: "slide:end",
+						index: slideDef.index,
+						title: slideDef.title,
+						data: {
+							slide: { ...slide },
+							research,
+						},
 					};
 				}
-
-				generatedSlides.push({
-					slide,
-					research,
-				});
-
-				yield {
-					type: "slide:end",
-					index: slideDef.index,
-					title: slideDef.title,
-					data: {
-						slide: { ...slide },
-						research,
-					},
-				};
 			}
 
 			// 全体の完了
@@ -507,9 +703,10 @@ export class SlideGenerator {
 		textStream: AsyncIterableStream<string>;
 		getUsage: () => Promise<UsageInfo>;
 	} {
-		this.messages.push({
-			role: "user",
-			content: `
+		if (!this.parallel) {
+			this.messages.push({
+				role: "user",
+				content: `
 # スライド定義
 - タイトル: ${definition.title}
 - 概要: ${definition.description}
@@ -533,7 +730,8 @@ ${JSON.stringify(research)}
 カラーパレットは既にCSS変数として定義されています（例: \`bg-primary\`, \`text-accent\` が使用可能）。
 共通クラス (\`commonClasses\`) を積極的に活用し、デザインの一貫性を保ってください。
 `,
-		});
+			});
+		}
 
 		const { response, textStream, usage } = streamText({
 			model: this.model,
@@ -552,7 +750,9 @@ ${designSystem.styleGuidelines}
 			messages: this.messages,
 		});
 
-		response.then(({ messages }) => this.messages.push(...messages));
+		if (!this.parallel) {
+			response.then(({ messages }) => this.messages.push(...messages));
+		}
 
 		return {
 			textStream,

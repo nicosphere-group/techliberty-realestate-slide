@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import z from "zod";
 import {
 	Dropzone,
 	DropzoneContent,
@@ -26,23 +27,23 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-	type Event,
-	type PlanEvent,
-	type PrimaryInput,
-	primaryInputSchema,
-	type SlideEvent,
-	type UsageInfo,
+import type {
+	Event,
+	PlanEvent,
+	SlideEvent,
+	UsageInfo,
 } from "@/lib/slide-generator";
 import { run } from "./actions";
+import { formSchema } from "./schemas";
 
 type PlanState = PlanEvent;
 type SlideState = SlideEvent;
 
 // コスト計算用の料金レート（per 1M tokens）
 const PRICING = {
-	flash: { input: 0.5, output: 3.0 },
-	pro: { input: 2.0, output: 12.0 },
+	low: { input: 0.1, output: 0.4 },
+	middle: { input: 0.5, output: 3.0 },
+	high: { input: 2.0, output: 12.0 },
 } as const;
 
 export default function ClientPage() {
@@ -80,10 +81,11 @@ export default function ClientPage() {
 			interestRate: undefined,
 			loanTermYears: undefined,
 			// 開発用
-			modelType: "flash",
-		} as PrimaryInput,
+			modelType: "middle",
+			parallel: true,
+		} as z.infer<typeof formSchema>,
 		validators: {
-			onSubmit: primaryInputSchema,
+			onSubmit: formSchema,
 		},
 		onSubmit: async ({ value }) => {
 			setEvents([]);
@@ -572,9 +574,44 @@ export default function ClientPage() {
 								</div>
 								<div className="px-6 py-3 border-b space-y-3">
 									<form.Field
+										name="parallel"
+										children={(field) => {
+											const parallel = field.state.value ?? true;
+											return (
+												<div className="flex items-center justify-between">
+													<span className="text-xs text-muted-foreground">
+														並列生成
+													</span>
+													<ToggleGroup
+														type="single"
+														value={parallel ? "true" : "false"}
+														onValueChange={(value) => {
+															field.handleChange(value === "true");
+														}}
+														variant="outline"
+														size="sm"
+													>
+														<ToggleGroupItem
+															value="true"
+															className="text-xs px-3"
+														>
+															有効
+														</ToggleGroupItem>
+														<ToggleGroupItem
+															value="false"
+															className="text-xs px-3"
+														>
+															無効
+														</ToggleGroupItem>
+													</ToggleGroup>
+												</div>
+											);
+										}}
+									/>
+									<form.Field
 										name="modelType"
 										children={(field) => {
-											const modelType = field.state.value || "flash";
+											const modelType = field.state.value ?? "middle";
 											const pricing = PRICING[modelType];
 											const inputCost =
 												(totalUsage.promptTokens / 1_000_000) * pricing.input;
@@ -594,22 +631,32 @@ export default function ClientPage() {
 															value={field.state.value}
 															onValueChange={(value) => {
 																if (value)
-																	field.handleChange(value as "flash" | "pro");
+																	field.handleChange(
+																		z
+																			.enum(["low", "middle", "high"])
+																			.parse(value),
+																	);
 															}}
 															variant="outline"
 															size="sm"
 														>
 															<ToggleGroupItem
-																value="flash"
+																value="low"
 																className="text-xs px-3"
 															>
-																Flash
+																2.5 Flash-Lite
 															</ToggleGroupItem>
 															<ToggleGroupItem
-																value="pro"
+																value="middle"
 																className="text-xs px-3"
 															>
-																Pro
+																3.0 Flash
+															</ToggleGroupItem>
+															<ToggleGroupItem
+																value="high"
+																className="text-xs px-3"
+															>
+																3.0 Pro
 															</ToggleGroupItem>
 														</ToggleGroup>
 													</div>
