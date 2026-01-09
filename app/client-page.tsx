@@ -380,7 +380,9 @@ export default function ClientPage() {
 														onBlur={field.handleBlur}
 														onChange={(e) =>
 															field.handleChange(
-																e.target.value ? Number(e.target.value) : undefined,
+																e.target.value
+																	? Number(e.target.value)
+																	: undefined,
 															)
 														}
 														placeholder="例: 600"
@@ -408,7 +410,9 @@ export default function ClientPage() {
 														onBlur={field.handleBlur}
 														onChange={(e) =>
 															field.handleChange(
-																e.target.value ? Number(e.target.value) : undefined,
+																e.target.value
+																	? Number(e.target.value)
+																	: undefined,
 															)
 														}
 														placeholder="例: 500"
@@ -437,7 +441,9 @@ export default function ClientPage() {
 														onBlur={field.handleBlur}
 														onChange={(e) =>
 															field.handleChange(
-																e.target.value ? Number(e.target.value) : undefined,
+																e.target.value
+																	? Number(e.target.value)
+																	: undefined,
 															)
 														}
 														placeholder="例: 1.5"
@@ -465,7 +471,9 @@ export default function ClientPage() {
 														onBlur={field.handleBlur}
 														onChange={(e) =>
 															field.handleChange(
-																e.target.value ? Number(e.target.value) : undefined,
+																e.target.value
+																	? Number(e.target.value)
+																	: undefined,
 															)
 														}
 														placeholder="例: 35"
@@ -611,7 +619,8 @@ export default function ClientPage() {
 														</span>
 														<span className="text-xs font-mono">
 															入力 {totalUsage.promptTokens.toLocaleString()} /
-															出力 {totalUsage.completionTokens.toLocaleString()}
+															出力{" "}
+															{totalUsage.completionTokens.toLocaleString()}
 														</span>
 													</div>
 													<div className="flex items-center justify-between">
