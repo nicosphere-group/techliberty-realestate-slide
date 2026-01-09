@@ -6,16 +6,26 @@ declare module "dom-to-pptx" {
 		url: string;
 	}
 
+	interface ListConfig {
+		color?: string;
+		spacing?: {
+			before?: number;
+			after?: number;
+		};
+	}
+
 	interface ExportToPptxOptions {
 		fileName?: string;
 		fonts?: FontConfig[];
 		autoEmbedFonts?: boolean;
+		skipDownload?: boolean;
+		listConfig?: ListConfig;
 	}
 
 	function exportToPptx(
 		target: ExportTarget,
 		options?: ExportToPptxOptions,
-	): Promise<void>;
+	): Promise<Blob>;
 
 	const domToPptx: {
 		exportToPptx: typeof exportToPptx;
