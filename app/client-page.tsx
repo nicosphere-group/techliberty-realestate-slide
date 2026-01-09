@@ -3,6 +3,8 @@
 import { readStreamableValue } from "@ai-sdk/rsc";
 import { useForm } from "@tanstack/react-form";
 import { exportToPptx } from "dom-to-pptx";
+import html2canvas from "html2canvas-pro";
+import { jsPDF } from "jspdf";
 import {
 	AlertCircle,
 	Download,
@@ -159,19 +161,82 @@ export default function ClientPage() {
 			return;
 		}
 
-		const slideElements = slideIframes
-			.map((iframe) =>
-				iframe.contentDocument
-					? iframe.contentDocument.getElementById("slide-container")
-					: null,
-			)
-			.filter((element) => element !== null);
+		const toastId = toast.loading("PPTXを生成中...");
 
 		try {
-			await exportToPptx(slideElements);
+			const slideContainers = [];
+
+			for (let i = 0; i < orderedSlides.length; i++) {
+				const slide = orderedSlides[i];
+				const iframe = slideIframeRefs.current.get(slide.index);
+
+				if (!iframe?.contentDocument) continue;
+				const slideContainer =
+					iframe.contentDocument.getElementById("slide-container");
+				if (!slideContainer) continue;
+
+				slideContainers.push(slideContainer);
+			}
+
+			await exportToPptx(slideContainers);
+			toast.success("PPTXのエクスポートが完了しました");
 		} catch (e) {
 			console.error(e);
 			toast.error("PPTXのエクスポートに失敗しました。");
+		} finally {
+			toast.dismiss(toastId);
+		}
+	};
+
+	const handleExportToPdf = async () => {
+		const slideIframes = Array.from(slideIframeRefs.current.values());
+		if (slideIframes.length === 0) {
+			toast.error("エクスポートするスライドがありません。");
+			return;
+		}
+
+		const toastId = toast.loading("PDFを生成中...");
+
+		try {
+			const doc = new jsPDF({
+				orientation: "landscape",
+				unit: "px",
+				format: [1920, 1080],
+			});
+
+			for (let i = 0; i < orderedSlides.length; i++) {
+				const slide = orderedSlides[i];
+				const iframe = slideIframeRefs.current.get(slide.index);
+
+				if (!iframe?.contentDocument) continue;
+				const slideContainer =
+					iframe.contentDocument.getElementById("slide-container");
+				if (!slideContainer) continue;
+
+				const canvas = await html2canvas(slideContainer, {
+					scale: 2,
+					useCORS: true,
+					logging: false,
+					windowWidth: 1920,
+					windowHeight: 1080,
+					backgroundColor: "#ffffff",
+				});
+
+				const imgData = canvas.toDataURL("image/jpeg", 0.95);
+
+				if (i > 0) {
+					doc.addPage([1920, 1080], "landscape");
+				}
+				doc.addImage(imgData, "JPEG", 0, 0, 1920, 1080);
+			}
+
+			doc.save(`presentation_${Date.now()}.pdf`);
+			toast.success("PDFのエクスポートが完了しました");
+		} catch (e) {
+			console.error(e);
+			toast.error("PDFのエクスポートに失敗しました。");
+		} finally {
+			toast.dismiss(toastId);
 		}
 	};
 
@@ -734,7 +799,7 @@ export default function ClientPage() {
 								</div>
 								{orderedSlides.length > 0 && (
 									<div className="flex items-center gap-4">
-										<div className="text-sm text-muted-foreground">
+										<div className="text-sm text-muted-foreground mr-auto">
 											<span className="font-semibold text-foreground">
 												{orderedSlides.length}
 											</span>{" "}
@@ -747,7 +812,16 @@ export default function ClientPage() {
 											className="shadow-md hover:shadow-lg transition-shadow"
 										>
 											<Download className="mr-2 h-4 w-4" />
-											PPTXエクスポート
+											PPTX
+										</Button>
+										<Button
+											onClick={handleExportToPdf}
+											disabled={form.state.isSubmitting}
+											size="default"
+											className="shadow-md hover:shadow-lg transition-shadow"
+										>
+											<Download className="mr-2 h-4 w-4" />
+											PDF
 										</Button>
 									</div>
 								)}
