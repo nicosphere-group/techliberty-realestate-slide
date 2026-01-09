@@ -82,7 +82,7 @@ export default function ClientPage() {
 			loanTermYears: undefined,
 			// 開発用
 			modelType: "middle",
-			parallel: true,
+			parallel: false,
 		} as z.infer<typeof formSchema>,
 		validators: {
 			onSubmit: formSchema,
@@ -576,7 +576,7 @@ export default function ClientPage() {
 									<form.Field
 										name="parallel"
 										children={(field) => {
-											const parallel = field.state.value ?? true;
+											const parallel = field.state.value ?? false;
 											return (
 												<div className="flex items-center justify-between">
 													<span className="text-xs text-muted-foreground">
