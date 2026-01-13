@@ -24,6 +24,15 @@ import {
 import { SlidePreview } from "@/components/slide-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -62,6 +71,12 @@ export default function ClientPage() {
 	const [generationDurationMs, setGenerationDurationMs] = useState<number>(0);
 	const generationStartTimeRef = useRef<number>(0);
 	const slideIframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
+
+	const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+	const [exportTarget, setExportTarget] = useState<"pptx" | "pdf">("pptx");
+	const [selectedSlideIndices, setSelectedSlideIndices] = useState<number[]>(
+		[],
+	);
 
 	// const isDevelopment = process.env.NODE_ENV === "development";
 	const isDevelopment = true;
@@ -154,9 +169,13 @@ export default function ClientPage() {
 		},
 	});
 
-	const handleExportToPptx = async () => {
-		const slideIframes = Array.from(slideIframeRefs.current.values());
-		if (slideIframes.length === 0) {
+	const executeExportPptx = async (indices: number[]) => {
+		const targetIndices = indices.filter((index) =>
+			slideIframeRefs.current.has(index),
+		);
+		targetIndices.sort((a, b) => a - b);
+
+		if (targetIndices.length === 0) {
 			toast.error("エクスポートするスライドがありません。");
 			return;
 		}
@@ -166,9 +185,8 @@ export default function ClientPage() {
 		try {
 			const slideContainers = [];
 
-			for (let i = 0; i < orderedSlides.length; i++) {
-				const slide = orderedSlides[i];
-				const iframe = slideIframeRefs.current.get(slide.index);
+			for (const index of targetIndices) {
+				const iframe = slideIframeRefs.current.get(index);
 
 				if (!iframe?.contentDocument) continue;
 				const slideContainer =
@@ -188,9 +206,13 @@ export default function ClientPage() {
 		}
 	};
 
-	const handleExportToPdf = async () => {
-		const slideIframes = Array.from(slideIframeRefs.current.values());
-		if (slideIframes.length === 0) {
+	const executeExportPdf = async (indices: number[]) => {
+		const targetIndices = indices.filter((index) =>
+			slideIframeRefs.current.has(index),
+		);
+		targetIndices.sort((a, b) => a - b);
+
+		if (targetIndices.length === 0) {
 			toast.error("エクスポートするスライドがありません。");
 			return;
 		}
@@ -204,9 +226,9 @@ export default function ClientPage() {
 				format: [1920, 1080],
 			});
 
-			for (let i = 0; i < orderedSlides.length; i++) {
-				const slide = orderedSlides[i];
-				const iframe = slideIframeRefs.current.get(slide.index);
+			for (let i = 0; i < targetIndices.length; i++) {
+				const index = targetIndices[i];
+				const iframe = slideIframeRefs.current.get(index);
 
 				if (!iframe?.contentDocument) continue;
 				const slideContainer =
@@ -237,6 +259,26 @@ export default function ClientPage() {
 			toast.error("PDFのエクスポートに失敗しました。");
 		} finally {
 			toast.dismiss(toastId);
+		}
+	};
+
+	const openExportDialog = (target: "pptx" | "pdf") => {
+		setExportTarget(target);
+		setSelectedSlideIndices(orderedSlides.map((s) => s.index));
+		setIsExportDialogOpen(true);
+	};
+
+	const handleExport = async () => {
+		setIsExportDialogOpen(false);
+		switch (exportTarget) {
+			case "pptx":
+				await executeExportPptx(selectedSlideIndices);
+				break;
+			case "pdf":
+				await executeExportPdf(selectedSlideIndices);
+				break;
+			default:
+				break;
 		}
 	};
 
@@ -806,7 +848,7 @@ export default function ClientPage() {
 											枚のスライド
 										</div>
 										<Button
-											onClick={handleExportToPptx}
+											onClick={() => openExportDialog("pptx")}
 											disabled={form.state.isSubmitting}
 											size="default"
 											className="shadow-md hover:shadow-lg transition-shadow"
@@ -815,7 +857,7 @@ export default function ClientPage() {
 											PPTX
 										</Button>
 										<Button
-											onClick={handleExportToPdf}
+											onClick={() => openExportDialog("pdf")}
 											disabled={form.state.isSubmitting}
 											size="default"
 											className="shadow-md hover:shadow-lg transition-shadow"
@@ -826,6 +868,77 @@ export default function ClientPage() {
 									</div>
 								)}
 							</div>
+
+							<Dialog
+								open={isExportDialogOpen}
+								onOpenChange={setIsExportDialogOpen}
+							>
+								<DialogContent>
+									<DialogHeader>
+										<DialogTitle>出力スライドの選択</DialogTitle>
+										<DialogDescription>
+											出力したいスライドを選択してください。
+										</DialogDescription>
+									</DialogHeader>
+									<ScrollArea className="h-75 w-full rounded-md border p-4">
+										<div className="space-y-4">
+											{orderedSlides.map((slide) => (
+												<div
+													key={slide.index}
+													className="flex items-center space-x-2"
+												>
+													<Checkbox
+														id={`slide-${slide.index}`}
+														checked={selectedSlideIndices.includes(slide.index)}
+														onCheckedChange={(checked) => {
+															if (checked) {
+																setSelectedSlideIndices((prev) => [
+																	...prev,
+																	slide.index,
+																]);
+															} else {
+																setSelectedSlideIndices((prev) =>
+																	prev.filter((i) => i !== slide.index),
+																);
+															}
+														}}
+													/>
+													<label
+														htmlFor={`slide-${slide.index}`}
+														className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 truncate"
+													>
+														<span className="font-bold mr-2">
+															{slide.index}.
+														</span>
+														{slide.title}
+													</label>
+												</div>
+											))}
+										</div>
+									</ScrollArea>
+									<DialogFooter>
+										<Button
+											variant="outline"
+											onClick={() => {
+												setIsExportDialogOpen(false);
+											}}
+										>
+											キャンセル
+										</Button>
+										<Button onClick={handleExport}>
+											{(() => {
+												switch (exportTarget) {
+													case "pptx":
+														return "PPTX";
+													case "pdf":
+														return "PDF";
+												}
+											})()}
+											を出力
+										</Button>
+									</DialogFooter>
+								</DialogContent>
+							</Dialog>
 
 							{orderedSlides.length === 0 ? (
 								form.state.isSubmitting ? (
