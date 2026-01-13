@@ -703,8 +703,8 @@ export class SlideGenerator {
 		textStream: AsyncIterableStream<string>;
 		getUsage: () => Promise<UsageInfo>;
 	} {
-		if (!this.parallel) {
-			this.messages.push({
+		const messages: ModelMessage[] = [
+			{
 				role: "user",
 				content: `
 # スライド定義
@@ -730,7 +730,11 @@ ${JSON.stringify(research)}
 カラーパレットは既にCSS変数として定義されています（例: \`bg-primary\`, \`text-accent\` が使用可能）。
 共通クラス (\`commonClasses\`) を積極的に活用し、デザインの一貫性を保ってください。
 `,
-			});
+			},
+		];
+
+		if (!this.parallel) {
+			this.messages.push(...messages);
 		}
 
 		const { response, textStream, usage } = streamText({
@@ -747,7 +751,7 @@ Tailwind CSSを駆使して、美しく、プロフェッショナルな不動�
 # デザインガイドライン
 ${designSystem.styleGuidelines}
 `,
-			messages: this.messages,
+			messages: this.parallel ? [...this.messages, ...messages] : this.messages,
 		});
 
 		if (!this.parallel) {
