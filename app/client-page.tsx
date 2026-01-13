@@ -873,7 +873,7 @@ export default function ClientPage() {
 								open={isExportDialogOpen}
 								onOpenChange={setIsExportDialogOpen}
 							>
-								<DialogContent>
+								<DialogContent className="sm:max-w-lg">
 									<DialogHeader>
 										<DialogTitle>出力スライドの選択</DialogTitle>
 										<DialogDescription>
