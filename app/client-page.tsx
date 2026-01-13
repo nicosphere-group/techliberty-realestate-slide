@@ -655,12 +655,12 @@ export default function ClientPage() {
 								>
 									{form.state.isSubmitting ? (
 										<>
-											<Loader2 className="mr-2 h-5 w-5 animate-spin" />
+											<Loader2 className="h-5 w-5 animate-spin" />
 											生成中...
 										</>
 									) : (
 										<>
-											<Sparkles className="mr-2 h-5 w-5" />
+											<Sparkles className="h-5 w-5" />
 											スライドを生成
 										</>
 									)}
@@ -853,7 +853,7 @@ export default function ClientPage() {
 											size="default"
 											className="shadow-md hover:shadow-lg transition-shadow"
 										>
-											<Download className="mr-2 h-4 w-4" />
+											<Download className="h-4 w-4" />
 											PPTX
 										</Button>
 										<Button
@@ -862,7 +862,7 @@ export default function ClientPage() {
 											size="default"
 											className="shadow-md hover:shadow-lg transition-shadow"
 										>
-											<Download className="mr-2 h-4 w-4" />
+											<Download className="h-4 w-4" />
 											PDF
 										</Button>
 									</div>
@@ -907,9 +907,7 @@ export default function ClientPage() {
 														htmlFor={`slide-${slide.index}`}
 														className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 truncate"
 													>
-														<span className="font-bold mr-2">
-															{slide.index}.
-														</span>
+														<span className="font-bold">{slide.index}.</span>
 														{slide.title}
 													</label>
 												</div>
@@ -993,7 +991,7 @@ export default function ClientPage() {
 											左側のフォームから情報を入力して、最初のプレゼンテーションを生成しましょう。
 										</p>
 										<Button variant="outline" disabled className="opacity-50">
-											<Sparkles className="mr-2 h-4 w-4" />
+											<Sparkles className="h-4 w-4" />
 											生成待ち...
 										</Button>
 									</div>
