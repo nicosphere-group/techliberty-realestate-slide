@@ -747,21 +747,20 @@ ${JSON.stringify(research)}
 		const { response, textStream, usage } = streamText({
 			model: this.model,
 			tools: {
-				math_evaluate: tool({
+				evaluate_math_expression: tool({
 					description:
-						"与えられた数学的表現を評価し、正確な数値結果を返します。",
+						"数式（四則演算、関数など）を評価し、計算結果を数値で返します。",
 					inputSchema: z.object({
 						expression: z
 							.string()
 							.describe(
-								"評価する数学的表現。加算、減算、乗算、除算、括弧、指数などの基本的な算術演算をサポートします。",
+								"評価する数式。加算、減算、乗算、除算、括弧、指数などの基本的な算術演算をサポートします。",
 							),
 					}),
 					execute: (params) => math.evaluate(params.expression),
 				}),
-				geocode: tool({
-					description:
-						"指定された住所の緯度と経度を取得します。住所が見つからない場合はエラーメッセージを返します。",
+				geocode_address: tool({
+					description: "住所を緯度・経度の座標に変換します。",
 					inputSchema: z.object({
 						address: z.string().describe("ジオコードする完全な住所文字列。"),
 					}),
@@ -798,9 +797,9 @@ ${JSON.stringify(research)}
 						};
 					},
 				}),
-				google_maps_static: tool({
+				generate_static_map_url: tool({
 					description:
-						"Google Maps Static APIを使用して、指定されたパラメータで地図画像を取得します。",
+						"指定されたパラメータ（中心座標、ズーム、サイズ等）に基づいて、Google Maps Static APIの画像URLを生成します。",
 					inputSchema: z.object({
 						center: z
 							.string()
