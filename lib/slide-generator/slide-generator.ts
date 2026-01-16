@@ -797,9 +797,29 @@ ${JSON.stringify(research)}
 						};
 					},
 				}),
-				generate_static_map_url: tool({
+				get_hazard_map_urls: tool({
 					description:
-						"指定されたパラメータ（中心座標、ズーム、サイズ等）に基づいて、Google Maps Static APIの画像URLを生成します。",
+						"指定されたXYZタイル座標から、各種ハザードマップ（洪水、高潮、津波、土砂災害など）のタイル画像URLを取得します。ハザードマップ画像をスライドに埋め込む際に使用します。",
+					inputSchema: z.object({
+						x: z.number().int().describe("タイルX座標"),
+						y: z.number().int().describe("タイルY座標"),
+						z: z.number().int().describe("タイルZ座標"),
+					}),
+					execute: async ({ x, y, z }) => {
+						const baseUrl = "https://disaportaldata.gsi.go.jp/raster";
+						return {
+							flood_l2: `${baseUrl}/01_flood_l2_shinsuishin_data/${z}/${x}/${y}.png`, // 洪水（想定最大規模）
+							high_tide: `${baseUrl}/03_hightide_l2_shinsuishin_data/${z}/${x}/${y}.png`, // 高潮
+							tsunami: `${baseUrl}/04_tsunami_newlegend_data/${z}/${x}/${y}.png`, // 津波
+							dosekiryu: `${baseUrl}/05_dosekiryukeikaikuiki/${z}/${x}/${y}.png`, // 土石流
+							kyukeisha: `${baseUrl}/05_kyukeishakeikaikuiki/${z}/${x}/${y}.png`, // 急傾斜地
+							jisuberi: `${baseUrl}/05_jisuberikeikaikuiki/${z}/${x}/${y}.png`, // 地すべり
+						};
+					},
+				}),
+				get_static_map_url: tool({
+					description:
+						"指定されたパラメータ（中心座標、ズーム、サイズ等）に基づいて、Google Maps Static APIの画像URLを取得します。",
 					inputSchema: z.object({
 						center: z
 							.string()
