@@ -62,8 +62,9 @@ async function main() {
 		for (const [index, route] of response.routes.entries()) {
 			console.log(`Route ${index + 1}:`);
 			console.log(`- Distance: ${route.distanceMeters} meters`);
-			// durationは "123s" のような文字列で返ってくる場合があります
-			console.log(`- Duration: ${route.duration}`);
+			// durationは "123s" のような文字列、またはオブジェクトで返ってくる場合があります
+			const durationSeconds = route.duration?.seconds;
+			console.log(`- Duration: ${durationSeconds}s`);
 
 			if (route.description) {
 				console.log(`- Description: ${route.description}`);
