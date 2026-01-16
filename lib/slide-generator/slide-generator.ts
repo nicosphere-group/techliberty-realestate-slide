@@ -1,4 +1,5 @@
 import { google } from "@ai-sdk/google";
+// import { PlacesClient } from "@googlemaps/places";
 import {
 	type AsyncIterableStream,
 	generateText,
@@ -11,6 +12,7 @@ import {
 } from "ai";
 import * as math from "mathjs";
 import z from "zod";
+import { AsyncQueue } from "./async-queue";
 import {
 	type DesignSystem,
 	designSystemSchema,
@@ -29,52 +31,9 @@ import type {
 	UsageInfo,
 } from "./types";
 
-class AsyncQueue<T> {
-	private queue: T[] = [];
-	private resolvers: ((value: IteratorResult<T>) => void)[] = [];
-	private finished = false;
-
-	// タスク側からイベントを送信
-	push(value: T) {
-		if (this.finished) return;
-		const resolve = this.resolvers.shift();
-		if (resolve) {
-			resolve({ value, done: false });
-		} else {
-			this.queue.push(value);
-		}
-	}
-
-	// すべてのタスクが完了したことを通知
-	close() {
-		this.finished = true;
-		// 待機中のものがあれば終了を通知
-		let resolve = this.resolvers.shift();
-		while (resolve) {
-			resolve({ value: undefined, done: true });
-			resolve = this.resolvers.shift();
-		}
-	}
-
-	// ジェネレーター側でこれを使用（for await...of で回せる）
-	[Symbol.asyncIterator](): AsyncIterator<T> {
-		return {
-			next: (): Promise<IteratorResult<T>> => {
-				const queue = this.queue.shift();
-				if (queue) {
-					return Promise.resolve({ value: queue, done: false });
-				}
-				if (this.finished) {
-					return Promise.resolve({ value: undefined, done: true });
-				}
-				// 値が来るまで待機
-				return new Promise((resolve) => {
-					this.resolvers.push(resolve);
-				});
-			},
-		};
-	}
-}
+// const placesClient = new PlacesClient({
+// 	apiKey: process.env.GOOGLE_MAPS_API_KEY,
+// });
 
 // ========================================
 // SlideGenerator Class
@@ -857,7 +816,7 @@ ${JSON.stringify(research)}
 							),
 					}),
 					execute: (params) => {
-						const key = "AIzaSyAqlgIjDodMqSgge9NeOoL1V-hSfTLHKFg";
+						const key = process.env.GOOGLE_MAPS_API_KEY;
 						const signature = "";
 						const url = new URL(
 							"https://maps.googleapis.com/maps/api/staticmap",
@@ -874,7 +833,9 @@ ${JSON.stringify(research)}
 						if (params.region) {
 							url.searchParams.append("region", params.region);
 						}
-						url.searchParams.append("key", key);
+						if (key) {
+							url.searchParams.append("key", key);
+						}
 						if (signature) {
 							url.searchParams.append("signature", signature);
 						}
