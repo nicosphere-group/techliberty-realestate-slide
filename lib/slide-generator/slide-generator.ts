@@ -767,6 +767,37 @@ ${JSON.stringify(research)}
 					}),
 					execute: async (params) => await geocoder.geocode(params.address),
 				}),
+				get_hazard_map_tile_xyz: tool({
+					description:
+						"指定された緯度・経度・ズームレベルから、ハザードマップポータルサイト等で使用されるWebメルカトル図法のXYZタイル座標(インデックス)を計算します。",
+					inputSchema: z.object({
+						latitude: z.number().describe("緯度"),
+						longitude: z.number().describe("経度"),
+						zoom: z
+							.number()
+							.int()
+							.default(15)
+							.describe("ズームレベル (デフォルト: 15)"),
+					}),
+					execute: async ({ latitude, longitude, zoom }) => {
+						const latRad = (latitude * Math.PI) / 180;
+						const n = 2 ** zoom;
+						const x = Math.floor((n * (longitude + 180)) / 360);
+						const y = Math.floor(
+							(n *
+								(1 -
+									Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) /
+										Math.PI)) /
+								2,
+						);
+
+						return {
+							x,
+							y,
+							z: zoom,
+						};
+					},
+				}),
 				google_maps_static: tool({
 					description:
 						"Google Maps Static APIを使用して、指定されたパラメータで地図画像を取得します。",
