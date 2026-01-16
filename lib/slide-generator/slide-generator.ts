@@ -12,6 +12,7 @@ import {
 } from "ai";
 import * as math from "mathjs";
 import z from "zod";
+import { CSISGeocoder } from "@/lib/geocode";
 import { AsyncQueue } from "./async-queue";
 import {
 	type DesignSystem,
@@ -30,6 +31,8 @@ import type {
 	SlideResearchResult,
 	UsageInfo,
 } from "./types";
+
+const geocoder = new CSISGeocoder();
 
 // const placesClient = new PlacesClient({
 // 	apiKey: process.env.GOOGLE_MAPS_API_KEY,
@@ -754,9 +757,15 @@ ${JSON.stringify(research)}
 								"評価する数学的表現。加算、減算、乗算、除算、括弧、指数などの基本的な算術演算をサポートします。",
 							),
 					}),
-					execute: (params) => {
-						return math.evaluate(params.expression);
-					},
+					execute: (params) => math.evaluate(params.expression),
+				}),
+				geocode: tool({
+					description:
+						"指定された住所の緯度と経度を取得します。住所が見つからない場合はエラーメッセージを返します。",
+					inputSchema: z.object({
+						address: z.string().describe("ジオコードする完全な住所文字列。"),
+					}),
+					execute: async (params) => await geocoder.geocode(params.address),
 				}),
 				google_maps_static: tool({
 					description:
