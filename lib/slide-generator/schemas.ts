@@ -25,6 +25,27 @@ export const primaryInputSchema = z.object({
 
 export type PrimaryInput = z.infer<typeof primaryInputSchema>;
 
+export const flyerDataSchema = z.object({
+	name: z.string(),
+	address: z.string(),
+});
+
+export type FlyerData = z.infer<typeof flyerDataSchema>;
+
+export class FlyerDataModel implements FlyerData {
+	name: string;
+	address: string;
+
+	constructor(data: FlyerData) {
+		this.name = data.name;
+		this.address = data.address;
+	}
+
+	toPrompt(): string {
+		return `建物名: ${this.name}\n所在地: ${this.address}`;
+	}
+}
+
 export const slideLayoutSchema = z.enum([
 	"title", // タイトルスライド
 	"section", // セクション区切り

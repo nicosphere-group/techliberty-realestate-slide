@@ -6,11 +6,16 @@ import {
 	Output,
 	stepCountIs,
 	streamText,
+	tool,
 	type UserContent,
 } from "ai";
+import * as math from "mathjs";
+import z from "zod";
 import {
 	type DesignSystem,
 	designSystemSchema,
+	FlyerDataModel,
+	flyerDataSchema,
 	type PrimaryInput,
 	type SlideDefinition,
 	slideDefinitionSchema,
@@ -149,6 +154,13 @@ export class SlideGenerator {
 			// 入力をコンテキストに追加
 			const userContent = await this.buildUserContent(input);
 			this.messages.push({ role: "user", content: userContent });
+
+			// マイソクからデータを抽出
+			const flyerData = await this.extractFlyerData(input.flyerFiles[0]);
+			this.messages.push({
+				role: "user",
+				content: `以下は、提供されたマイソクから抽出されたデータです:\n${flyerData.toPrompt()}`,
+			});
 
 			// 与えられた画像から埋め込み画像を抽出
 			// const flyerImage = await input.flyerFiles[0].arrayBuffer();
@@ -446,6 +458,39 @@ export class SlideGenerator {
 	// 	}
 
 	/**
+	 * Step 1: マイソクからデータを抽出
+	 */
+	private async extractFlyerData(flyerFile: File): Promise<FlyerDataModel> {
+		const { output } = await generateText({
+			model: this.model,
+			system: `あなたは不動産マイソク解析の専門家です。
+提供されたマイソク画像から、以下の情報を正確に抽出してください:
+- 建物名
+- 所在地
+`,
+			messages: [
+				{
+					role: "user",
+					content: [
+						{ type: "image", image: await flyerFile.arrayBuffer() },
+						{
+							type: "text",
+							text: "上記の画像は不動産物件のチラシです。記載されている全ての情報（物件名、価格、所在地、面積、間取り、特徴、設備、アクセス情報など）を詳細に抽出してください。",
+						},
+					],
+				},
+			],
+			output: Output.object({
+				name: "flyer_data",
+				description: "マイソクから抽出されたデータ",
+				schema: flyerDataSchema,
+			}),
+		});
+
+		return new FlyerDataModel(output);
+	}
+
+	/**
 	 * Step 2: スライドの構成をプランニング
 	 */
 	private async createPlan(): Promise<{
@@ -739,6 +784,106 @@ ${JSON.stringify(research)}
 
 		const { response, textStream, usage } = streamText({
 			model: this.model,
+			tools: {
+				math_evaluate: tool({
+					description:
+						"与えられた数学的表現を評価し、正確な数値結果を返します。",
+					inputSchema: z.object({
+						expression: z
+							.string()
+							.describe(
+								"評価する数学的表現。加算、減算、乗算、除算、括弧、指数などの基本的な算術演算をサポートします。",
+							),
+					}),
+					execute: (params) => {
+						return math.evaluate(params.expression);
+					},
+				}),
+				google_maps_static: tool({
+					description:
+						"Google Maps Static APIを使用して、指定されたパラメータで地図画像を取得します。",
+					inputSchema: z.object({
+						center: z
+							.string()
+							.describe(
+								"地図の中心座標。カンマ区切りの緯度経度ペア（例: '40.714728,-73.998672'）または住所文字列（例: 'city hall, new york, ny'）。マーカーが存在しない場合は必須。",
+							),
+						zoom: z
+							.number()
+							.int()
+							.min(0)
+							.max(21)
+							.describe(
+								"地図のズームレベル（0-21）。マーカーが存在しない場合は必須。",
+							),
+						size: z
+							.string()
+							.regex(/^\d+x\d+$/)
+							.describe(
+								"地図画像のサイズ。'{幅}x{高さ}'形式（例: '500x400'）。必須。",
+							),
+						scale: z
+							.number()
+							.int()
+							.min(1)
+							.max(2)
+							.optional()
+							.default(1)
+							.describe(
+								"返されるピクセル数の倍率。1または2を指定可能。デフォルトは1。",
+							),
+						format: z
+							.enum(["png", "png32", "gif", "jpg", "jpg-baseline"])
+							.optional()
+							.default("png")
+							.describe("生成される画像の形式。デフォルトはpng。"),
+						maptype: z
+							.enum(["roadmap", "satellite", "hybrid", "terrain"])
+							.optional()
+							.default("roadmap")
+							.describe("作成する地図のタイプ。デフォルトはroadmap。"),
+						language: z
+							.string()
+							.optional()
+							.describe(
+								"地図タイル上のラベルの表示に使用する言語コード（例: 'ja', 'en'）。",
+							),
+						region: z
+							.string()
+							.length(2)
+							.optional()
+							.describe(
+								"地政学的機密性に基づいて表示する境界を定義する2文字のccTLDコード（例: 'jp', 'us'）。",
+							),
+					}),
+					execute: (params) => {
+						const key = "AIzaSyAqlgIjDodMqSgge9NeOoL1V-hSfTLHKFg";
+						const signature = "";
+						const url = new URL(
+							"https://maps.googleapis.com/maps/api/staticmap",
+						);
+						url.searchParams.append("center", params.center);
+						url.searchParams.append("zoom", params.zoom.toString());
+						url.searchParams.append("size", params.size);
+						url.searchParams.append("scale", params.scale.toString());
+						url.searchParams.append("format", params.format);
+						url.searchParams.append("maptype", params.maptype);
+						if (params.language) {
+							url.searchParams.append("language", params.language);
+						}
+						if (params.region) {
+							url.searchParams.append("region", params.region);
+						}
+						url.searchParams.append("key", key);
+						if (signature) {
+							url.searchParams.append("signature", signature);
+						}
+
+						return { url: url.toString() };
+					},
+				}),
+			},
+			stopWhen: stepCountIs(5),
 			system: `あなたは世界最高峰のWebデザイナーです。
 Tailwind CSSを駆使して、美しく、プロフェッショナルな不動産スライドを作成してください。
 
