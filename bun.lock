@@ -10,6 +10,7 @@
         "@aws-sdk/client-s3": "^3.970.0",
         "@base-ui/react": "^1.0.0",
         "@googlemaps/places": "^2.2.0",
+        "@googlemaps/routing": "^2.1.1",
         "@napi-rs/canvas": "^0.1.88",
         "@tanstack/react-form": "^1.27.7",
         "ai": "^6.0.14",
@@ -252,6 +253,8 @@
     "@floating-ui/utils": ["@floating-ui/utils@0.2.10", "", {}, "sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ=="],
 
     "@googlemaps/places": ["@googlemaps/places@2.2.0", "", { "dependencies": { "google-gax": "^5.0.0" } }, "sha512-Ws2+r0jvQLRDcuawVzD+Db5IB5aZXYSyj5X41likja9rBR9vkaZByas2nSJz0PUNrVRq9PMy4ZSxkYL0MBtJnA=="],
+
+    "@googlemaps/routing": ["@googlemaps/routing@2.1.1", "", { "dependencies": { "google-gax": "^5.0.0" } }, "sha512-WI3bMaKCtQSUebfHla8bgyLhkIiWwMYxxkOE9sRpS3VMvXMIYRijAmn5pG9xMoCeyjqn60+bm5yXvhSAEdyyRA=="],
 
     "@grpc/grpc-js": ["@grpc/grpc-js@1.14.3", "", { "dependencies": { "@grpc/proto-loader": "^0.8.0", "@js-sdsl/ordered-map": "^4.4.2" } }, "sha512-Iq8QQQ/7X3Sac15oB6p0FmUg/klxQvXLeileoqrTRGJYLV+/9tubbr9ipz0GKHjmXVsgFPo/+W+2cA8eNcR+XA=="],
 
