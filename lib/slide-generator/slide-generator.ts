@@ -1,4 +1,5 @@
 import { google } from "@ai-sdk/google";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 // import { PlacesClient } from "@googlemaps/places";
 import {
 	type AsyncIterableStream,
@@ -10,9 +11,10 @@ import {
 	tool,
 	type UserContent,
 } from "ai";
+import ky from "ky";
 import * as math from "mathjs";
 import z from "zod";
-import { CSISGeocoder } from "@/lib/geocode";
+import { HazardMapGenerator, hazardMapOptionsSchema } from "@/lib/hazard-map";
 import { AsyncQueue } from "./async-queue";
 import {
 	type DesignSystem,
@@ -32,7 +34,11 @@ import type {
 	UsageInfo,
 } from "./types";
 
-const geocoder = new CSISGeocoder();
+const client = new S3Client({
+	endpoint: "https://rdicyprpgreghjslbdts.storage.supabase.co/storage/v1/s3",
+});
+
+const hazardMapGenerator = new HazardMapGenerator();
 
 // const placesClient = new PlacesClient({
 // 	apiKey: process.env.GOOGLE_MAPS_API_KEY,
@@ -759,62 +765,24 @@ ${JSON.stringify(research)}
 					}),
 					execute: (params) => math.evaluate(params.expression),
 				}),
-				geocode_address: tool({
-					description: "住所を緯度・経度の座標に変換します。",
-					inputSchema: z.object({
-						address: z.string().describe("ジオコードする完全な住所文字列。"),
-					}),
-					execute: async (params) => await geocoder.geocode(params.address),
-				}),
-				get_hazard_map_tile_xyz: tool({
+				get_hazard_map_url: tool({
 					description:
-						"指定された緯度・経度・ズームレベルから、ハザードマップポータルサイト等で使用されるWebメルカトル図法のXYZタイル座標(インデックス)を計算します。",
-					inputSchema: z.object({
-						latitude: z.number().describe("緯度"),
-						longitude: z.number().describe("経度"),
-						zoom: z
-							.number()
-							.int()
-							.default(15)
-							.describe("ズームレベル (デフォルト: 15)"),
-					}),
-					execute: async ({ latitude, longitude, zoom }) => {
-						const latRad = (latitude * Math.PI) / 180;
-						const n = 2 ** zoom;
-						const x = Math.floor((n * (longitude + 180)) / 360);
-						const y = Math.floor(
-							(n *
-								(1 -
-									Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) /
-										Math.PI)) /
-								2,
+						"指定された住所に基づいて、国土交通省ハザードマップポータルのハザードマップ画像URLを取得します。",
+					inputSchema: hazardMapOptionsSchema,
+					execute: async (params) => {
+						const buffer = await hazardMapGenerator.generate(params);
+						const fileName = `hazard-maps/hazard-map-${Date.now()}.${params.format}`;
+						await client.send(
+							new PutObjectCommand({
+								Bucket: "assets",
+								Key: fileName,
+								Body: buffer,
+								ContentType: `image/${params.format}`,
+								CacheControl: "public, max-age=31536000, immutable",
+							}),
 						);
-
-						return {
-							x,
-							y,
-							z: zoom,
-						};
-					},
-				}),
-				get_hazard_map_urls: tool({
-					description:
-						"指定されたXYZタイル座標から、各種ハザードマップ（洪水、高潮、津波、土砂災害など）のタイル画像URLを取得します。ハザードマップ画像をスライドに埋め込む際に使用します。",
-					inputSchema: z.object({
-						x: z.number().int().describe("タイルX座標"),
-						y: z.number().int().describe("タイルY座標"),
-						z: z.number().int().describe("タイルZ座標"),
-					}),
-					execute: async ({ x, y, z }) => {
-						const baseUrl = "https://disaportaldata.gsi.go.jp/raster";
-						return {
-							flood_l2: `${baseUrl}/01_flood_l2_shinsuishin_data/${z}/${x}/${y}.png`, // 洪水（想定最大規模）
-							high_tide: `${baseUrl}/03_hightide_l2_shinsuishin_data/${z}/${x}/${y}.png`, // 高潮
-							tsunami: `${baseUrl}/04_tsunami_newlegend_data/${z}/${x}/${y}.png`, // 津波
-							dosekiryu: `${baseUrl}/05_dosekiryukeikaikuiki/${z}/${x}/${y}.png`, // 土石流
-							kyukeisha: `${baseUrl}/05_kyukeishakeikaikuiki/${z}/${x}/${y}.png`, // 急傾斜地
-							jisuberi: `${baseUrl}/05_jisuberikeikaikuiki/${z}/${x}/${y}.png`, // 地すべり
-						};
+						const publicUrl = `https://rdicyprpgreghjslbdts.supabase.co/storage/v1/object/public/assets/${fileName}`;
+						return { url: publicUrl };
 					},
 				}),
 				get_static_map_url: tool({
@@ -874,7 +842,7 @@ ${JSON.stringify(research)}
 								"地政学的機密性に基づいて表示する境界を定義する2文字のccTLDコード（例: 'jp', 'us'）。",
 							),
 					}),
-					execute: (params) => {
+					execute: async (params) => {
 						const key = process.env.GOOGLE_MAPS_API_KEY;
 						const signature = "";
 						const url = new URL(
@@ -899,7 +867,23 @@ ${JSON.stringify(research)}
 							url.searchParams.append("signature", signature);
 						}
 
-						return { url: url.toString() };
+						const buffer = await ky
+							.get(url)
+							.arrayBuffer()
+							.then((arrayBuffer) => Buffer.from(arrayBuffer));
+						const fileName = `static-maps/static-map-${Date.now()}.${params.format}`;
+						await client.send(
+							new PutObjectCommand({
+								Bucket: "assets",
+								Key: fileName,
+								Body: buffer,
+								ContentType: `image/${params.format}`,
+								CacheControl: "public, max-age=31536000, immutable",
+							}),
+						);
+						const publicUrl = `https://rdicyprpgreghjslbdts.supabase.co/storage/v1/object/public/assets/${fileName}`;
+
+						return { url: publicUrl };
 					},
 				}),
 			},
