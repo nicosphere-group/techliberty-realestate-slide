@@ -286,9 +286,9 @@ export default function ClientPage() {
 	};
 
 	return (
-		<div className="flex min-h-screen flex-col bg-background text-foreground">
+		<div className="flex h-screen flex-col bg-background text-foreground overflow-hidden">
 			{/* Header */}
-			<header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b bg-background/95 px-6 backdrop-blur supports-backdrop-filter:bg-background/60">
+			<header className="flex h-16 shrink-0 items-center justify-between border-b bg-background/95 px-6 backdrop-blur supports-backdrop-filter:bg-background/60 z-30">
 				<div className="flex items-center gap-3">
 					<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
 						<LayoutTemplate className="h-5 w-5" />
@@ -307,7 +307,7 @@ export default function ClientPage() {
 				</div>
 			</header>
 
-			<div className="flex flex-1 flex-col lg:flex-row h-[calc(100vh-64px)] overflow-hidden">
+			<div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
 				{/* Left Sidebar: Input Configuration */}
 				<aside className="w-full shrink-0 border-r bg-muted/10 lg:w-105 xl:w-120 overflow-y-auto">
 					<div className="flex flex-col h-full bg-background">
