@@ -38,7 +38,6 @@ import type {
 const client = new S3Client({
 	endpoint: "https://rdicyprpgreghjslbdts.storage.supabase.co/storage/v1/s3",
 });
-
 const hazardMapGenerator = new HazardMapGenerator();
 const reinfoClient = new ReinfoClient({
 	apiKey: process.env.REINFO_API_KEY || "",
