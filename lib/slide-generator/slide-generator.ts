@@ -15,6 +15,7 @@ import ky from "ky";
 import * as math from "mathjs";
 import z from "zod";
 import { HazardMapGenerator, hazardMapOptionsSchema } from "@/lib/hazard-map";
+import { type AppraisalReportParams, ReinfoClient } from "@/lib/reinfo";
 import { AsyncQueue } from "./async-queue";
 import {
 	type DesignSystem,
@@ -39,6 +40,9 @@ const client = new S3Client({
 });
 
 const hazardMapGenerator = new HazardMapGenerator();
+const reinfoClient = new ReinfoClient({
+	apiKey: process.env.REINFO_API_KEY || "",
+});
 
 // const placesClient = new PlacesClient({
 // 	apiKey: process.env.GOOGLE_MAPS_API_KEY,
@@ -648,6 +652,99 @@ export class SlideGenerator {
 			model: this.model,
 			tools: {
 				google_search: google.tools.googleSearch({}),
+				get_transaction_prices: tool({
+					description:
+						"指定された条件で不動産取引価格情報を取得します。地域の相場を把握し、価格分析スライドを作成するのに便利です。都道府県コード(area)は必須です。",
+					inputSchema: z.object({
+						year: z
+							.number()
+							.min(2005)
+							.max(new Date().getFullYear())
+							.describe("西暦年 (2005年以降)"),
+						quarter: z
+							.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
+							.optional()
+							.describe("四半期 (1:1-3月, 2:4-6月, 3:7-9月, 4:10-12月)"),
+						area: z
+							.string()
+							.length(2)
+							.describe("都道府県コード (例: 13 for 東京都)"),
+						city: z
+							.string()
+							.min(5)
+							.max(5)
+							.optional()
+							.describe("市区町村コード (例: 13101 for 千代田区)"),
+						station: z.string().length(4).optional().describe("最寄駅コード"),
+					}),
+					execute: async (params) => {
+						const res = await reinfoClient.getPriceInfo(params);
+						return {
+							count: res.data.length,
+							samples: res.data.slice(0, 10),
+							note: res.data.length > 10 ? "Showing top 10 results" : undefined,
+						};
+					},
+				}),
+				get_city_codes: tool({
+					description:
+						"都道府県コードから、その都道府県内の市区町村コード一覧を取得します。コードが不明な場合に使用します。",
+					inputSchema: z.object({
+						area: z.string().length(2).describe("都道府県コード (例: 13)"),
+					}),
+					execute: async (params) => {
+						const res = await reinfoClient.getMunicipalities(params);
+						return {
+							count: res.data.length,
+							samples: res.data.slice(0, 20),
+							note:
+								res.data.length > 20
+									? "Showing top 20 results. Refine search if needed."
+									: undefined,
+						};
+					},
+				}),
+				get_appraisal_reports: tool({
+					description:
+						"地価公示・都道府県地価調査情報を取得します。公的な土地価格の動向を調査するのに適しています。",
+					inputSchema: z.object({
+						year: z
+							.number()
+							.min(1970)
+							.max(new Date().getFullYear())
+							.describe("西暦年"),
+						area: z.string().length(2).describe("都道府県コード"),
+						division: z
+							.enum([
+								"00",
+								"01",
+								"02",
+								"03",
+								"04",
+								"05",
+								"06",
+								"07",
+								"08",
+								"09",
+								"10",
+								"13",
+							])
+							.optional()
+							.default("00")
+							.describe(
+								"用途区分 (00:全用途, 01:住宅地, 02:宅地見込地, 03:商業地, 04:準工業地, 05:工業地, etc.)",
+							),
+					}),
+					execute: async (params) => {
+						const query: AppraisalReportParams = params;
+						const res = await reinfoClient.getAppraisalReports(query);
+						return {
+							count: res.data.length,
+							samples: res.data.slice(0, 10),
+							note: res.data.length > 10 ? "Showing top 10 results" : undefined,
+						};
+					},
+				}),
 			},
 			stopWhen: stepCountIs(6),
 			system: `あなたは不動産リサーチャーです。
