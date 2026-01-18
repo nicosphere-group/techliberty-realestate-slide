@@ -1,5 +1,5 @@
 import z from "zod";
-import { primaryInputSchema } from "@/lib/slide-generator";
+import { primaryInputSchema } from "@/lib/slide-generator/schemas";
 
 export const formSchema = primaryInputSchema.extend({
 	// 開発用オプション

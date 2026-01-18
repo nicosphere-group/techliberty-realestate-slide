@@ -1,10 +1,6 @@
-import {
-	createCanvas,
-	type Image,
-	loadImage,
-	type SKRSContext2D,
-} from "@napi-rs/canvas";
+import { Readable, Writable } from "node:stream";
 import ky from "ky";
+import * as PImage from "pureimage";
 import { z } from "zod";
 import { CSISGeocoder } from "@/lib/geocode";
 
@@ -117,7 +113,7 @@ export class HazardMapGenerator {
 		const maxY = Math.floor((topLeftPixel.y + scaledHeight) / 256);
 
 		// 4. キャンバス作成
-		const canvas = createCanvas(scaledWidth, scaledHeight);
+		const canvas = PImage.make(scaledWidth, scaledHeight);
 		const ctx = canvas.getContext("2d");
 
 		// 背景を白で塗りつぶし
@@ -167,10 +163,47 @@ export class HazardMapGenerator {
 		this.drawMarker(ctx, scaledWidth / 2, scaledHeight / 2);
 
 		// 7. 出力
-		const buffer =
-			opts.format === "jpg"
-				? canvas.toBuffer("image/jpeg")
-				: canvas.toBuffer("image/png");
+		// const buffer =
+		// 	opts.format === "jpg"
+		// 		? canvas.toBuffer("image/jpeg")
+		// 		: canvas.toBuffer("image/png");
+		let buffer: Buffer;
+		switch (opts.format) {
+			case "jpg": {
+				const chunks: Buffer[] = [];
+				const stream = new Writable({
+					write(chunk, _encoding, done) {
+						chunks.push(chunk);
+						done();
+					},
+				});
+				const promise = new Promise<void>((resolve) => {
+					stream.on("finish", () => resolve());
+				});
+				await PImage.encodeJPEGToStream(canvas, stream);
+				await promise;
+				buffer = Buffer.concat(chunks);
+				break;
+			}
+			case "png": {
+				const chunks: Buffer[] = [];
+				const stream = new Writable({
+					write(chunk, _encoding, done) {
+						chunks.push(chunk);
+						done();
+					},
+				});
+				const promise = new Promise<void>((resolve) => {
+					stream.on("finish", () => resolve());
+				});
+				await PImage.encodePNGToStream(canvas, stream);
+				await promise;
+				buffer = Buffer.concat(chunks);
+				break;
+			}
+			default:
+				throw new Error(`Unsupported format: ${opts.format}`);
+		}
 
 		return buffer;
 	}
@@ -236,7 +269,7 @@ export class HazardMapGenerator {
 		}
 	}
 
-	private async fetchImage(url: string): Promise<Image | null> {
+	private async fetchImage(url: string): Promise<PImage.Bitmap | null> {
 		const arrayBuffer = await ky(url)
 			.arrayBuffer()
 			.catch(() => null);
@@ -245,10 +278,14 @@ export class HazardMapGenerator {
 			return null;
 		}
 
-		return await loadImage(Buffer.from(arrayBuffer));
+		const stream = new Readable();
+		stream.push(Buffer.from(arrayBuffer));
+		stream.push(null);
+
+		return await PImage.decodePNGFromStream(stream);
 	}
 
-	private drawMarker(ctx: SKRSContext2D, x: number, y: number) {
+	private drawMarker(ctx: PImage.Context, x: number, y: number) {
 		ctx.fillStyle = "red";
 		ctx.beginPath();
 		ctx.arc(x, y, (6 * ctx.canvas.width) / 640, 0, Math.PI * 2); // 画面サイズに応じて少し調整

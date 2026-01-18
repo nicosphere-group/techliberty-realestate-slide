@@ -74,8 +74,12 @@ async function main() {
 		}
 
 		const location = geoResponse.places[0].location;
-		centerLat = location.latitude!;
-		centerLng = location.longitude!;
+		if (!location.latitude || !location.longitude) {
+			console.error("住所の緯度経度情報が不完全です。");
+			return;
+		}
+		centerLat = location.latitude;
+		centerLng = location.longitude;
 		console.log(
 			`Location found: ${geoResponse.places[0].formattedAddress} (${centerLat}, ${centerLng})`,
 		);
@@ -125,11 +129,7 @@ async function main() {
 				const address = place.formattedAddress || "住所不明";
 
 				let distanceInfo = "";
-				if (
-					place.location &&
-					place.location.latitude &&
-					place.location.longitude
-				) {
+				if (place.location?.latitude && place.location?.longitude) {
 					// 直線距離を計算
 					const distMeters = calculateDistance(
 						centerLat,

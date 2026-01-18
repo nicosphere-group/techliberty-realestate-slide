@@ -21,7 +21,7 @@ import {
 	DropzoneContent,
 	DropzoneEmptyState,
 } from "@/components/dropzone";
-import { SlidePreview } from "@/components/slide-preview";
+import { ScaledFrame, SlidePreview } from "@/components/slide-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,6 +44,7 @@ import type {
 	SlideEvent,
 	UsageInfo,
 } from "@/lib/slide-generator";
+import { cn } from "@/lib/utils";
 import { run } from "./actions";
 import { formSchema } from "./schemas";
 
@@ -873,67 +874,127 @@ export default function ClientPage() {
 								open={isExportDialogOpen}
 								onOpenChange={setIsExportDialogOpen}
 							>
-								<DialogContent className="sm:max-w-lg">
+								<DialogContent className="sm:max-w-5xl h-[80vh] flex flex-col">
 									<DialogHeader>
 										<DialogTitle>出力スライドの選択</DialogTitle>
 										<DialogDescription>
 											出力したいスライドを選択してください。
 										</DialogDescription>
 									</DialogHeader>
-									<ScrollArea className="h-75 w-full rounded-md border p-4">
-										<div className="space-y-4">
-											{orderedSlides.map((slide) => (
-												<div
-													key={slide.index}
-													className="flex items-center space-x-2"
-												>
-													<Checkbox
-														id={`slide-${slide.index}`}
-														checked={selectedSlideIndices.includes(slide.index)}
-														onCheckedChange={(checked) => {
-															if (checked) {
-																setSelectedSlideIndices((prev) => [
-																	...prev,
-																	slide.index,
-																]);
-															} else {
+									<div className="flex-1 min-h-0 py-2">
+										<ScrollArea className="h-full w-full rounded-md border bg-muted/20">
+											<div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+												{orderedSlides.map((slide) => {
+													const isSelected = selectedSlideIndices.includes(
+														slide.index,
+													);
+													// Only show completed slides
+													if (slide.type !== "slide:end") return null;
+
+													return (
+														<button
+															key={slide.index}
+															type="button"
+															className={cn(
+																"group relative w-full cursor-pointer rounded-lg border-2 overflow-hidden transition-all duration-200 bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+																isSelected
+																	? "border-primary ring-2 ring-primary/20"
+																	: "border-transparent ring-1 ring-border hover:ring-primary/50",
+															)}
+															onClick={() => {
 																setSelectedSlideIndices((prev) =>
-																	prev.filter((i) => i !== slide.index),
+																	isSelected
+																		? prev.filter((i) => i !== slide.index)
+																		: [...prev, slide.index],
 																);
-															}
-														}}
-													/>
-													<label
-														htmlFor={`slide-${slide.index}`}
-														className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 truncate"
-													>
-														<span className="font-bold">{slide.index}.</span>
-														{slide.title}
-													</label>
-												</div>
-											))}
+															}}
+														>
+															<div className="pointer-events-none aspect-video w-full">
+																<ScaledFrame html={slide.data.slide.html} />
+															</div>
+
+															{/* Index Badge */}
+															<div className="absolute top-2 left-2 z-10">
+																<div
+																	className={cn(
+																		"h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md ring-1 ring-white/20",
+																		isSelected
+																			? "bg-primary text-primary-foreground"
+																			: "bg-black/60 text-white backdrop-blur-sm",
+																	)}
+																>
+																	{slide.index}
+																</div>
+															</div>
+
+															{/* Checkbox */}
+															<div className="absolute top-2 right-2 z-10">
+																<div
+																	className={cn(
+																		"rounded-sm bg-background/90 shadow-sm transition-all",
+																		isSelected
+																			? "opacity-100"
+																			: "opacity-70 group-hover:opacity-100",
+																	)}
+																>
+																	<Checkbox
+																		id={`slide-${slide.index}`}
+																		checked={isSelected}
+																		className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+																		// Let parent handle click
+																		onCheckedChange={() => {}}
+																	/>
+																</div>
+															</div>
+
+															{/* Title Overlay */}
+															<div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/50 to-transparent p-2 pt-6 opacity-0 transition-opacity group-hover:opacity-100 flex flex-col justify-end">
+																<p className="text-[10px] font-medium text-white line-clamp-2 leading-tight">
+																	{slide.title}
+																</p>
+															</div>
+
+															{/* Selected Overlay */}
+															{isSelected && (
+																<div className="absolute inset-0 bg-primary/10 pointer-events-none" />
+															)}
+														</button>
+													);
+												})}
+											</div>
+										</ScrollArea>
+									</div>
+									<DialogFooter className="flex items-center justify-between sm:justify-between gap-4">
+										<div className="text-sm text-muted-foreground">
+											<span className="font-semibold text-foreground">
+												{selectedSlideIndices.length}
+											</span>{" "}
+											枚選択中
 										</div>
-									</ScrollArea>
-									<DialogFooter>
-										<Button
-											variant="outline"
-											onClick={() => {
-												setIsExportDialogOpen(false);
-											}}
-										>
-											キャンセル
-										</Button>
-										<Button onClick={handleExport}>
-											{(() => {
-												switch (exportTarget) {
-													case "pptx":
-														return "PPTX";
-													case "pdf":
-														return "PDF";
-												}
-											})()}
-											を出力
-										</Button>
+										<div className="flex gap-2">
+											<Button
+												variant="outline"
+												onClick={() => {
+													setIsExportDialogOpen(false);
+												}}
+											>
+												キャンセル
+											</Button>
+											<Button
+												onClick={handleExport}
+												disabled={selectedSlideIndices.length === 0}
+											>
+												{(() => {
+													switch (exportTarget) {
+														case "pptx":
+															return "PPTX";
+														case "pdf":
+															return "PDF";
+													}
+												})()}
+												を出力
+											</Button>
+										</div>
 									</DialogFooter>
 								</DialogContent>
 							</Dialog>

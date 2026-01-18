@@ -21,14 +21,16 @@ interface SlidePreviewProps {
 	className?: string;
 }
 
-function ScaledFrame({
+export function ScaledFrame({
 	iframeRef,
 	html,
 	maxWidth = "100%",
+	className,
 }: {
 	iframeRef?: Ref<HTMLIFrameElement>;
 	html: string;
 	maxWidth?: string;
+	className?: string; // Add className prop
 }) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [scale, setScale] = useState(0.2);
@@ -54,7 +56,7 @@ function ScaledFrame({
 	return (
 		<div
 			ref={containerRef}
-			className="relative w-full overflow-hidden bg-white aspect-video"
+			className={`relative w-full overflow-hidden bg-white aspect-video ${className}`}
 			style={{ maxWidth }}
 		>
 			{loading && (
