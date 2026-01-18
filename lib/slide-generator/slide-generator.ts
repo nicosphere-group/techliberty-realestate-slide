@@ -1,5 +1,7 @@
 import { google } from "@ai-sdk/google";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { PlacesClient } from "@googlemaps/places";
+import { RoutesClient } from "@googlemaps/routing";
 // import { PlacesClient } from "@googlemaps/places";
 import {
 	type AsyncIterableStream,
@@ -40,12 +42,14 @@ const client = new S3Client({
 });
 const hazardMapGenerator = new HazardMapGenerator();
 const reinfoClient = new ReinfoClient({
-	apiKey: process.env.REINFO_API_KEY || "",
+	apiKey: process.env.REINFO_API_KEY ?? "",
 });
-
-// const placesClient = new PlacesClient({
-// 	apiKey: process.env.GOOGLE_MAPS_API_KEY,
-// });
+const placesClient = new PlacesClient({
+	apiKey: process.env.GOOGLE_MAPS_API_KEY,
+});
+const routesClient = new RoutesClient({
+	apiKey: process.env.GOOGLE_MAPS_API_KEY,
+});
 
 // ========================================
 // SlideGenerator Class
@@ -651,6 +655,217 @@ export class SlideGenerator {
 			model: this.model,
 			tools: {
 				google_search: google.tools.googleSearch({}),
+				google_places_text_search: tool({
+					description:
+						"Google Places Text Searchで住所・施設を検索し、候補の基本情報（名称、住所、座標）を取得します。",
+					inputSchema: z.object({
+						query: z.string().min(1).describe("検索クエリ（住所や施設名）"),
+						languageCode: z
+							.string()
+							.optional()
+							.describe("言語コード（例: 'ja'）"),
+						regionCode: z
+							.string()
+							.length(2)
+							.optional()
+							.describe("地域コード（例: 'JP'）"),
+						locationBias: z
+							.object({
+								latitude: z.number(),
+								longitude: z.number(),
+								radiusMeters: z.number().optional().default(5000),
+							})
+							.optional()
+							.describe("検索の中心位置（任意）"),
+					}),
+					execute: async (params) => {
+						const request: {
+							textQuery: string;
+							languageCode?: string;
+							regionCode?: string;
+							locationBias?: {
+								circle: {
+									center: { latitude: number; longitude: number };
+									radius: number;
+								};
+							};
+						} = {
+							textQuery: params.query,
+							languageCode: params.languageCode,
+							regionCode: params.regionCode,
+						};
+
+						if (params.locationBias) {
+							request.locationBias = {
+								circle: {
+									center: {
+										latitude: params.locationBias.latitude,
+										longitude: params.locationBias.longitude,
+									},
+									radius: params.locationBias.radiusMeters ?? 5000,
+								},
+							};
+						}
+
+						const [response] = await placesClient.searchText(request, {
+							otherArgs: {
+								headers: {
+									"X-Goog-FieldMask":
+										"places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.primaryType",
+								},
+							},
+						});
+
+						const places = response.places ?? [];
+						return {
+							count: places.length,
+							places: places.map((place) => ({
+								id: place.id,
+								name: place.displayName?.text ?? "",
+								address: place.formattedAddress ?? "",
+								location: place.location
+									? {
+											latitude: place.location.latitude,
+											longitude: place.location.longitude,
+										}
+									: undefined,
+								rating: place.rating,
+								primaryType: place.primaryType,
+							})),
+						};
+					},
+				}),
+				google_places_nearby_search: tool({
+					description:
+						"Google Places Nearby Searchで周辺施設を検索し、名称・住所・座標などを取得します。",
+					inputSchema: z.object({
+						includedTypes: z
+							.array(z.string())
+							.min(1)
+							.describe("Place Types配列（例: ['supermarket']）"),
+						location: z.object({
+							latitude: z.number(),
+							longitude: z.number(),
+						}),
+						radiusMeters: z.number().min(1).max(50000).default(1000),
+						maxResultCount: z.number().int().min(1).max(20).default(5),
+						languageCode: z
+							.string()
+							.optional()
+							.describe("言語コード（例: 'ja'）"),
+					}),
+					execute: async (params) => {
+						const request = {
+							includedTypes: params.includedTypes,
+							maxResultCount: params.maxResultCount,
+							locationRestriction: {
+								circle: {
+									center: {
+										latitude: params.location.latitude,
+										longitude: params.location.longitude,
+									},
+									radius: params.radiusMeters,
+								},
+							},
+							languageCode: params.languageCode,
+						};
+
+						const [response] = await placesClient.searchNearby(request, {
+							otherArgs: {
+								headers: {
+									"X-Goog-FieldMask":
+										"places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.primaryType",
+								},
+							},
+						});
+
+						const places = response.places ?? [];
+						return {
+							count: places.length,
+							places: places.map((place) => ({
+								id: place.id,
+								name: place.displayName?.text ?? "",
+								address: place.formattedAddress ?? "",
+								location: place.location
+									? {
+											latitude: place.location.latitude,
+											longitude: place.location.longitude,
+										}
+									: undefined,
+								rating: place.rating,
+								primaryType: place.primaryType,
+							})),
+						};
+					},
+				}),
+				google_routes_compute: tool({
+					description:
+						"Google Routes APIで移動時間・距離を計算します（例: 主要駅までの所要時間）。",
+					inputSchema: z.object({
+						origin: z.object({ latitude: z.number(), longitude: z.number() }),
+						destination: z.object({
+							latitude: z.number(),
+							longitude: z.number(),
+						}),
+						travelMode: z
+							.enum(["DRIVE", "WALK", "BICYCLE", "TRANSIT"])
+							.default("DRIVE"),
+						routingPreference: z
+							.enum([
+								"TRAFFIC_AWARE",
+								"TRAFFIC_AWARE_OPTIMAL",
+								"TRAFFIC_UNAWARE",
+							])
+							.default("TRAFFIC_AWARE"),
+						languageCode: z
+							.string()
+							.optional()
+							.describe("言語コード（例: 'ja-JP'）"),
+						units: z.enum(["METRIC", "IMPERIAL"]).default("METRIC"),
+					}),
+					execute: async (params) => {
+						const request = {
+							origin: {
+								location: {
+									latLng: {
+										latitude: params.origin.latitude,
+										longitude: params.origin.longitude,
+									},
+								},
+							},
+							destination: {
+								location: {
+									latLng: {
+										latitude: params.destination.latitude,
+										longitude: params.destination.longitude,
+									},
+								},
+							},
+							travelMode: params.travelMode,
+							routingPreference: params.routingPreference,
+							computeAlternativeRoutes: false,
+							languageCode: params.languageCode,
+							units: params.units,
+						};
+
+						const [response] = await routesClient.computeRoutes(request, {
+							otherArgs: {
+								headers: {
+									"X-Goog-FieldMask": "routes.duration,routes.distanceMeters",
+								},
+							},
+						});
+
+						const routes = response.routes ?? [];
+						return {
+							count: routes.length,
+							routes: routes.map((route) => ({
+								distanceMeters: route.distanceMeters ?? 0,
+								durationSeconds: route.duration?.seconds ?? 0,
+							})),
+						};
+					},
+				}),
 				get_transaction_prices: tool({
 					description:
 						"指定された条件で不動産取引価格情報を取得します。地域の相場を把握し、価格分析スライドを作成するのに便利です。都道府県コード(area)は必須です。",
