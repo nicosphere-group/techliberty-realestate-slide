@@ -21,6 +21,7 @@ import {
 	DropzoneContent,
 	DropzoneEmptyState,
 } from "@/components/dropzone";
+import { ModeToggle } from "@/components/mode-toggle";
 import { ScaledFrame, SlidePreview } from "@/components/slide-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -303,6 +304,7 @@ export default function ClientPage() {
 					</div>
 				</div>
 				<div className="flex items-center gap-2">
+					<ModeToggle />
 					{/* Future actions: User profile, settings, etc */}
 				</div>
 			</header>
