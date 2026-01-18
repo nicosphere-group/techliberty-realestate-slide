@@ -38,12 +38,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import type {
-	Event,
-	PlanEvent,
-	SlideEvent,
-	UsageInfo,
-} from "@/lib/slide-generator";
+import type { PlanEvent, SlideEvent, UsageInfo } from "@/lib/slide-generator";
 import { cn } from "@/lib/utils";
 import { run } from "./actions";
 import { formSchema } from "./schemas";
@@ -59,7 +54,6 @@ const PRICING = {
 } as const;
 
 export default function ClientPage() {
-	const [events, setEvents] = useState<Event[]>([]);
 	const [plan, setPlan] = useState<PlanState>();
 	const [slidesByPage, setSlidesByPage] = useState<Record<number, SlideState>>(
 		{},
@@ -106,7 +100,6 @@ export default function ClientPage() {
 			onSubmit: formSchema,
 		},
 		onSubmit: async ({ value }) => {
-			setEvents([]);
 			setPlan(undefined);
 			setSlidesByPage({});
 			setTotalUsage({ promptTokens: 0, completionTokens: 0, totalTokens: 0 });
@@ -118,8 +111,6 @@ export default function ClientPage() {
 				const stream = await run(value);
 				for await (const event of readStreamableValue(stream)) {
 					if (!event) continue;
-
-					setEvents((prev) => [...prev, event]);
 
 					switch (event.type) {
 						case "plan:start":
@@ -170,13 +161,41 @@ export default function ClientPage() {
 		},
 	});
 
-	const executeExportPptx = async (indices: number[]) => {
-		const targetIndices = indices.filter((index) =>
-			slideIframeRefs.current.has(index),
-		);
-		targetIndices.sort((a, b) => a - b);
+	// Memoize cost calculation to avoid recalculation on every render
+	const costInfo = useMemo(() => {
+		const modelType =
+			(form.state.values.modelType as keyof typeof PRICING) ?? "middle";
+		const pricing = PRICING[modelType];
+		const inputCost = (totalUsage.promptTokens / 1_000_000) * pricing.input;
+		const outputCost =
+			(totalUsage.completionTokens / 1_000_000) * pricing.output;
+		const totalCost = inputCost + outputCost;
+		return { inputCost, outputCost, totalCost, pricing };
+	}, [
+		totalUsage.promptTokens,
+		totalUsage.completionTokens,
+		form.state.values.modelType,
+	]);
 
-		if (targetIndices.length === 0) {
+	// Extract slide containers helper to avoid duplication
+	const getSlideContainers = (indices: number[]) => {
+		const slideContainers: HTMLElement[] = [];
+		for (const index of indices) {
+			const iframe = slideIframeRefs.current.get(index);
+			if (!iframe?.contentDocument) continue;
+			const slideContainer =
+				iframe.contentDocument.getElementById("slide-container");
+			if (slideContainer) slideContainers.push(slideContainer);
+		}
+		return slideContainers;
+	};
+
+	const executeExportPptx = async (indices: number[]) => {
+		const validIndices = indices
+			.filter((index) => slideIframeRefs.current.has(index))
+			.sort((a, b) => a - b);
+
+		if (validIndices.length === 0) {
 			toast.error("エクスポートするスライドがありません。");
 			return;
 		}
@@ -184,19 +203,7 @@ export default function ClientPage() {
 		const toastId = toast.loading("PPTXを生成中...");
 
 		try {
-			const slideContainers = [];
-
-			for (const index of targetIndices) {
-				const iframe = slideIframeRefs.current.get(index);
-
-				if (!iframe?.contentDocument) continue;
-				const slideContainer =
-					iframe.contentDocument.getElementById("slide-container");
-				if (!slideContainer) continue;
-
-				slideContainers.push(slideContainer);
-			}
-
+			const slideContainers = getSlideContainers(validIndices);
 			await exportToPptx(slideContainers);
 			toast.success("PPTXのエクスポートが完了しました");
 		} catch (e) {
@@ -208,12 +215,11 @@ export default function ClientPage() {
 	};
 
 	const executeExportPdf = async (indices: number[]) => {
-		const targetIndices = indices.filter((index) =>
-			slideIframeRefs.current.has(index),
-		);
-		targetIndices.sort((a, b) => a - b);
+		const validIndices = indices
+			.filter((index) => slideIframeRefs.current.has(index))
+			.sort((a, b) => a - b);
 
-		if (targetIndices.length === 0) {
+		if (validIndices.length === 0) {
 			toast.error("エクスポートするスライドがありません。");
 			return;
 		}
@@ -227,14 +233,10 @@ export default function ClientPage() {
 				format: [1920, 1080],
 			});
 
-			for (let i = 0; i < targetIndices.length; i++) {
-				const index = targetIndices[i];
-				const iframe = slideIframeRefs.current.get(index);
+			const slideContainers = getSlideContainers(validIndices);
 
-				if (!iframe?.contentDocument) continue;
-				const slideContainer =
-					iframe.contentDocument.getElementById("slide-container");
-				if (!slideContainer) continue;
+			for (let i = 0; i < slideContainers.length; i++) {
+				const slideContainer = slideContainers[i];
 
 				const canvas = await html2canvas(slideContainer, {
 					scale: 2,
@@ -718,110 +720,81 @@ export default function ClientPage() {
 									/>
 									<form.Field
 										name="modelType"
-										children={(field) => {
-											const modelType = field.state.value ?? "middle";
-											const pricing = PRICING[modelType];
-											const inputCost =
-												(totalUsage.promptTokens / 1_000_000) * pricing.input;
-											const outputCost =
-												(totalUsage.completionTokens / 1_000_000) *
-												pricing.output;
-											const totalCost = inputCost + outputCost;
-
-											return (
-												<>
-													<div className="flex items-center justify-between">
-														<span className="text-xs text-muted-foreground">
-															モデル
-														</span>
-														<ToggleGroup
-															type="single"
-															value={field.state.value}
-															onValueChange={(value) => {
-																if (value)
-																	field.handleChange(
-																		z
-																			.enum(["low", "middle", "high"])
-																			.parse(value),
-																	);
-															}}
-															variant="outline"
-															size="sm"
+										children={(field) => (
+											<>
+												<div className="flex items-center justify-between">
+													<span className="text-xs text-muted-foreground">
+														モデル
+													</span>
+													<ToggleGroup
+														type="single"
+														value={field.state.value}
+														onValueChange={(value) => {
+															if (value)
+																field.handleChange(
+																	z
+																		.enum(["low", "middle", "high"])
+																		.parse(value),
+																);
+														}}
+														variant="outline"
+														size="sm"
+													>
+														<ToggleGroupItem
+															value="low"
+															className="text-xs px-3"
 														>
-															<ToggleGroupItem
-																value="low"
-																className="text-xs px-3"
-															>
-																2.5 Flash-Lite
-															</ToggleGroupItem>
-															<ToggleGroupItem
-																value="middle"
-																className="text-xs px-3"
-															>
-																3.0 Flash
-															</ToggleGroupItem>
-															<ToggleGroupItem
-																value="high"
-																className="text-xs px-3"
-															>
-																3.0 Pro
-															</ToggleGroupItem>
-														</ToggleGroup>
-													</div>
-													<div className="flex items-center justify-between">
-														<span className="text-xs text-muted-foreground">
-															トークン
-														</span>
-														<span className="text-xs font-mono">
-															入力 {totalUsage.promptTokens.toLocaleString()} /
-															出力{" "}
-															{totalUsage.completionTokens.toLocaleString()}
-														</span>
-													</div>
-													<div className="flex items-center justify-between">
-														<span className="text-xs text-muted-foreground">
-															推定コスト
-														</span>
-														<span className="text-xs font-mono font-semibold text-primary">
-															${totalCost.toFixed(4)} (¥
-															{Math.round(totalCost * 150).toLocaleString()})
-														</span>
-													</div>
-													<div className="flex items-center justify-between">
-														<span className="text-xs text-muted-foreground">
-															生成時間
-														</span>
-														<span className="text-xs font-mono">
-															{generationDurationMs > 0
-																? `${(generationDurationMs / 1000).toFixed(1)}秒`
-																: "-"}
-														</span>
-													</div>
-												</>
-											);
-										}}
+															2.5 Flash-Lite
+														</ToggleGroupItem>
+														<ToggleGroupItem
+															value="middle"
+															className="text-xs px-3"
+														>
+															3.0 Flash
+														</ToggleGroupItem>
+														<ToggleGroupItem
+															value="high"
+															className="text-xs px-3"
+														>
+															3.0 Pro
+														</ToggleGroupItem>
+													</ToggleGroup>
+												</div>
+												<div className="flex items-center justify-between">
+													<span className="text-xs text-muted-foreground">
+														トークン
+													</span>
+													<span className="text-xs font-mono">
+														入力 {totalUsage.promptTokens.toLocaleString()} /
+														出力 {totalUsage.completionTokens.toLocaleString()}
+													</span>
+												</div>
+												<div className="flex items-center justify-between">
+													<span className="text-xs text-muted-foreground">
+														推定コスト
+													</span>
+													<span className="text-xs font-mono font-semibold text-primary">
+														${costInfo.totalCost.toFixed(4)} (¥
+														{Math.round(
+															costInfo.totalCost * 150,
+														).toLocaleString()}
+														)
+													</span>
+												</div>
+												<div className="flex items-center justify-between">
+													<span className="text-xs text-muted-foreground">
+														生成時間
+													</span>
+													<span className="text-xs font-mono">
+														{generationDurationMs > 0
+															? `${(generationDurationMs / 1000).toFixed(1)}秒`
+															: "-"}
+													</span>
+												</div>
+											</>
+										)}
 									/>
 								</div>
-								<div className="px-6 py-3 border-b flex items-center justify-between">
-									<h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-										開発ログ
-									</h3>
-								</div>
-								<ScrollArea className="h-50">
-									<div className="p-4 space-y-3 font-mono text-xs">
-										{events.map((e, i) => (
-											<div key={i} className="flex gap-2 text-muted-foreground">
-												<span className="opacity-50 min-w-5">{i + 1}.</span>
-												<div className="break-all">{JSON.stringify(e)}</div>
-											</div>
-										))}
-										{events.length === 0 && (
-											<div className="text-center py-8 text-muted-foreground/50">
-												No events yet
-											</div>
-										)}
-									</div>
-								</ScrollArea>
 							</div>
 						)}
 					</div>
@@ -895,6 +868,7 @@ export default function ClientPage() {
 														<button
 															key={slide.index}
 															type="button"
+															tabIndex={0}
 															className={cn(
 																"group relative w-full cursor-pointer rounded-lg border-2 overflow-hidden transition-all duration-200 bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
 																isSelected
@@ -902,11 +876,14 @@ export default function ClientPage() {
 																	: "border-transparent ring-1 ring-border hover:ring-primary/50",
 															)}
 															onClick={() => {
-																setSelectedSlideIndices((prev) =>
-																	isSelected
-																		? prev.filter((i) => i !== slide.index)
-																		: [...prev, slide.index],
-																);
+																const slideIndex = slide.index;
+																setSelectedSlideIndices((prev) => {
+																	const currentlySelected =
+																		prev.includes(slideIndex);
+																	return currentlySelected
+																		? prev.filter((i) => i !== slideIndex)
+																		: [...prev, slideIndex];
+																});
 															}}
 														>
 															<div className="pointer-events-none aspect-video w-full">
