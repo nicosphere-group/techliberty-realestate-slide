@@ -825,10 +825,10 @@ export default function ClientPage() {
 											onClick={() => openExportDialog("pptx")}
 											disabled={form.state.isSubmitting}
 											size="default"
-											className="shadow-md hover:shadow-lg transition-shadow"
+											className="shadow-md hover:shadow-lg transition-shadow hidden"
 										>
 											<Download className="h-4 w-4" />
-											PPTX
+											PPTXで出力
 										</Button>
 										<Button
 											onClick={() => openExportDialog("pdf")}
@@ -837,7 +837,7 @@ export default function ClientPage() {
 											className="shadow-md hover:shadow-lg transition-shadow"
 										>
 											<Download className="h-4 w-4" />
-											PDF
+											PDFで出力
 										</Button>
 									</div>
 								)}
