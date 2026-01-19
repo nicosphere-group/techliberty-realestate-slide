@@ -65,7 +65,7 @@ export interface SlideGeneratorOptions {
 // デフォルトのオプション
 const defaultOptions = {
 	modelType: "middle",
-	parallel: false,
+	parallel: true,
 } satisfies SlideGeneratorOptions;
 
 export class SlideGenerator {
