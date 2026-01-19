@@ -3,28 +3,29 @@ import ky from "ky";
 import * as PImage from "pureimage";
 import { z } from "zod";
 import { CSISGeocoder } from "@/lib/geocode";
+import { ReinfoClient } from "@/lib/reinfo/client";
 
-// バリデーション用スキーマ（ユーザー要望に基づく）
-export const hazardMapOptionsSchema = z.object({
+// バリデーション用スキーマ
+export const shelterMapOptionsSchema = z.object({
 	center: z
 		.string()
 		.describe(
-			"地図の中心座標。カンマ区切りの緯度経度ペア（例: '40.714728,-73.998672'）または住所文字列（例: 'city hall, new york, ny'）。マーカーが存在しない場合は必須。",
+			"地図の中心座標。カンマ区切りの緯度経度ペア（例: '35.6812,139.7671'）または住所文字列（例: '東京都千代田区千代田１−１'）。",
 		),
 	zoom: z
 		.number()
 		.int()
-		.min(0)
-		.max(21)
+		.min(11)
+		.max(15)
 		.optional()
 		.describe(
-			"地図のズームレベル（0-21）。指定がない場合は半径5km程度が表示されるように自動調整されます。",
+			"地図のズームレベル（11-15）。避難所APIはこの範囲のみ対応。デフォルトは14。",
 		),
 	size: z
 		.string()
 		.regex(/^\d+x\d+$/)
-		.default("640x640")
-		.describe("地図画像のサイズ。'{幅}x{高さ}'形式（例: '500x400'）。必須。"),
+		.default("800x600")
+		.describe("地図画像のサイズ。'{幅}x{高さ}'形式（例: '800x600'）。"),
 	scale: z
 		.number()
 		.int()
@@ -34,10 +35,15 @@ export const hazardMapOptionsSchema = z.object({
 		.default(1)
 		.describe("返されるピクセル数の倍率。1または2を指定可能。デフォルトは1。"),
 	format: z
-		.enum(["png", "jpg"]) // canvasでのサポートに合わせて簡易化
+		.enum(["png", "jpg"])
 		.optional()
 		.default("png")
 		.describe("生成される画像の形式。デフォルトはpng。"),
+	showHazardMap: z
+		.boolean()
+		.optional()
+		.default(false)
+		.describe("ハザードマップも表示するか。デフォルトはfalse。"),
 	hazardTypes: z
 		.array(
 			z.enum([
@@ -50,20 +56,35 @@ export const hazardMapOptionsSchema = z.object({
 			]),
 		)
 		.optional()
-		.default(["flood_l2", "dosekiryu", "kyukeisha", "jisuberi"])
-		.describe("表示するハザードマップの種類"),
-	opacity: z
+		.default(["flood_l2"])
+		.describe("表示するハザードマップの種類（showHazardMapがtrueの場合）"),
+	hazardOpacity: z
 		.number()
 		.min(0)
 		.max(1)
-		.default(0.7)
+		.default(0.5)
 		.describe("ハザードマップの不透明度"),
 });
 
-export type HazardMapOptions = z.input<typeof hazardMapOptionsSchema>;
+export type ShelterMapOptions = z.input<typeof shelterMapOptionsSchema>;
 
-export class HazardMapGenerator {
+interface ShelterFeature {
+	type: "Feature";
+	geometry: {
+		type: "Point";
+		coordinates: [number, number]; // [lon, lat]
+	};
+	properties: Record<string, unknown>;
+}
+
+interface ShelterGeoJson {
+	type: "FeatureCollection";
+	features: ShelterFeature[];
+}
+
+export class ShelterMapGenerator {
 	private geocoder: CSISGeocoder;
+	private reinfoClient: ReinfoClient;
 
 	// 各種タイルURLのベース
 	private static readonly BASE_URLS = {
@@ -72,15 +93,17 @@ export class HazardMapGenerator {
 		hazard: "https://disaportaldata.gsi.go.jp/raster",
 	};
 
-	constructor() {
+	constructor(reinfoApiKey?: string) {
 		this.geocoder = new CSISGeocoder();
+		const apiKey = reinfoApiKey ?? process.env.REINFO_API_KEY ?? "";
+		this.reinfoClient = new ReinfoClient({ apiKey });
 	}
 
 	/**
-	 * ハザードマップ画像を生成する
+	 * 避難所マップ画像を生成する
 	 */
-	async generate(options: HazardMapOptions): Promise<Buffer> {
-		const opts = hazardMapOptionsSchema.parse(options);
+	async generate(options: ShelterMapOptions): Promise<Buffer> {
+		const opts = shelterMapOptionsSchema.parse(options);
 
 		// 1. 中心座標の解決
 		const centerCoords = await this.resolveCenter(opts.center);
@@ -90,9 +113,7 @@ export class HazardMapGenerator {
 		const scaledWidth = width * opts.scale;
 		const scaledHeight = height * opts.scale;
 
-		// ズームレベルが未指定の場合、半径2.5km程度が入るように調整 (Zoom 14)
-		// Zoom 14: 1px ≒ 9.75m (赤道付近)
-		// 日本付近(北緯35度)だと 1px ≒ 9.75 * cos(35deg) ≒ 8m -> 640px ≒ 5km (半径2.5km)
+		// ズームレベル（11-15の範囲、デフォルト14）
 		const zoom = opts.zoom ?? 14;
 
 		// 3. 必要なタイルの範囲を計算
@@ -128,45 +149,67 @@ export class HazardMapGenerator {
 			}
 		}
 
+		// 避難所データを収集
+		const allShelters: ShelterFeature[] = [];
+
 		await Promise.all(
 			tilesToLoad.map(async (tile) => {
 				const destX = tile.x * 256 - topLeftPixel.x;
 				const destY = tile.y * 256 - topLeftPixel.y;
 
 				try {
-					// ベース地図 (薄地図を使うとハザードが見やすい)
-					const baseTileUrl = `${HazardMapGenerator.BASE_URLS.std}/${tile.z}/${tile.x}/${tile.y}.png`;
+					// ベース地図
+					const baseTileUrl = `${ShelterMapGenerator.BASE_URLS.std}/${tile.z}/${tile.x}/${tile.y}.png`;
 					const baseImg = await this.fetchImage(baseTileUrl);
 					if (baseImg) {
 						ctx.drawImage(baseImg, destX, destY, 256, 256);
 					}
 
-					// ハザードマップ重ね合わせ
-					ctx.globalAlpha = opts.opacity;
-					for (const type of opts.hazardTypes) {
-						const url = this.getHazardTileUrl(type, tile.x, tile.y, tile.z);
-						const hazardImg = await this.fetchImage(url);
-						if (hazardImg) {
-							ctx.drawImage(hazardImg, destX, destY, 256, 256);
+					// ハザードマップ重ね合わせ（オプション）
+					if (opts.showHazardMap) {
+						ctx.globalAlpha = opts.hazardOpacity;
+						for (const type of opts.hazardTypes) {
+							const url = this.getHazardTileUrl(type, tile.x, tile.y, tile.z);
+							const hazardImg = await this.fetchImage(url);
+							if (hazardImg) {
+								ctx.drawImage(hazardImg, destX, destY, 256, 256);
+							}
 						}
+						ctx.globalAlpha = 1.0;
 					}
-					ctx.globalAlpha = 1.0;
+
+					// 避難所データを取得
+					const shelterData = await this.fetchShelterData(
+						tile.x,
+						tile.y,
+						tile.z,
+					);
+					if (shelterData?.features) {
+						allShelters.push(...shelterData.features);
+					}
 				} catch (e) {
-					// タイル読み込みエラーは無視して続行（一部欠けるだけ）
 					console.warn(`Failed to load tile ${tile.x}/${tile.y}/${tile.z}`, e);
 				}
 			}),
 		);
 
-		// 6. 中心点のマーカー描画（オプション）
-		// 不要なら削除可能だが、地点確認のためにあると便利
-		this.drawMarker(ctx, scaledWidth / 2, scaledHeight / 2);
+		// 6. 避難所マーカーを描画
+		for (const shelter of allShelters) {
+			const [lon, lat] = shelter.geometry.coordinates;
+			const pixel = this.latLonToPixel(lat, lon, zoom);
+			const x = pixel.x - topLeftPixel.x;
+			const y = pixel.y - topLeftPixel.y;
 
-		// 7. 出力
-		// const buffer =
-		// 	opts.format === "jpg"
-		// 		? canvas.toBuffer("image/jpeg")
-		// 		: canvas.toBuffer("image/png");
+			// 画像内に収まるかチェック
+			if (x >= 0 && x <= scaledWidth && y >= 0 && y <= scaledHeight) {
+				this.drawShelterMarker(ctx, x, y, shelter.properties);
+			}
+		}
+
+		// 7. 中心点のマーカー描画
+		this.drawCenterMarker(ctx, scaledWidth / 2, scaledHeight / 2);
+
+		// 8. 出力
 		let buffer: Buffer;
 		switch (opts.format) {
 			case "jpg": {
@@ -206,6 +249,55 @@ export class HazardMapGenerator {
 		}
 
 		return buffer;
+	}
+
+	/**
+	 * 避難所データのみを取得する（地図画像なし）
+	 */
+	async getShelters(
+		center: string,
+		zoom = 14,
+	): Promise<ShelterFeature[]> {
+		const centerCoords = await this.resolveCenter(center);
+		const centerPixel = this.latLonToPixel(
+			centerCoords.lat,
+			centerCoords.lon,
+			zoom,
+		);
+
+		// 中心タイル + 周囲8タイルを取得
+		const centerTileX = Math.floor(centerPixel.x / 256);
+		const centerTileY = Math.floor(centerPixel.y / 256);
+
+		const tiles: { x: number; y: number; z: number }[] = [];
+		for (let dx = -1; dx <= 1; dx++) {
+			for (let dy = -1; dy <= 1; dy++) {
+				tiles.push({ x: centerTileX + dx, y: centerTileY + dy, z: zoom });
+			}
+		}
+
+		const allShelters: ShelterFeature[] = [];
+		await Promise.all(
+			tiles.map(async (tile) => {
+				const data = await this.fetchShelterData(tile.x, tile.y, tile.z);
+				if (data?.features) {
+					allShelters.push(...data.features);
+				}
+			}),
+		);
+
+		// 重複を除去（座標が同じもの）
+		const uniqueShelters = allShelters.filter(
+			(shelter, index, self) =>
+				index ===
+				self.findIndex(
+					(s) =>
+						s.geometry.coordinates[0] === shelter.geometry.coordinates[0] &&
+						s.geometry.coordinates[1] === shelter.geometry.coordinates[1],
+				),
+		);
+
+		return uniqueShelters;
 	}
 
 	private async resolveCenter(
@@ -250,7 +342,7 @@ export class HazardMapGenerator {
 		y: number,
 		z: number,
 	): string {
-		const b = HazardMapGenerator.BASE_URLS.hazard;
+		const b = ShelterMapGenerator.BASE_URLS.hazard;
 		switch (type) {
 			case "flood_l2":
 				return `${b}/01_flood_l2_shinsuishin_data/${z}/${x}/${y}.png`;
@@ -285,7 +377,33 @@ export class HazardMapGenerator {
 		return await PImage.decodePNGFromStream(stream);
 	}
 
-	private drawMarker(ctx: PImage.Context, x: number, y: number) {
+	private async fetchShelterData(
+		x: number,
+		y: number,
+		z: number,
+	): Promise<ShelterGeoJson | null> {
+		try {
+			const response = await this.reinfoClient.getShelters({ x, y, z });
+			// APIはstatusフィールドなしで直接GeoJSONを返す
+			return response as unknown as ShelterGeoJson;
+		} catch (e) {
+			console.warn(`Failed to fetch shelter data: z=${z}, x=${x}, y=${y}`, e);
+			return null;
+		}
+	}
+
+	private drawShelterMarker(
+		ctx: PImage.Context,
+		x: number,
+		y: number,
+		_properties: Record<string, unknown>,
+	) {
+		// ピン形状のマーカー（緑色）
+		this.drawPin(ctx, x, y, "#22c55e", "#15803d"); // green-500, green-700
+	}
+
+	private drawCenterMarker(ctx: PImage.Context, x: number, y: number) {
+		// 中心点マーカー（赤色）
 		this.drawPin(ctx, x, y, "#ef4444", "#b91c1c"); // red-500, red-700
 	}
 

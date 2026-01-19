@@ -7,8 +7,8 @@ export const formSchema = primaryInputSchema.extend({
 		.enum(["low", "middle", "high"])
 		.optional()
 		.describe("使用するモデル（開発用）"),
-	parallel: z
+	useStructuredOutput: z
 		.boolean()
 		.optional()
-		.describe("スライド生成を並列で行うか（開発用）"),
+		.describe("構造化出力を使用するか（開発用）"),
 });

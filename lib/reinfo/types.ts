@@ -93,3 +93,20 @@ export interface SteepSlopeParams extends TileBaseParams {
 	prefectureCode?: string | Array<string | number>;
 	administrativeAreaCode?: string | Array<string | number>;
 }
+
+export interface ShelterParams extends TileBaseParams {}
+
+export interface ShelterFeature {
+	type: "Feature";
+	geometry: {
+		type: "Point";
+		coordinates: [number, number]; // [lon, lat]
+	};
+	properties: {
+		name?: string;
+		address?: string;
+		disaster_type?: string;
+		capacity?: number;
+		[key: string]: unknown;
+	};
+}

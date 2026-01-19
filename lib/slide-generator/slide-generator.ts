@@ -1,55 +1,102 @@
+// import * as fs from "node:fs";
+// import * as path from "node:path";
 import { google } from "@ai-sdk/google";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { PlacesClient } from "@googlemaps/places";
-import { RoutesClient } from "@googlemaps/routing";
-// import { PlacesClient } from "@googlemaps/places";
 import {
-	type AsyncIterableStream,
 	generateText,
 	type ModelMessage,
 	Output,
-	stepCountIs,
-	streamText,
-	tool,
 	type UserContent,
 } from "ai";
-import ky from "ky";
-import * as math from "mathjs";
-import z from "zod";
-import { HazardMapGenerator, hazardMapOptionsSchema } from "@/lib/hazard-map";
-import { type AppraisalReportParams, ReinfoClient } from "@/lib/reinfo";
 import { AsyncQueue } from "./async-queue";
+import { SLIDE_DEFINITIONS, type FixedSlideDefinition } from "./config";
 import {
-	type DesignSystem,
-	designSystemSchema,
 	FlyerDataModel,
 	flyerDataSchema,
 	type PrimaryInput,
-	type SlideDefinition,
-	slideDefinitionSchema,
-	slideResearchResultSchema,
 } from "./schemas";
-import type {
-	Event,
-	GeneratedSlide,
-	ResearchSource,
-	SlideResearchResult,
-	UsageInfo,
-} from "./types";
+import {
+	slideContentSchemas,
+	type SlideContentMap,
+} from "./schemas/slide-content";
+import { renderSlideHtml, wrapInHtmlDocument } from "./templates";
+import {
+	isStaticSlideType,
+	renderStaticSlideBody,
+} from "./templates/slides";
+import { getToolsForSlide } from "./tools";
+import type { SlideType } from "./types/slide-types";
+import type { Event, GeneratedSlide, UsageInfo } from "./types";
 
-const client = new S3Client({
-	endpoint: "https://rdicyprpgreghjslbdts.storage.supabase.co/storage/v1/s3",
-});
-const hazardMapGenerator = new HazardMapGenerator();
-const reinfoClient = new ReinfoClient({
-	apiKey: process.env.REINFO_API_KEY ?? "",
-});
-const placesClient = new PlacesClient({
-	apiKey: process.env.GOOGLE_MAPS_API_KEY,
-});
-const routesClient = new RoutesClient({
-	apiKey: process.env.GOOGLE_MAPS_API_KEY,
-});
+/**
+ * Buffer や循環参照を安全に処理する JSON.stringify
+ * スタックオーバーフローを防ぐ
+ */
+function safeStringify(obj: unknown, indent = 2): string {
+	const seen = new WeakSet();
+	return JSON.stringify(
+		obj,
+		(_key, value) => {
+			// Buffer オブジェクトを文字列に変換
+			if (Buffer.isBuffer(value)) {
+				return `[Buffer: ${value.length} bytes]`;
+			}
+			// ArrayBuffer や TypedArray を処理
+			if (value instanceof ArrayBuffer) {
+				return `[ArrayBuffer: ${value.byteLength} bytes]`;
+			}
+			if (ArrayBuffer.isView(value)) {
+				return `[TypedArray: ${value.byteLength} bytes]`;
+			}
+			// 循環参照を検出
+			if (typeof value === "object" && value !== null) {
+				if (seen.has(value)) {
+					return "[Circular]";
+				}
+				seen.add(value);
+			}
+			return value;
+		},
+		indent,
+	);
+}
+
+/**
+ * ツール実行結果の型定義
+ */
+interface ToolExecutionResult {
+	/** ツール名 → 実行結果のマッピング */
+	results: Record<string, unknown>;
+	/** ツール実行で使用したトークン */
+	usage: UsageInfo;
+}
+
+/**
+ * スライドログデータの型定義
+ */
+interface SlideLogData {
+	/** スライド定義 */
+	definition: FixedSlideDefinition;
+	/** 入力プロンプト（LLMに送信したメッセージ） */
+	inputPrompt?: {
+		system: string;
+		messages: ModelMessage[];
+	};
+	/** ツール実行結果 */
+	toolResults?: Record<string, unknown>;
+	/** LLM出力（構造化データ） */
+	output?: unknown;
+	/** 生成されたHTML */
+	html: string;
+	/** エラー情報 */
+	error?: {
+		message: string;
+		stack?: string;
+	};
+	/** 使用トークン */
+	usage?: UsageInfo;
+	/** 静的テンプレートかどうか */
+	isStatic: boolean;
+}
 
 // ========================================
 // SlideGenerator Class
@@ -59,21 +106,28 @@ export type ModelType = "low" | "middle" | "high";
 
 export interface SlideGeneratorOptions {
 	modelType?: ModelType;
-	parallel?: boolean;
+	useStructuredOutput?: boolean;
 }
 
 // デフォルトのオプション
 const defaultOptions = {
 	modelType: "middle",
-	parallel: true,
+	useStructuredOutput: true,
 } satisfies SlideGeneratorOptions;
 
 export class SlideGenerator {
 	private model;
-	private parallel;
 	private messages: ModelMessage[] = [];
+	private useStructuredOutput: boolean;
+	/** マイソクから抽出したデータ */
+	private flyerData: FlyerDataModel | null = null;
+	/** マイソク画像のData URL */
+	private maisokuDataUrl: string | null = null;
 
 	constructor(options: SlideGeneratorOptions = {}) {
+		this.useStructuredOutput =
+			options.useStructuredOutput ?? defaultOptions.useStructuredOutput;
+
 		switch (options.modelType || defaultOptions.modelType) {
 			case "low":
 				this.model = google("gemini-2.5-flash-lite");
@@ -87,34 +141,6 @@ export class SlideGenerator {
 			default:
 				throw new Error(`Unsupported model type: ${options.modelType}`);
 		}
-		this.parallel = options.parallel ?? defaultOptions.parallel;
-	}
-
-	private template(body: string, designSystem: DesignSystem): string {
-		const themeCss = `@theme {
-        --color-primary: ${designSystem.colorPalette.primary};
-        --color-secondary: ${designSystem.colorPalette.secondary};
-        --color-accent: ${designSystem.colorPalette.accent};
-        --color-background: ${designSystem.colorPalette.background};
-        --color-surface: ${designSystem.colorPalette.surface};
-        --color-text: ${designSystem.colorPalette.text};
-        --font-sans: ${designSystem.typography.fontFamily};
-      }`;
-
-		return `<!doctype html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <style>
-      ${themeCss}
-    </style>
-  </head>
-  <body>
-    ${body}
-  </body>
-</html>`;
 	}
 
 	/**
@@ -130,93 +156,105 @@ export class SlideGenerator {
 			const userContent = await this.buildUserContent(input);
 			this.messages.push({ role: "user", content: userContent });
 
+			// マイソク画像をData URLに変換して保存（ツール呼び出し用）
+			const maisokuDataUrls = await this.filesToDataUrls(input.flyerFiles);
+			this.maisokuDataUrl = maisokuDataUrls[0];
+
 			// マイソクからデータを抽出
-			const flyerData = await this.extractFlyerData(input.flyerFiles[0]);
+			this.flyerData = await this.extractFlyerData(input.flyerFiles[0]);
 			this.messages.push({
 				role: "user",
-				content: `以下は、提供されたマイソクから抽出されたデータです:\n${flyerData.toPrompt()}`,
+				content: `以下は、提供されたマイソクから抽出されたデータです:\n${this.flyerData.toPrompt()}`,
 			});
 
-			// 与えられた画像から埋め込み画像を抽出
-			// const flyerImage = await input.flyerFiles[0].arrayBuffer();
-			// const embeddedImages = await this.extractEmbeddedImages(flyerImage);
-
-			// Step 1: スライドのプランニング
+			// Step 1: 固定の12枚スライド構成を使用
 			yield { type: "plan:start" };
-			const { plan, usage: planUsage } = await this.createPlan();
-			yield { type: "plan:end", plan: plan };
-			yield { type: "usage", usage: planUsage, step: "plan" };
+			const plan = SLIDE_DEFINITIONS;
+			yield { type: "plan:end", plan };
+			// 固定構成のため、planのusageは0
+			yield {
+				type: "usage",
+				usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+				step: "plan",
+			};
 
-			// Step 2: 全スライド共通のデザインガイドを確定（デザイン一貫性の担保）
-			const { designSystem, usage: designUsage } =
-				await this.createDesignSystem(plan);
-			yield { type: "usage", usage: designUsage, step: "design" };
+			// デザインシステムは固定のため、AI生成をスキップ
+			yield {
+				type: "usage",
+				usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+				step: "design",
+			};
 
-			// Step 3: 1ページずつ (research -> slide) を実行
-			const generatedSlides: {
-				slide: GeneratedSlide;
-				research: SlideResearchResult;
-			}[] = [];
-			if (this.parallel) {
-				const channel = new AsyncQueue<Event>();
-				const promises = Promise.all(
-					plan.map(async (slideDef) => {
-						channel.push({
-							type: "slide:start",
-							index: slideDef.index,
-							title: slideDef.title,
-						});
+			// Step 2: 1ページずつ並列でスライド生成
+			const generatedSlides: GeneratedSlide[] = [];
+			const channel = new AsyncQueue<Event>();
 
-						// dataSource が "research" の場合のみリサーチを実行
-						let research: SlideResearchResult;
-						if (slideDef.dataSource === "research") {
-							const topics = this.getResearchTopics(slideDef);
-							const { research: researchResult, usage: researchUsage } =
-								await this.researchForSlide(slideDef, topics);
-							research = researchResult;
-							channel.push({
-								type: "usage",
-								usage: researchUsage,
-								step: `research-${slideDef.index}`,
+			// Heartbeatタイマー: 30秒ごとに送信してストリーム接続を維持
+			const heartbeatInterval = setInterval(() => {
+				channel.push({
+					type: "heartbeat",
+					timestamp: Date.now(),
+				});
+			}, 30000);
+
+			const promises = Promise.all(
+				plan.map(async (slideDef: FixedSlideDefinition) => {
+					channel.push({
+						type: "slide:start",
+						index: slideDef.index,
+						title: slideDef.title,
+					});
+
+					let slide: GeneratedSlide;
+					const slideType = slideDef.slideType as SlideType;
+
+					// 静的テンプレート（tax, purchase-flow, flyer）: AI生成をスキップ
+					if (isStaticSlideType(slideType)) {
+						let bodyContent: string;
+
+						if (slideType === "flyer") {
+							// マイソクスライド: アップロード画像をそのまま表示
+							const imageDataUrls = await this.filesToDataUrls(input.flyerFiles);
+							bodyContent = renderStaticSlideBody("flyer", {
+								imageUrls: imageDataUrls,
 							});
 						} else {
-							// リサーチ不要の場合は空のリサーチ結果を使用
-							research = {
-								summary: "",
-								keyFacts: [],
-								sources: [],
-							};
+							// tax, purchase-flow: 完全に静的なテンプレート
+							bodyContent = renderStaticSlideBody(slideType);
 						}
 
-						// TODO: dataSource による分岐処理を追加
-						// - "calculated": 入力値（年収、自己資金、金利、返済期間）から正確な計算を行い、結果をスライド生成に渡す
-						// - "static-template": 固定のHTMLテンプレートを返し、AI生成をスキップする
+						// Tailwind CSS等を含む完全なHTMLドキュメントにラップ
+						const html = wrapInHtmlDocument(bodyContent);
+
+						slide = {
+							html,
+							sources: [],
+						};
 
 						channel.push({
-							type: "slide:researching",
+							type: "slide:generating",
 							index: slideDef.index,
 							title: slideDef.title,
-							data: research,
+							data: { ...slide },
 						});
-
-						let slide: GeneratedSlide;
-
-						// マイソクスライド: AI生成をスキップし、アップロード画像をそのまま表示
-						if (
-							slideDef.dataSource === "primary" &&
-							slideDef.layout === "full-image"
-						) {
-							const imageDataUrls = await this.filesToDataUrls(
-								input.flyerFiles,
-							);
-							const bodyContent = this.createMaisokuSlideHtml(
-								imageDataUrls,
-								designSystem,
-							);
-							slide = {
-								html: this.template(bodyContent, designSystem),
-								sources: [],
-							};
+						// 静的スライドのログデータを作成
+						const logData: SlideLogData = {
+							definition: slideDef,
+							html,
+							isStatic: true,
+						};
+						this.logSlideIO(logData);
+					} else {
+						// 構造化出力モードまたは生HTMLモードを選択
+						try {
+							const {
+								html,
+								usage: slideUsage,
+								logData,
+							} = this.useStructuredOutput
+								? await this.generateSlideStructured(slideDef, input)
+								: await this.generateSlideRawHtml(slideDef, input);
+							slide = { html, sources: [] };
 
 							channel.push({
 								type: "slide:generating",
@@ -224,182 +262,63 @@ export class SlideGenerator {
 								title: slideDef.title,
 								data: { ...slide },
 							});
-						} else {
-							// 通常のAI生成フロー
-							const { textStream, getUsage } = this.generateSlide(
-								slideDef,
-								research,
-								designSystem,
-							);
 
-							slide = {
-								html: "",
-								sources: research.sources,
-							};
-
-							let bodyContent = "";
-
-							for await (const chunk of textStream) {
-								bodyContent += chunk;
-								slide.html = this.template(bodyContent, designSystem);
-
-								channel.push({
-									type: "slide:generating",
-									index: slideDef.index,
-									title: slideDef.title,
-									data: { ...slide },
-								});
-							}
-
-							// スライド生成完了後にusageを取得
-							const slideUsage = await getUsage();
 							channel.push({
 								type: "usage",
 								usage: slideUsage,
 								step: `slide-${slideDef.index}`,
 							});
-						}
 
-						generatedSlides.push({
-							slide,
-							research,
-						});
-
-						channel.push({
-							type: "slide:end",
-							index: slideDef.index,
-							title: slideDef.title,
-							data: {
-								slide: { ...slide },
-								research,
-							},
-						});
-					}),
-				);
-				promises.then(() => channel.close());
-				promises.catch(() => channel.close());
-				for await (const event of channel) {
-					yield event;
-				}
-				await promises;
-			} else {
-				for (const slideDef of plan) {
-					yield {
-						type: "slide:start",
-						index: slideDef.index,
-						title: slideDef.title,
-					};
-
-					// dataSource が "research" の場合のみリサーチを実行
-					let research: SlideResearchResult;
-					if (slideDef.dataSource === "research") {
-						const topics = this.getResearchTopics(slideDef);
-						const { research: researchResult, usage: researchUsage } =
-							await this.researchForSlide(slideDef, topics);
-						research = researchResult;
-						yield {
-							type: "usage",
-							usage: researchUsage,
-							step: `research-${slideDef.index}`,
-						};
-					} else {
-						// リサーチ不要の場合は空のリサーチ結果を使用
-						research = {
-							summary: "",
-							keyFacts: [],
-							sources: [],
-						};
-					}
-
-					// TODO: dataSource による分岐処理を追加
-					// - "calculated": 入力値（年収、自己資金、金利、返済期間）から正確な計算を行い、結果をスライド生成に渡す
-					// - "static-template": 固定のHTMLテンプレートを返し、AI生成をスキップする
-
-					yield {
-						type: "slide:researching",
-						index: slideDef.index,
-						title: slideDef.title,
-						data: research,
-					};
-
-					let slide: GeneratedSlide;
-
-					// マイソクスライド: AI生成をスキップし、アップロード画像をそのまま表示
-					if (
-						slideDef.dataSource === "primary" &&
-						slideDef.layout === "full-image"
-					) {
-						const imageDataUrls = await this.filesToDataUrls(input.flyerFiles);
-						const bodyContent = this.createMaisokuSlideHtml(
-							imageDataUrls,
-							designSystem,
-						);
-						slide = {
-							html: this.template(bodyContent, designSystem),
-							sources: [],
-						};
-
-						yield {
-							type: "slide:generating",
-							index: slideDef.index,
-							title: slideDef.title,
-							data: { ...slide },
-						};
-					} else {
-						// 通常のAI生成フロー
-						const { textStream, getUsage } = this.generateSlide(
-							slideDef,
-							research,
-							designSystem,
-						);
-
-						slide = {
-							html: "",
-							sources: research.sources,
-						};
-
-						let bodyContent = "";
-
-						for await (const chunk of textStream) {
-							bodyContent += chunk;
-							slide.html = this.template(bodyContent, designSystem);
-
-							yield {
+							// ログ出力
+							this.logSlideIO(logData);
+						} catch (error) {
+							console.error(
+								`[SLIDE ${slideDef.index}] Error in slide generation:`,
+								error,
+							);
+							// エラー時は空のスライドを生成
+							slide = {
+								html: `<div id="slide-container" class="w-[1920px] h-[1080px] flex items-center justify-center bg-red-50">
+									<p class="text-red-500 text-2xl">スライド生成エラー: ${error instanceof Error ? error.message : "Unknown error"}</p>
+								</div>`,
+								sources: [],
+							};
+							channel.push({
 								type: "slide:generating",
 								index: slideDef.index,
 								title: slideDef.title,
 								data: { ...slide },
-							};
+							});
 						}
-
-						// スライド生成完了後にusageを取得
-						const slideUsage = await getUsage();
-						yield {
-							type: "usage",
-							usage: slideUsage,
-							step: `slide-${slideDef.index}`,
-						};
 					}
 
-					generatedSlides.push({
-						slide,
-						research,
-					});
+					generatedSlides.push(slide);
 
-					yield {
+					channel.push({
 						type: "slide:end",
 						index: slideDef.index,
 						title: slideDef.title,
 						data: {
 							slide: { ...slide },
-							research,
 						},
-					};
-				}
+					});
+				}),
+			);
+			promises.then(() => {
+				clearInterval(heartbeatInterval);
+				channel.close();
+			});
+			promises.catch(() => {
+				clearInterval(heartbeatInterval);
+				channel.close();
+			});
+			for await (const event of channel) {
+				yield event;
 			}
+			await promises;
 
-			// 全体の完了
-			yield { type: "end", data: generatedSlides };
+			// 全体の完了（各スライドは既にslide:endで送信済みなのでデータは含めない）
+			yield { type: "end", data: [] };
 		} catch (error) {
 			yield {
 				type: "error",
@@ -407,30 +326,6 @@ export class SlideGenerator {
 			};
 		}
 	}
-
-	// 	private async extractEmbeddedImages(
-	// 		image: ArrayBuffer,
-	// 	): Promise<ArrayBuffer[]> {
-	// 		const { files } = await generateText({
-	// 			model: this.imageModel,
-	// 			system: `あなたは高度な画像解析AIです。
-	// 与えられた画像から、有用な埋め込み画像をすべて抽出してください。
-	// 抽出した画像はそれぞれ別々のファイルとして出力してください。`,
-	// 			messages: [
-	// 				{
-	// 					role: "user",
-	// 					content: [
-	// 						{
-	// 							type: "image",
-	// 							image,
-	// 						},
-	// 					],
-	// 				},
-	// 			],
-	// 		});
-	//
-	// 		return files.map((f) => f.uint8Array.buffer as ArrayBuffer);
-	// 	}
 
 	/**
 	 * Step 1: マイソクからデータを抽出
@@ -466,567 +361,69 @@ export class SlideGenerator {
 	}
 
 	/**
-	 * Step 2: スライドの構成をプランニング
+	 * Step 2: スライド生成（構造化出力版）
+	 * Zodスキーマに基づく構造化データを生成し、固定テンプレートでHTMLにレンダリング
 	 */
-	private async createPlan(): Promise<{
-		plan: SlideDefinition[];
-		usage: UsageInfo;
-	}> {
-		const { output, usage } = await generateText({
-			model: this.model,
-			system: `あなたは不動産プレゼンテーション資料の構成作家です。
-提供された情報を分析し、以下の**12枚構成**でスライドを設計してください。
+	private async generateSlideStructured(
+		definition: FixedSlideDefinition,
+		input: PrimaryInput,
+	): Promise<{ html: string; usage: UsageInfo; logData: SlideLogData }> {
+		const slideType = definition.slideType as SlideType;
+		const schema = slideContentSchemas[slideType];
 
-# スライド構成（必須・12枚）
+		// スキーマが存在しないスライドタイプの場合はエラー
+		if (!schema) {
+			console.error(
+				`[SLIDE ${definition.index}] Unknown slide type: ${slideType}`,
+			);
+			throw new Error(`Unknown slide type: ${slideType}`);
+		}
 
-## スライド1: タイトル
-- layout: "title"
-- dataSource: "primary"
-- **内容**: 物件名、顧客名、作成日（本日の日付）、担当者名・連絡先
-- **情報源**: マイソク + 入力された顧客情報・担当者情報
+		console.log(
+			`[SLIDE ${definition.index}] Starting structured generation for slideType: ${slideType}`,
+		);
 
-## スライド2: 物件ハイライト
-- layout: "three-column"
-- dataSource: "ai-generated"
-- **内容**: 物件の推しポイント3点（価格・面積・築年・最寄駅・間取り等から抽出）
-- **情報源**: マイソクからAI生成
-- **注意**: 景表法に抵触する表現は避ける
+		// Phase 1: ツールが必要なスライドは先にツールを実行
+		let toolResults: ToolExecutionResult | null = null;
+		const tools = getToolsForSlide(definition.index);
+		const hasTools = Object.keys(tools).length > 0;
 
-## スライド3: 間取り詳細
-- layout: "content-left"
-- dataSource: "ai-generated"
-- **内容**: 間取り図、部屋の使い方提案、動線コメント、採光・眺望コメント
-- **情報源**: マイソクの間取り情報からAI生成
+		if (hasTools) {
+			console.log(
+				`[SLIDE ${definition.index}] Executing tools: ${Object.keys(tools).join(", ")}`,
+			);
+			toolResults = await this.executeToolsForSlide(definition.index, tools);
+			console.log(
+				`[SLIDE ${definition.index}] Tool results:`,
+				safeStringify(toolResults.results),
+			);
+		}
 
-## スライド4: アクセス情報
-- layout: "content-right"
-- dataSource: "research"
-- **内容**: 最寄駅情報、主要駅への所要時間、路線図イメージ
-- **情報源**: マイソク + 交通情報（リサーチで補完）
+		// Phase 2: 構造化コンテンツを生成
+		// ツール結果をプロンプトに含める
+		const toolResultsPrompt = toolResults
+			? `
+# ツール実行結果
+以下のツールを実行して取得したデータを使用してください。
+imageUrl等はそのまま使用してください。
 
-## スライド5: 周辺環境
-- layout: "grid"
-- dataSource: "research"
-- **内容**: 周辺施設一覧（スーパー、コンビニ、公園、病院）、周辺地図
-- **情報源**: 物件住所からPOI検索（リサーチで補完）
+${safeStringify(toolResults.results)}
+`
+			: "";
 
-## スライド6: 価格分析
-- layout: "data-focus"
-- dataSource: "research"
-- **内容**: 周辺相場比較、価格分析コメント
-- **情報源**: 不動産相場データ + AI分析
+		const systemPrompt = `あなたは不動産スライドのコンテンツ生成AIです。
+指定されたスライドタイプ（${slideType}）に適した構造化データを生成してください。
 
-## スライド7: 災害リスク
-- layout: "content-right"
-- dataSource: "research"
-- **内容**: ハザードマップ情報、災害リスクコメント（洪水・土砂災害・高潮等）
-- **情報源**: 国土交通省ハザードマップポータル（リサーチで補完）
-
-## スライド8: 資金計画シミュレーション
-- layout: "data-focus"
-- dataSource: "calculated"
-- **内容**: 月々返済額、総返済額、借入可能額の試算
-- **情報源**: 物件価格から計算
-
-## スライド9: 諸費用一覧
-- layout: "data-focus"
-- dataSource: "calculated"
-- **内容**: 仲介手数料、登記費用、火災保険等の概算
-- **情報源**: 物件価格から計算
-
-## スライド10: 住宅ローン控除・税制情報
-- layout: "content-left"
-- dataSource: "static-template"
-- **内容**: 住宅ローン控除の概要、適用条件、節税効果
-- **情報源**: 一般的な税制情報（静的テンプレート）
-
-## スライド11: 購入手続きフロー
-- layout: "section"
-- dataSource: "static-template"
-- **内容**: 申込→契約→決済の標準フロー図解
-- **情報源**: 標準フロー（静的テンプレート）
-
-## スライド12: マイソク
-- layout: "full-image"
-- dataSource: "primary"
-- **内容**: マイソク画像をそのまま表示
-- **情報源**: 入力されたマイソク画像
-
-# 景表法コンプライアンス（重要）
-以下の表現は**絶対に使用しないでください**：
-- 断定表現: 絶対、必ず、間違いなく、完全、完璧、万全
-- 裏付けのない表現: 日本一、業界初、世界一、地域No.1、地域最大級
-- 確約できない表現: 特選、厳選、最高、最高値
-- 期日をコミットする表現: 即座に、即売れ
-- 他社への誹謗中傷
-- おとり表現: 購入希望者がいます
-- 過度な特別感: 今だけ、期間限定
+# 重要な制約
+- 全てのフィールドはスキーマで指定された文字数制限を厳守
+- リスト項目は最大数を超えない
+- 文字数が長すぎる場合は要約して収める
+- これまでの会話で得られた情報を最大限活用する
+- ツール実行結果にimageUrl, imageAspectRatio等がある場合は、そのまま対応するフィールドにコピーすること
 
 # 出力形式
-各スライドには以下を必ず含めてください:
-- index: スライド番号（1-12）
-- layout: 指定されたレイアウト
-- title: スライドタイトル
-- description: 内容の概要
-- contentHints: 含めるべき具体的なコンテンツ
-- researchTopics: dataSourceが"research"の場合の調査トピック
-- dataSource: 情報源タイプ（リサーチ要否はこれで判断）`,
-			messages: [
-				...this.messages,
-				{
-					role: "user",
-					content:
-						"上記の情報を分析し、全12枚のスライド構成を設計してください。各スライドには具体的なcontentHints、researchTopics、dataSourceを含めてください。",
-				},
-			],
-			output: Output.object({
-				name: "slide_plan",
-				description: "生成されたスライドのプラン",
-				schema: slideDefinitionSchema.array(),
-			}),
-		});
+構造化データのみを出力。余計な説明は不要。`;
 
-		return {
-			plan: output,
-			usage: {
-				promptTokens: usage.inputTokens ?? 0,
-				completionTokens: usage.outputTokens ?? 0,
-				totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
-			},
-		};
-	}
-
-	/**
-	 * Step 2.5: 全スライドで共通利用するデザインガイドを生成
-	 */
-	private async createDesignSystem(
-		plan: SlideDefinition[],
-	): Promise<{ designSystem: DesignSystem; usage: UsageInfo }> {
-		const { output, usage } = await generateText({
-			model: this.model,
-			system: `あなたは世界的なアートディレクターです。
-高級不動産のプレゼンテーションにふさわしい、洗練されたデザインシステムを定義してください。
-
-要件:
-- **1920x1080** の画面サイズに最適化されたタイポグラフィ
-- **可読性**と**高級感**の両立
-- Tailwind CSS v4のクラス構成を前提とする
-- 色彩はカラーパレットとして定義する (HEXコード)
-- フォントはシステムフォントまたはGoogle Fontsの一般的なもの (文字列指定)
-
-各要素に対して、推奨されるTailwindユーティリティクラス（commonClasses）を定義してください。`,
-			messages: [
-				...this.messages,
-				{
-					role: "user",
-					content: `以下のスライドプランに基づき、全スライドで共通利用するデザインシステムを作成してください。\n\n${plan
-						.map(
-							(s) =>
-								`- スライド ${s.index}: "${s.title}" (${s.layout}) - ${s.description}`,
-						)
-						.join("\n")}`,
-				},
-			],
-			output: Output.object({
-				name: "design_system",
-				description: "全スライド共通のデザインシステム",
-				schema: designSystemSchema,
-			}),
-		});
-
-		return {
-			designSystem: output,
-			usage: {
-				promptTokens: usage.inputTokens ?? 0,
-				completionTokens: usage.outputTokens ?? 0,
-				totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
-			},
-		};
-	}
-
-	/**
-	 * Step 3a: リサーチ
-	 */
-	private async researchForSlide(
-		slideDef: SlideDefinition,
-		topics: string[],
-	): Promise<{ research: SlideResearchResult; usage: UsageInfo }> {
-		const { output, usage } = await generateText({
-			model: this.model,
-			tools: {
-				google_search: google.tools.googleSearch({}),
-				google_places_text_search: tool({
-					description:
-						"Google Places Text Searchで住所・施設を検索し、候補の基本情報（名称、住所、座標）を取得します。",
-					inputSchema: z.object({
-						query: z.string().min(1).describe("検索クエリ（住所や施設名）"),
-						languageCode: z
-							.string()
-							.optional()
-							.describe("言語コード（例: 'ja'）"),
-						regionCode: z
-							.string()
-							.length(2)
-							.optional()
-							.describe("地域コード（例: 'JP'）"),
-						locationBias: z
-							.object({
-								latitude: z.number(),
-								longitude: z.number(),
-								radiusMeters: z.number().optional().default(5000),
-							})
-							.optional()
-							.describe("検索の中心位置（任意）"),
-					}),
-					execute: async (params) => {
-						const request: {
-							textQuery: string;
-							languageCode?: string;
-							regionCode?: string;
-							locationBias?: {
-								circle: {
-									center: { latitude: number; longitude: number };
-									radius: number;
-								};
-							};
-						} = {
-							textQuery: params.query,
-							languageCode: params.languageCode,
-							regionCode: params.regionCode,
-						};
-
-						if (params.locationBias) {
-							request.locationBias = {
-								circle: {
-									center: {
-										latitude: params.locationBias.latitude,
-										longitude: params.locationBias.longitude,
-									},
-									radius: params.locationBias.radiusMeters ?? 5000,
-								},
-							};
-						}
-
-						const [response] = await placesClient.searchText(request, {
-							otherArgs: {
-								headers: {
-									"X-Goog-FieldMask":
-										"places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.primaryType",
-								},
-							},
-						});
-
-						const places = response.places ?? [];
-						return {
-							count: places.length,
-							places: places.map((place) => ({
-								id: place.id,
-								name: place.displayName?.text ?? "",
-								address: place.formattedAddress ?? "",
-								location: place.location
-									? {
-											latitude: place.location.latitude,
-											longitude: place.location.longitude,
-										}
-									: undefined,
-								rating: place.rating,
-								primaryType: place.primaryType,
-							})),
-						};
-					},
-				}),
-				google_places_nearby_search: tool({
-					description:
-						"Google Places Nearby Searchで周辺施設を検索し、名称・住所・座標などを取得します。",
-					inputSchema: z.object({
-						includedTypes: z
-							.array(z.string())
-							.min(1)
-							.describe("Place Types配列（例: ['supermarket']）"),
-						location: z.object({
-							latitude: z.number(),
-							longitude: z.number(),
-						}),
-						radiusMeters: z.number().min(1).max(50000).default(1000),
-						maxResultCount: z.number().int().min(1).max(20).default(5),
-						languageCode: z
-							.string()
-							.optional()
-							.describe("言語コード（例: 'ja'）"),
-					}),
-					execute: async (params) => {
-						const request = {
-							includedTypes: params.includedTypes,
-							maxResultCount: params.maxResultCount,
-							locationRestriction: {
-								circle: {
-									center: {
-										latitude: params.location.latitude,
-										longitude: params.location.longitude,
-									},
-									radius: params.radiusMeters,
-								},
-							},
-							languageCode: params.languageCode,
-						};
-
-						const [response] = await placesClient.searchNearby(request, {
-							otherArgs: {
-								headers: {
-									"X-Goog-FieldMask":
-										"places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.primaryType",
-								},
-							},
-						});
-
-						const places = response.places ?? [];
-						return {
-							count: places.length,
-							places: places.map((place) => ({
-								id: place.id,
-								name: place.displayName?.text ?? "",
-								address: place.formattedAddress ?? "",
-								location: place.location
-									? {
-											latitude: place.location.latitude,
-											longitude: place.location.longitude,
-										}
-									: undefined,
-								rating: place.rating,
-								primaryType: place.primaryType,
-							})),
-						};
-					},
-				}),
-				google_routes_compute: tool({
-					description:
-						"Google Routes APIで移動時間・距離を計算します（例: 主要駅までの所要時間）。",
-					inputSchema: z.object({
-						origin: z.object({ latitude: z.number(), longitude: z.number() }),
-						destination: z.object({
-							latitude: z.number(),
-							longitude: z.number(),
-						}),
-						travelMode: z
-							.enum(["DRIVE", "WALK", "BICYCLE", "TRANSIT"])
-							.default("DRIVE"),
-						routingPreference: z
-							.enum([
-								"TRAFFIC_AWARE",
-								"TRAFFIC_AWARE_OPTIMAL",
-								"TRAFFIC_UNAWARE",
-							])
-							.default("TRAFFIC_AWARE"),
-						languageCode: z
-							.string()
-							.optional()
-							.describe("言語コード（例: 'ja-JP'）"),
-						units: z.enum(["METRIC", "IMPERIAL"]).default("METRIC"),
-					}),
-					execute: async (params) => {
-						const request = {
-							origin: {
-								location: {
-									latLng: {
-										latitude: params.origin.latitude,
-										longitude: params.origin.longitude,
-									},
-								},
-							},
-							destination: {
-								location: {
-									latLng: {
-										latitude: params.destination.latitude,
-										longitude: params.destination.longitude,
-									},
-								},
-							},
-							travelMode: params.travelMode,
-							routingPreference: params.routingPreference,
-							computeAlternativeRoutes: false,
-							languageCode: params.languageCode,
-							units: params.units,
-						};
-
-						const [response] = await routesClient.computeRoutes(request, {
-							otherArgs: {
-								headers: {
-									"X-Goog-FieldMask": "routes.duration,routes.distanceMeters",
-								},
-							},
-						});
-
-						const routes = response.routes ?? [];
-						return {
-							count: routes.length,
-							routes: routes.map((route) => ({
-								distanceMeters: route.distanceMeters ?? 0,
-								durationSeconds: route.duration?.seconds ?? 0,
-							})),
-						};
-					},
-				}),
-				get_transaction_prices: tool({
-					description:
-						"指定された条件で不動産取引価格情報を取得します。地域の相場を把握し、価格分析スライドを作成するのに便利です。都道府県コード(area)は必須です。",
-					inputSchema: z.object({
-						year: z
-							.number()
-							.min(2005)
-							.max(new Date().getFullYear())
-							.describe("西暦年 (2005年以降)"),
-						quarter: z
-							.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
-							.optional()
-							.describe("四半期 (1:1-3月, 2:4-6月, 3:7-9月, 4:10-12月)"),
-						area: z
-							.string()
-							.length(2)
-							.describe("都道府県コード (例: 13 for 東京都)"),
-						city: z
-							.string()
-							.min(5)
-							.max(5)
-							.optional()
-							.describe("市区町村コード (例: 13101 for 千代田区)"),
-						station: z.string().length(4).optional().describe("最寄駅コード"),
-					}),
-					execute: async (params) => {
-						const res = await reinfoClient.getPriceInfo(params);
-						return {
-							count: res.data.length,
-							samples: res.data.slice(0, 10),
-							note: res.data.length > 10 ? "Showing top 10 results" : undefined,
-						};
-					},
-				}),
-				get_city_codes: tool({
-					description:
-						"都道府県コードから、その都道府県内の市区町村コード一覧を取得します。コードが不明な場合に使用します。",
-					inputSchema: z.object({
-						area: z.string().length(2).describe("都道府県コード (例: 13)"),
-					}),
-					execute: async (params) => {
-						const res = await reinfoClient.getMunicipalities(params);
-						return {
-							count: res.data.length,
-							samples: res.data.slice(0, 20),
-							note:
-								res.data.length > 20
-									? "Showing top 20 results. Refine search if needed."
-									: undefined,
-						};
-					},
-				}),
-				get_appraisal_reports: tool({
-					description:
-						"地価公示・都道府県地価調査情報を取得します。公的な土地価格の動向を調査するのに適しています。",
-					inputSchema: z.object({
-						year: z
-							.number()
-							.min(1970)
-							.max(new Date().getFullYear())
-							.describe("西暦年"),
-						area: z.string().length(2).describe("都道府県コード"),
-						division: z
-							.enum([
-								"00",
-								"01",
-								"02",
-								"03",
-								"04",
-								"05",
-								"06",
-								"07",
-								"08",
-								"09",
-								"10",
-								"13",
-							])
-							.optional()
-							.default("00")
-							.describe(
-								"用途区分 (00:全用途, 01:住宅地, 02:宅地見込地, 03:商業地, 04:準工業地, 05:工業地, etc.)",
-							),
-					}),
-					execute: async (params) => {
-						const query: AppraisalReportParams = params;
-						const res = await reinfoClient.getAppraisalReports(query);
-						return {
-							count: res.data.length,
-							samples: res.data.slice(0, 10),
-							note: res.data.length > 10 ? "Showing top 10 results" : undefined,
-						};
-					},
-				}),
-			},
-			stopWhen: stepCountIs(6),
-			system: `あなたは不動産リサーチャーです。
-指定されたスライドを作成するために必要な正確な情報を探してください。
-
-重要:
-- 事実は正確に、出典を明記してください。`,
-			messages: [
-				...this.messages,
-				{
-					role: "user",
-					content: `# ターゲットスライド\n- タイトル: ${slideDef.title}\n- 概要: ${slideDef.description}\n- レイアウト: ${slideDef.layout}\n\n# 調査トピック\n${topics.join("\n")}\n\nこのスライドに必要な情報を収集してください。`,
-				},
-			],
-			output: Output.object({
-				name: "slide_research",
-				description: "スライド単位のリサーチ結果",
-				schema: slideResearchResultSchema,
-			}),
-		});
-
-		return {
-			research: {
-				summary: output.summary,
-				keyFacts: output.keyFacts,
-				sources: this.dedupeSources(output.sources),
-			},
-			usage: {
-				promptTokens: usage.inputTokens ?? 0,
-				completionTokens: usage.outputTokens ?? 0,
-				totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
-			},
-		};
-	}
-
-	private getResearchTopics(slideDef: SlideDefinition): string[] {
-		const topics = slideDef.researchTopics ?? slideDef.contentHints;
-		const deduped = Array.from(
-			new Set(topics.map((t) => t.trim()).filter(Boolean)),
-		);
-		if (deduped.length > 0) return deduped;
-		return [slideDef.title, slideDef.description];
-	}
-
-	private dedupeSources(sources: ResearchSource[]): ResearchSource[] {
-		const seen = new Set<string>();
-		const out: ResearchSource[] = [];
-		for (const source of sources) {
-			const url = source.url.trim();
-			if (!url) continue;
-			if (seen.has(url)) continue;
-			seen.add(url);
-			out.push({ ...source, url });
-		}
-		return out;
-	}
-
-	/**
-	 * Step 3b: スライド生成
-	 */
-	private generateSlide(
-		definition: SlideDefinition,
-		research: SlideResearchResult,
-		designSystem: DesignSystem,
-	): {
-		textStream: AsyncIterableStream<string>;
-		getUsage: () => Promise<UsageInfo>;
-	} {
 		const messages: ModelMessage[] = [
 			{
 				role: "user",
@@ -1034,202 +431,292 @@ export class SlideGenerator {
 # スライド定義
 - タイトル: ${definition.title}
 - 概要: ${definition.description}
-- レイアウト: ${definition.layout}
+- スライドタイプ: ${slideType}
+- コンテンツヒント: ${definition.contentHints.join(", ")}
 
-# デザインシステム
-## カラーパレット
-${JSON.stringify(designSystem.colorPalette, null, 2)}
-
-## 共通クラス (Tailwind)
-${JSON.stringify(designSystem.commonClasses, null, 2)}
-
-## タイポグラフィ
-${JSON.stringify(designSystem.typography, null, 2)}
-
-# リサーチ結果
-${JSON.stringify(research)}
-
-上記の要素を組み合わせて、1枚のスライドの**bodyタグ内部のHTMLのみ**を出力してください。
-ルート要素は \`<div id="slide-container" class="..." style="...">\` とし、Tailwind CSSクラスを使用してスタイリングしてください。
-カラーパレットは既にCSS変数として定義されています（例: \`bg-primary\`, \`text-accent\` が使用可能）。
-共通クラス (\`commonClasses\`) を積極的に活用し、デザインの一貫性を保ってください。
+# 顧客情報
+- 顧客名: ${input.customerName}
+- 担当者名: ${input.agentName}
+${input.agentPhoneNumber ? `- 電話番号: ${input.agentPhoneNumber}` : ""}
+${input.agentEmailAddress ? `- メールアドレス: ${input.agentEmailAddress}` : ""}
+${toolResultsPrompt}
+上記の情報に基づき、スライドのコンテンツを構造化データとして出力してください。
+スキーマの制約（文字数・項目数）を厳守してください。
 `,
 			},
 		];
 
-		if (!this.parallel) {
-			this.messages.push(...messages);
+		try {
+			const { output, usage } = await generateText({
+				model: this.model,
+				system: systemPrompt,
+				messages: [...this.messages, ...messages],
+				// biome-ignore lint/suspicious/noExplicitAny: 動的スキーマ選択
+				output: Output.object({ name: "slide_content", schema: schema as any }),
+			});
+
+			console.log(
+				`[SLIDE ${definition.index}] Structured output received:`,
+				safeStringify(output).substring(0, 500),
+			);
+
+			// 固定テンプレートでHTML生成
+			const html = renderSlideHtml(
+				slideType,
+				output as SlideContentMap[typeof slideType],
+			);
+
+			console.log(`[SLIDE ${definition.index}] HTML generated successfully`);
+
+			// ツール使用量を加算
+			const totalUsage: UsageInfo = {
+				promptTokens:
+					(usage.inputTokens ?? 0) + (toolResults?.usage.promptTokens ?? 0),
+				completionTokens:
+					(usage.outputTokens ?? 0) + (toolResults?.usage.completionTokens ?? 0),
+				totalTokens:
+					(usage.inputTokens ?? 0) +
+					(usage.outputTokens ?? 0) +
+					(toolResults?.usage.totalTokens ?? 0),
+			};
+
+			// ログデータを構築
+			const logData: SlideLogData = {
+				definition,
+				inputPrompt: {
+					system: systemPrompt,
+					messages: [...this.messages, ...messages],
+				},
+				toolResults: toolResults?.results,
+				output,
+				html,
+				usage: totalUsage,
+				isStatic: false,
+			};
+
+			return { html, usage: totalUsage, logData };
+		} catch (error) {
+			console.error(
+				`[SLIDE ${definition.index}] Error in generateSlideStructured:`,
+				error,
+			);
+
+			// エラー時もログデータを構築
+			const errorLogData: SlideLogData = {
+				definition,
+				inputPrompt: {
+					system: systemPrompt,
+					messages: [...this.messages, ...messages],
+				},
+				toolResults: toolResults?.results,
+				html: "",
+				error: {
+					message: error instanceof Error ? error.message : "Unknown error",
+					stack: error instanceof Error ? error.stack : undefined,
+				},
+				isStatic: false,
+			};
+
+			// エラーログを保存
+			this.logSlideIO(errorLogData);
+
+			throw error;
+		}
+	}
+
+	/**
+	 * スライド用のツールを実行
+	 * 各スライドタイプに応じた適切なパラメータでツールを呼び出す
+	 */
+	private async executeToolsForSlide(
+		slideIndex: number,
+		tools: Record<string, unknown>,
+	): Promise<ToolExecutionResult> {
+		const results: Record<string, unknown> = {};
+		let totalUsage: UsageInfo = {
+			promptTokens: 0,
+			completionTokens: 0,
+			totalTokens: 0,
+		};
+
+		// スライドごとに適切なツール呼び出しを行う
+		for (const [toolName, toolInstance] of Object.entries(tools)) {
+			try {
+				console.log(`[SLIDE ${slideIndex}] Calling tool: ${toolName}`);
+
+				// ツールのexecute関数を直接呼び出す
+				// biome-ignore lint/suspicious/noExplicitAny: 動的ツール呼び出し
+				const tool = toolInstance as any;
+
+				let result: unknown;
+
+				// ツール名に基づいてパラメータを決定
+				switch (toolName) {
+					case "extract_property_image":
+					case "extract_floorplan_image":
+						// 画像抽出ツール: マイソク画像URLが必要
+						if (!this.maisokuDataUrl) {
+							throw new Error("マイソク画像URLが設定されていません");
+						}
+						result = await tool.execute({
+							maisokuImageUrl: this.maisokuDataUrl,
+						});
+						break;
+
+				case "search_nearby_facilities":
+				case "generate_nearby_map":
+				case "get_price_points":
+					// 住所ベースのツール（addressパラメータ）
+					if (!this.flyerData?.address) {
+						throw new Error("物件住所が設定されていません");
+					}
+					result = await tool.execute({
+						address: this.flyerData.address,
+					});
+					break;
+
+				case "get_hazard_map_url":
+				case "generate_shelter_map":
+					// 座標/住所ベースのツール（centerパラメータ）
+					if (!this.flyerData?.address) {
+						throw new Error("物件住所が設定されていません");
+					}
+					result = await tool.execute({
+						center: this.flyerData.address,
+					});
+					break;
+
+					case "get_price_info":
+					case "get_municipalities":
+						// これらのツールは現状では直接呼び出さない（get_price_pointsで代替）
+						console.log(
+							`[SLIDE ${slideIndex}] Skipping tool ${toolName} (using get_price_points instead)`,
+						);
+						continue;
+
+					default:
+						console.warn(
+							`[SLIDE ${slideIndex}] Unknown tool: ${toolName}, skipping`,
+						);
+						continue;
+				}
+
+				results[toolName] = result;
+				console.log(
+					`[SLIDE ${slideIndex}] Tool ${toolName} completed:`,
+					safeStringify(result).substring(0, 300),
+				);
+			} catch (error) {
+				console.error(
+					`[SLIDE ${slideIndex}] Tool ${toolName} failed:`,
+					error,
+				);
+				// エラーでも続行（他のツールは実行する）
+				results[toolName] = {
+					error: error instanceof Error ? error.message : "Unknown error",
+				};
+			}
 		}
 
-		const { response, textStream, usage } = streamText({
-			model: this.model,
-			tools: {
-				evaluate_math_expression: tool({
-					description:
-						"数式（四則演算、関数など）を評価し、計算結果を数値で返します。",
-					inputSchema: z.object({
-						expression: z
-							.string()
-							.describe(
-								"評価する数式。加算、減算、乗算、除算、括弧、指数などの基本的な算術演算をサポートします。",
-							),
-					}),
-					execute: (params) => math.evaluate(params.expression),
-				}),
-				get_hazard_map_url: tool({
-					description:
-						"指定された住所に基づいて、国土交通省ハザードマップポータルのハザードマップ画像URLを取得します。",
-					inputSchema: hazardMapOptionsSchema,
-					execute: async (params) => {
-						const buffer = await hazardMapGenerator.generate(params);
-						const fileName = `hazard-maps/hazard-map-${Date.now()}.${params.format}`;
-						await client.send(
-							new PutObjectCommand({
-								Bucket: "assets",
-								Key: fileName,
-								Body: buffer,
-								ContentType: `image/${params.format}`,
-								CacheControl: "public, max-age=31536000, immutable",
-							}),
-						);
-						const publicUrl = `https://rdicyprpgreghjslbdts.supabase.co/storage/v1/object/public/assets/${fileName}`;
-						return { url: publicUrl };
-					},
-				}),
-				get_static_map_url: tool({
-					description:
-						"指定されたパラメータ（中心座標、ズーム、サイズ等）に基づいて、Google Maps Static APIの画像URLを取得します。",
-					inputSchema: z.object({
-						center: z
-							.string()
-							.describe(
-								"地図の中心座標。カンマ区切りの緯度経度ペア（例: '40.714728,-73.998672'）または住所文字列（例: 'city hall, new york, ny'）。マーカーが存在しない場合は必須。",
-							),
-						zoom: z
-							.number()
-							.int()
-							.min(0)
-							.max(21)
-							.describe(
-								"地図のズームレベル（0-21）。マーカーが存在しない場合は必須。",
-							),
-						size: z
-							.string()
-							.regex(/^\d+x\d+$/)
-							.describe(
-								"地図画像のサイズ。'{幅}x{高さ}'形式（例: '500x400'）。必須。",
-							),
-						scale: z
-							.number()
-							.int()
-							.min(1)
-							.max(2)
-							.optional()
-							.default(1)
-							.describe(
-								"返されるピクセル数の倍率。1または2を指定可能。デフォルトは1。",
-							),
-						format: z
-							.enum(["png", "png32", "gif", "jpg", "jpg-baseline"])
-							.optional()
-							.default("png")
-							.describe("生成される画像の形式。デフォルトはpng。"),
-						maptype: z
-							.enum(["roadmap", "satellite", "hybrid", "terrain"])
-							.optional()
-							.default("roadmap")
-							.describe("作成する地図のタイプ。デフォルトはroadmap。"),
-						language: z
-							.string()
-							.optional()
-							.describe(
-								"地図タイル上のラベルの表示に使用する言語コード（例: 'ja', 'en'）。",
-							),
-						region: z
-							.string()
-							.length(2)
-							.optional()
-							.describe(
-								"地政学的機密性に基づいて表示する境界を定義する2文字のccTLDコード（例: 'jp', 'us'）。",
-							),
-					}),
-					execute: async (params) => {
-						const key = process.env.GOOGLE_MAPS_API_KEY;
-						const signature = "";
-						const url = new URL(
-							"https://maps.googleapis.com/maps/api/staticmap",
-						);
-						url.searchParams.append("center", params.center);
-						url.searchParams.append("zoom", params.zoom.toString());
-						url.searchParams.append("size", params.size);
-						url.searchParams.append("scale", params.scale.toString());
-						url.searchParams.append("format", params.format);
-						url.searchParams.append("maptype", params.maptype);
-						if (params.language) {
-							url.searchParams.append("language", params.language);
-						}
-						if (params.region) {
-							url.searchParams.append("region", params.region);
-						}
-						if (key) {
-							url.searchParams.append("key", key);
-						}
-						if (signature) {
-							url.searchParams.append("signature", signature);
-						}
+		return { results, usage: totalUsage };
+	}
 
-						const buffer = await ky
-							.get(url)
-							.arrayBuffer()
-							.then((arrayBuffer) => Buffer.from(arrayBuffer));
-						const fileName = `static-maps/static-map-${Date.now()}.${params.format}`;
-						await client.send(
-							new PutObjectCommand({
-								Bucket: "assets",
-								Key: fileName,
-								Body: buffer,
-								ContentType: `image/${params.format}`,
-								CacheControl: "public, max-age=31536000, immutable",
-							}),
-						);
-						const publicUrl = `https://rdicyprpgreghjslbdts.supabase.co/storage/v1/object/public/assets/${fileName}`;
+	/**
+	 * Step 2b: スライド生成（生HTML版）
+	 * LLMが直接HTMLを生成する（テンプレートなし）
+	 */
+	private async generateSlideRawHtml(
+		definition: FixedSlideDefinition,
+		input: PrimaryInput,
+	): Promise<{ html: string; usage: UsageInfo; logData: SlideLogData }> {
+		console.log(
+			`[SLIDE ${definition.index}] Starting raw HTML generation for slideType: ${definition.slideType}`,
+		);
 
-						return { url: publicUrl };
-					},
-				}),
-			},
-			stopWhen: stepCountIs(5),
-			system: `あなたは世界最高峰のWebデザイナーです。
-Tailwind CSSを駆使して、美しく、プロフェッショナルな不動産スライドを作成してください。
+		const systemPrompt = `あなたは不動産プレゼンテーションスライドのHTML生成AIです。
+以下のデザインシステムに従って、美しく洗練されたスライドHTMLを生成してください。
 
-# 厳守事項
-1. **解像度**: ルート要素の \`id="slide-container"\` には \`w-[1920px] h-[1080px] overflow-hidden relative\` などのクラスを適用し、サイズを固定すること。
-2. **レイアウト**: 指定された \`layout\` タイプ (${definition.layout}) に最適な構図で作ること。
-3. **デザインシステム**: 提供された共通クラス (\`commonClasses\`) を可能な限り使用すること。色は \`bg-primary\` などのテーマクラスを使用すること。
-4. **出力**: HTMLの \`<body>\` タグの**中身のみ**を出力すること。\`: \`<html>\`, \`<head>\`, \`<body>\` タグ自体は含めないでください。Markdownコードブロックも不要です。
+# デザインシステム
+## カラーパレット
+- primary: #1A202C (濃いグレー - タイトル、重要テキスト)
+- secondary: #C5A059 (ゴールド - アクセント、ボーダー)
+- accent: #E2E8F0 (薄いグレー - 背景アクセント)
+- background: #FDFCFB (オフホワイト - 背景)
+- surface: #FFFFFF (白 - カード背景)
+- text: #2D3748 (ダークグレー - 本文)
 
-# デザインガイドライン
-${designSystem.styleGuidelines}
+## タイポグラフィ
+- フォント: 'Noto Serif JP', 'Playfair Display', serif
+
+# 出力ルール
+1. 必ず <div id="slide-container" class="w-[1920px] h-[1080px] ..."> で開始
+2. Tailwind CSS v4のクラスを使用
+3. HTMLのみを出力（\`\`\`htmlなどのマークダウン記法は不要）
+4. 高級不動産にふさわしい上品で洗練されたデザイン
+5. 情報は読みやすく整理し、余白を効果的に使用
+6. テキストが溢れないよう、適切なサイズとline-clampを使用
+
+# スタイル例
+- タイトル: text-[84px] font-serif font-bold text-[#1A202C] border-l-[12px] border-[#C5A059] pl-10
+- サブタイトル: text-[56px] font-serif font-medium text-[#1A202C]
+- 本文: text-[26px] font-sans leading-[1.8] text-[#4A5568]
+- カード: bg-white border border-[#E2E8F0] shadow-[0_20px_50px_rgba(0,0,0,0.05)]`;
+
+		const messages: ModelMessage[] = [
+			{
+				role: "user",
+				content: `
+# スライド定義
+- タイトル: ${definition.title}
+- 概要: ${definition.description}
+- スライドタイプ: ${definition.slideType}
+- コンテンツヒント: ${definition.contentHints.join(", ")}
+
+# 顧客情報
+- 顧客名: ${input.customerName}
+- 担当者名: ${input.agentName}
+${input.agentPhoneNumber ? `- 電話番号: ${input.agentPhoneNumber}` : ""}
+${input.agentEmailAddress ? `- メールアドレス: ${input.agentEmailAddress}` : ""}
+
+上記の情報に基づき、スライドのHTMLを生成してください。
 `,
-			messages: this.parallel ? [...this.messages, ...messages] : this.messages,
+			},
+		];
+
+		const { text, usage } = await generateText({
+			model: this.model,
+			system: systemPrompt,
+			messages: [...this.messages, ...messages],
 		});
 
-		if (!this.parallel) {
-			response.then(({ messages }) => this.messages.push(...messages));
+		// HTMLを抽出（マークダウンのコードブロックが含まれている場合に対応）
+		let html = text.trim();
+		const codeBlockMatch = html.match(/```(?:html)?\s*([\s\S]*?)```/);
+		if (codeBlockMatch) {
+			html = codeBlockMatch[1].trim();
 		}
 
-		return {
-			textStream,
-			getUsage: async () => {
-				const usageData = await usage;
-				return {
-					promptTokens: usageData.inputTokens ?? 0,
-					completionTokens: usageData.outputTokens ?? 0,
-					totalTokens:
-						(usageData.inputTokens ?? 0) + (usageData.outputTokens ?? 0),
-				};
-			},
+		console.log(`[SLIDE ${definition.index}] Raw HTML generated successfully`);
+
+		const totalUsage: UsageInfo = {
+			promptTokens: usage.inputTokens ?? 0,
+			completionTokens: usage.outputTokens ?? 0,
+			totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
 		};
+
+		const logData: SlideLogData = {
+			definition,
+			inputPrompt: {
+				system: systemPrompt,
+				messages: [...this.messages, ...messages],
+			},
+			output: text,
+			html,
+			usage: totalUsage,
+			isStatic: false,
+		};
+
+		return { html, usage: totalUsage, logData };
 	}
 
 	/**
@@ -1246,46 +733,6 @@ ${designSystem.styleGuidelines}
 				return `data:${mimeType};base64,${base64}`;
 			}),
 		);
-	}
-
-	/**
-	 * マイソクスライド用のHTMLを生成
-	 * 複数画像がある場合はグリッド表示
-	 */
-	private createMaisokuSlideHtml(
-		imageDataUrls: string[],
-		designSystem: DesignSystem,
-	): string {
-		const bgClass = designSystem.commonClasses.slideBackground;
-
-		// 画像がない場合のフォールバック
-		if (imageDataUrls.length === 0) {
-			return `<div id="slide-container" class="w-[1920px] h-[1080px] overflow-hidden relative ${bgClass} flex items-center justify-center">
-	<p class="text-2xl text-gray-400">マイソク画像がありません</p>
-</div>`;
-		}
-
-		if (imageDataUrls.length === 1) {
-			// 単一画像: センター配置、最大サイズで表示
-			return `<div id="slide-container" class="w-[1920px] h-[1080px] overflow-hidden relative ${bgClass} flex items-center justify-center p-12">
-	<img src="${imageDataUrls[0]}" alt="マイソク" class="max-w-full max-h-full object-contain drop-shadow-2xl" />
-</div>`;
-		}
-
-		// 複数画像: グリッド表示
-		const gridCols = imageDataUrls.length <= 2 ? "grid-cols-2" : "grid-cols-3";
-		const images = imageDataUrls
-			.map(
-				(url, i) =>
-					`<img src="${url}" alt="マイソク ${i + 1}" class="max-w-full max-h-full object-contain drop-shadow-lg" />`,
-			)
-			.join("\n\t\t");
-
-		return `<div id="slide-container" class="w-[1920px] h-[1080px] overflow-hidden relative ${bgClass} p-12">
-	<div class="w-full h-full grid ${gridCols} gap-8 place-items-center">
-		${images}
-	</div>
-</div>`;
 	}
 
 	private async buildUserContent(input: PrimaryInput): Promise<UserContent> {
@@ -1345,5 +792,49 @@ ${designSystem.styleGuidelines}
 		});
 
 		return userContent;
+	}
+
+	/**
+	 * スライドのインプット・アウトプットをログ出力
+	 */
+	private logSlideIO(logData: SlideLogData): void {
+		const slideDef = logData.definition;
+
+		// コンソール出力
+		console.log("\n" + "=".repeat(80));
+		console.log(
+			`📄 SLIDE ${slideDef.index}: ${slideDef.title}${logData.isStatic ? " (STATIC)" : ""}`,
+		);
+		console.log("=".repeat(80));
+
+		if (logData.error) {
+			console.log("\n--- ERROR ---");
+			console.log(logData.error.message);
+		}
+
+		console.log("=".repeat(80) + "\n");
+
+		// ファイル出力は一時的に無効化
+		// const now = new Date();
+		// const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+		// const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
+		// const timestamp = `${dateStr}_${timeStr}`;
+		// const logDir = path.join(process.cwd(), "logs", "slides");
+
+		// if (!fs.existsSync(logDir)) {
+		// 	fs.mkdirSync(logDir, { recursive: true });
+		// }
+
+		// const logFileName = `${timestamp}_slide${slideDef.index}.txt`;
+		// const logFilePath = path.join(logDir, logFileName);
+		// const sections: string[] = [];
+		// sections.push(`...`);
+		// fs.writeFileSync(logFilePath, sections.join("\n"), "utf-8");
+		// console.log(`📁 Log saved: ${logFilePath}`);
+
+		// const htmlFileName = `${timestamp}_slide${slideDef.index}.html`;
+		// const htmlFilePath = path.join(logDir, htmlFileName);
+		// fs.writeFileSync(htmlFilePath, logData.html, "utf-8");
+		// console.log(`📁 HTML saved: ${htmlFilePath}`);
 	}
 }

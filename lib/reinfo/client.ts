@@ -21,6 +21,7 @@ import type {
 	ReinfoApiResponse,
 	ReinfoClientOptions,
 	ReinfoRecord,
+	ShelterParams,
 	SteepSlopeParams,
 	TileResponse,
 	WelfareFacilityParams,
@@ -89,6 +90,26 @@ export class ReinfoClient {
 		})) as ReinfoApiResponse<TileResponse>;
 	}
 
+	/**
+	 * GeoJSONを直接返すAPIのリクエスト（statusフィールドがないもの用）
+	 */
+	private async requestGeoJson<T>(
+		path: string,
+		params: Record<string, SearchParamValue>,
+	): Promise<T> {
+		try {
+			const response = await this.instance.get(path, {
+				searchParams: buildSearchParams({
+					...params,
+					response_format: "geojson",
+				}),
+			});
+			return (await response.json()) as T;
+		} catch (error) {
+			throw await this.toReinfoError(error, path);
+		}
+	}
+
 	private async toReinfoError(
 		error: unknown,
 		path: string,
@@ -136,16 +157,39 @@ export class ReinfoClient {
 		);
 	}
 
+	/**
+	 * 価格ポイント取得（XPT001）
+	 * このAPIはGeoJSONを直接返す（statusフィールドなし）
+	 */
 	async getPricePoints(
 		params: PricePointParams,
 	): Promise<ReinfoApiResponse<TileResponse>> {
-		return this.requestTile("XPT001", this.toSearchParams(params));
+		const geoJson = await this.requestGeoJson<GeoJsonLike>(
+			"XPT001",
+			this.toSearchParams(params),
+		);
+		// GeoJSONをReinfoApiResponse形式でラップして返す
+		return {
+			status: "OK",
+			data: geoJson as TileResponse,
+		};
 	}
 
+	/**
+	 * 地価ポイント取得（XPT002）
+	 * このAPIはGeoJSONを直接返す（statusフィールドなし）
+	 */
 	async getLandPricePoints(
 		params: LandPricePointParams,
 	): Promise<ReinfoApiResponse<TileResponse>> {
-		return this.requestTile("XPT002", this.toSearchParams(params));
+		const geoJson = await this.requestGeoJson<GeoJsonLike>(
+			"XPT002",
+			this.toSearchParams(params),
+		);
+		return {
+			status: "OK",
+			data: geoJson as TileResponse,
+		};
 	}
 
 	async getUrbanPlanningArea(params: {
@@ -306,5 +350,17 @@ export class ReinfoClient {
 		y: number;
 	}): Promise<ReinfoApiResponse<TileResponse>> {
 		return this.requestTile("XKT025", this.toSearchParams(params));
+	}
+
+	/**
+	 * 指定緊急避難場所（XGT001）
+	 * 国土地理院GISデータから指定緊急避難場所を取得
+	 * このAPIはstatusフィールドなしで直接GeoJSONを返す
+	 */
+	async getShelters(params: ShelterParams): Promise<GeoJsonLike> {
+		return this.requestGeoJson<GeoJsonLike>(
+			"XGT001",
+			this.toSearchParams(params),
+		);
 	}
 }
