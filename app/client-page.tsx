@@ -1,6 +1,5 @@
 "use client";
 
-import { readStreamableValue } from "@ai-sdk/rsc";
 import { useForm } from "@tanstack/react-form";
 import { exportToPptx } from "dom-to-pptx";
 import html2canvas from "html2canvas-pro";
@@ -12,6 +11,7 @@ import {
 	LayoutTemplate,
 	Loader2,
 	Sparkles,
+	Square,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -39,9 +39,8 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import type { PlanEvent, SlideEvent, UsageInfo } from "@/lib/slide-generator";
+import type { Event, PlanEvent, SlideEvent, UsageInfo } from "@/lib/slide-generator";
 import { cn } from "@/lib/utils";
-import { run } from "./actions";
 import { formSchema } from "./schemas";
 
 type PlanState = PlanEvent;
@@ -67,6 +66,7 @@ export default function ClientPage() {
 	const [generationDurationMs, setGenerationDurationMs] = useState<number>(0);
 	const generationStartTimeRef = useRef<number>(0);
 	const slideIframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
+	const abortControllerRef = useRef<AbortController | null>(null);
 
 	const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
 	const [exportTarget, setExportTarget] = useState<"pptx" | "pdf">("pptx");
@@ -95,7 +95,7 @@ export default function ClientPage() {
 			loanTermYears: undefined,
 			// 開発用
 			modelType: "middle",
-			parallel: true,
+			useStructuredOutput: true,
 		} as z.infer<typeof formSchema>,
 		validators: {
 			onSubmit: formSchema,
@@ -108,59 +108,150 @@ export default function ClientPage() {
 			generationStartTimeRef.current = Date.now();
 			slideIframeRefs.current.clear();
 
+			// AbortControllerでキャンセル可能にする
+			abortControllerRef.current = new AbortController();
+
 			try {
-				const stream = await run(value);
-				for await (const event of readStreamableValue(stream)) {
-					if (!event) continue;
+				// FormDataを作成
+				const formData = new FormData();
 
-					switch (event.type) {
-						case "plan:start":
-						case "plan:end":
-							setPlan(event);
-							break;
+				// ファイル以外のデータをJSONとして追加
+				const inputData = {
+					customerName: value.customerName,
+					agentName: value.agentName,
+					agentPhoneNumber: value.agentPhoneNumber,
+					agentEmailAddress: value.agentEmailAddress,
+					annualIncome: value.annualIncome,
+					downPayment: value.downPayment,
+					interestRate: value.interestRate,
+					loanTermYears: value.loanTermYears,
+					modelType: value.modelType,
+					useStructuredOutput: value.useStructuredOutput,
+				};
+				formData.append("input", JSON.stringify(inputData));
 
-						case "slide:start":
-						case "slide:researching":
-						case "slide:generating":
-						case "slide:end":
-							setSlidesByPage((prev) => ({
-								...prev,
-								[event.index]: event,
-							}));
-							break;
-						case "error":
-							// Use toast for error notification
-							toast.error(event.message, {
-								icon: <AlertCircle className="h-4 w-4" />,
-							});
-							break;
-						case "usage":
-							// トークン使用量を累積
-							setTotalUsage((prev) => ({
-								promptTokens: prev.promptTokens + event.usage.promptTokens,
-								completionTokens:
-									prev.completionTokens + event.usage.completionTokens,
-								totalTokens: prev.totalTokens + event.usage.totalTokens,
-							}));
-							break;
-						case "end":
-							// 生成完了時に経過時間を記録
-							setGenerationDurationMs(
-								Date.now() - generationStartTimeRef.current,
-							);
-							break;
-						default:
-							break;
+				// ファイルを追加
+				if (value.flyerFiles && value.flyerFiles.length > 0) {
+					formData.append("flyerFile", value.flyerFiles[0]);
+				}
+
+				// SSEストリームをフェッチ
+				const response = await fetch("/api/generate", {
+					method: "POST",
+					body: formData,
+					signal: abortControllerRef.current?.signal,
+				});
+
+				if (!response.ok) {
+					const errorData = await response.json();
+					throw new Error(errorData.error || "Generation failed");
+				}
+
+				if (!response.body) {
+					throw new Error("No response body");
+				}
+
+				// SSEストリームを読み取り
+				const reader = response.body.getReader();
+				const decoder = new TextDecoder();
+				let buffer = "";
+
+				while (true) {
+					const { done, value: chunk } = await reader.read();
+					if (done) break;
+
+					buffer += decoder.decode(chunk, { stream: true });
+
+					// SSEイベントをパース（"data: " で始まり "\n\n" で終わる）
+					const lines = buffer.split("\n\n");
+					buffer = lines.pop() || ""; // 最後の不完全な行をバッファに残す
+
+					for (const line of lines) {
+						if (line.startsWith("data: ")) {
+							const jsonStr = line.slice(6); // "data: " を除去
+							try {
+								const event = JSON.parse(jsonStr) as Event;
+
+								// デバッグ: 受信したイベントをログ出力
+								const eventInfo = event.type === "slide:end" || event.type === "slide:generating" || event.type === "slide:start"
+									? `index=${(event as { index: number }).index}`
+									: "";
+								console.log(`[client] Event received: ${event.type} ${eventInfo}`);
+
+								switch (event.type) {
+									case "plan:start":
+									case "plan:end":
+										setPlan(event);
+										break;
+
+									case "slide:start":
+									case "slide:generating":
+									case "slide:end":
+										console.log(`[client] Updating slide ${event.index} with type ${event.type}`);
+										setSlidesByPage((prev) => {
+											const updated = {
+												...prev,
+												[event.index]: event,
+											};
+											console.log(`[client] slidesByPage keys after update:`, Object.keys(updated));
+											return updated;
+										});
+										break;
+									case "error":
+										toast.error(event.message, {
+											icon: <AlertCircle className="h-4 w-4" />,
+										});
+										break;
+									case "usage":
+										setTotalUsage((prev) => ({
+											promptTokens: prev.promptTokens + event.usage.promptTokens,
+											completionTokens:
+												prev.completionTokens + event.usage.completionTokens,
+											totalTokens: prev.totalTokens + event.usage.totalTokens,
+										}));
+										break;
+									case "end":
+										console.log("[client] Generation ended");
+										setGenerationDurationMs(
+											Date.now() - generationStartTimeRef.current,
+										);
+										break;
+									case "heartbeat":
+										console.log("[client] Heartbeat received");
+										break;
+									default:
+										break;
+								}
+							} catch (parseError) {
+								console.error("[client] Failed to parse SSE event:", parseError, jsonStr);
+							}
+						}
 					}
 				}
+				console.log("[client] Stream iteration completed");
 			} catch (e) {
-				console.error(e);
+				// AbortErrorは無視（ユーザーによるキャンセル）
+				if (e instanceof Error && e.name === "AbortError") {
+					console.log("[client] Request aborted by user");
+					toast.info("生成をキャンセルしました。");
+					return;
+				}
+				console.error("[client] Stream error:", e);
 				toast.error("予期せぬエラーが発生しました。", {
-					description: "もう一度お試しください。",
+					description: e instanceof Error ? e.message : "もう一度お試しください。",
 				});
+			} finally {
+				abortControllerRef.current = null;
 			}
 		},
 	});
+
+	// キャンセルハンドラー
+	const handleCancel = () => {
+		if (abortControllerRef.current) {
+			abortControllerRef.current.abort();
+		}
+	};
 
 	// Memoize cost calculation to avoid recalculation on every render
 	const costInfo = useMemo(() => {
@@ -651,25 +742,27 @@ export default function ClientPage() {
 
 								<Separator />
 
-								{/* Submit Button */}
-								<Button
-									type="submit"
-									disabled={form.state.isSubmitting}
-									size="lg"
-									className="w-full text-base font-medium shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow h-12"
-								>
-									{form.state.isSubmitting ? (
-										<>
-											<Loader2 className="h-5 w-5 animate-spin" />
-											生成中...
-										</>
-									) : (
-										<>
-											<Sparkles className="h-5 w-5" />
-											スライドを生成
-										</>
-									)}
-								</Button>
+								{/* Submit / Stop Button */}
+								{form.state.isSubmitting ? (
+									<Button
+										type="button"
+										size="lg"
+										onClick={handleCancel}
+										className="w-full text-base font-medium h-12 bg-neutral-800 hover:bg-neutral-700 text-white opacity-90 hover:opacity-100 transition-all"
+									>
+										<Square className="h-3.5 w-3.5 fill-current" />
+										停止
+									</Button>
+								) : (
+									<Button
+										type="submit"
+										size="lg"
+										className="w-full text-base font-medium shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow h-12"
+									>
+										<Sparkles className="h-5 w-5" />
+										スライドを生成
+									</Button>
+								)}
 							</form>
 						</div>
 
@@ -685,41 +778,6 @@ export default function ClientPage() {
 									</Badge>
 								</div>
 								<div className="px-6 py-3 border-b space-y-3">
-									<form.Field
-										name="parallel"
-										children={(field) => {
-											const parallel = field.state.value ?? false;
-											return (
-												<div className="flex items-center justify-between">
-													<span className="text-xs text-muted-foreground">
-														並列生成
-													</span>
-													<ToggleGroup
-														type="single"
-														value={parallel ? "true" : "false"}
-														onValueChange={(value) => {
-															field.handleChange(value === "true");
-														}}
-														variant="outline"
-														size="sm"
-													>
-														<ToggleGroupItem
-															value="true"
-															className="text-xs px-3"
-														>
-															有効
-														</ToggleGroupItem>
-														<ToggleGroupItem
-															value="false"
-															className="text-xs px-3"
-														>
-															無効
-														</ToggleGroupItem>
-													</ToggleGroup>
-												</div>
-											);
-										}}
-									/>
 									<form.Field
 										name="modelType"
 										children={(field) => (
@@ -762,40 +820,73 @@ export default function ClientPage() {
 														</ToggleGroupItem>
 													</ToggleGroup>
 												</div>
-												<div className="flex items-center justify-between">
-													<span className="text-xs text-muted-foreground">
-														トークン
-													</span>
-													<span className="text-xs font-mono">
-														入力 {totalUsage.promptTokens.toLocaleString()} /
-														出力 {totalUsage.completionTokens.toLocaleString()}
-													</span>
-												</div>
-												<div className="flex items-center justify-between">
-													<span className="text-xs text-muted-foreground">
-														推定コスト
-													</span>
-													<span className="text-xs font-mono font-semibold text-primary">
-														${costInfo.totalCost.toFixed(4)} (¥
-														{Math.round(
-															costInfo.totalCost * 150,
-														).toLocaleString()}
-														)
-													</span>
-												</div>
-												<div className="flex items-center justify-between">
-													<span className="text-xs text-muted-foreground">
-														生成時間
-													</span>
-													<span className="text-xs font-mono">
-														{generationDurationMs > 0
-															? `${(generationDurationMs / 1000).toFixed(1)}秒`
-															: "-"}
-													</span>
-												</div>
 											</>
 										)}
 									/>
+									<form.Field
+										name="useStructuredOutput"
+										children={(field) => (
+											<div className="flex items-center justify-between">
+												<span className="text-xs text-muted-foreground">
+													出力形式
+												</span>
+												<ToggleGroup
+													type="single"
+													value={field.state.value ? "structured" : "raw"}
+													onValueChange={(value) => {
+														if (value)
+															field.handleChange(value === "structured");
+													}}
+													variant="outline"
+													size="sm"
+												>
+													<ToggleGroupItem
+														value="structured"
+														className="text-xs px-3"
+													>
+														構造化出力
+													</ToggleGroupItem>
+													<ToggleGroupItem
+														value="raw"
+														className="text-xs px-3"
+													>
+														生HTML
+													</ToggleGroupItem>
+												</ToggleGroup>
+											</div>
+										)}
+									/>
+									<div className="flex items-center justify-between">
+										<span className="text-xs text-muted-foreground">
+											トークン
+										</span>
+										<span className="text-xs font-mono">
+											入力 {totalUsage.promptTokens.toLocaleString()} /
+											出力 {totalUsage.completionTokens.toLocaleString()}
+										</span>
+									</div>
+									<div className="flex items-center justify-between">
+										<span className="text-xs text-muted-foreground">
+											推定コスト
+										</span>
+										<span className="text-xs font-mono font-semibold text-primary">
+											${costInfo.totalCost.toFixed(4)} (¥
+											{Math.round(
+												costInfo.totalCost * 150,
+											).toLocaleString()}
+											)
+										</span>
+									</div>
+									<div className="flex items-center justify-between">
+										<span className="text-xs text-muted-foreground">
+											生成時間
+										</span>
+										<span className="text-xs font-mono">
+											{generationDurationMs > 0
+												? `${(generationDurationMs / 1000).toFixed(1)}秒`
+												: "-"}
+										</span>
+									</div>
 								</div>
 							</div>
 						)}
@@ -1041,7 +1132,7 @@ export default function ClientPage() {
 									{orderedSlides.map((slide) => {
 										const isCompleted = slide.type === "slide:end";
 										const isGenerating = slide.type === "slide:generating";
-										const isResearching = slide.type === "slide:researching";
+										const isPending = slide.type === "slide:start";
 
 										return (
 											<div
@@ -1058,7 +1149,7 @@ export default function ClientPage() {
 														</span>
 													</div>
 													<div className="flex items-center gap-2">
-														{isResearching && (
+														{isPending && (
 															<Badge
 																variant="secondary"
 																className="text-[10px] animate-pulse"
@@ -1096,7 +1187,7 @@ export default function ClientPage() {
 												) : (
 													<div className="aspect-video w-full rounded-lg border bg-background/50 flex flex-col items-center justify-center text-muted-foreground gap-3 relative overflow-hidden">
 														<div className="absolute inset-0 bg-muted/10" />
-														{isResearching ? (
+														{isPending ? (
 															<>
 																<Loader2 className="h-8 w-8 animate-spin text-primary/40" />
 																<p className="text-xs font-medium relative z-10">
