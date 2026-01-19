@@ -7,21 +7,7 @@ import type { SlideDefinition } from "./schemas";
 /** 生成されたスライド */
 export interface GeneratedSlide {
 	html: string;
-	sources?: ResearchSource[];
-}
-
-/** リサーチの情報源 */
-export interface ResearchSource {
-	title?: string;
-	url: string;
-	excerpt?: string;
-}
-
-/** スライド単位のリサーチ結果 */
-export interface SlideResearchResult {
-	summary: string;
-	keyFacts: Array<{ fact: string; sourceUrls: string[] }>;
-	sources: ResearchSource[];
+	sources?: string[];
 }
 
 /** SlideGenerator Event Types */
@@ -55,11 +41,6 @@ export type SlideStartEvent = SlideBaseEvent & {
 	title: string;
 };
 
-export type SlideResearchingEvent = SlideBaseEvent & {
-	type: "slide:researching";
-	data: SlideResearchResult;
-};
-
 export type SlideGeneratingEvent = SlideBaseEvent & {
 	type: "slide:generating";
 	data: GeneratedSlide;
@@ -69,22 +50,17 @@ export type SlideEndEvent = SlideBaseEvent & {
 	type: "slide:end";
 	data: {
 		slide: GeneratedSlide;
-		research: SlideResearchResult;
 	};
 };
 
 export type SlideEvent =
 	| SlideStartEvent
-	| SlideResearchingEvent
 	| SlideGeneratingEvent
 	| SlideEndEvent;
 
 export type EndEvent = BaseEvent & {
 	type: "end";
-	data: {
-		slide: GeneratedSlide;
-		research: SlideResearchResult;
-	}[];
+	data: GeneratedSlide[];
 };
 
 export type ErrorEvent = BaseEvent & {
@@ -105,10 +81,17 @@ export type UsageEvent = BaseEvent & {
 	step: string;
 };
 
+/** ストリーム接続維持用のheartbeatイベント */
+export type HeartbeatEvent = BaseEvent & {
+	type: "heartbeat";
+	timestamp: number;
+};
+
 export type Event =
 	| StartEvent
 	| PlanEvent
 	| SlideEvent
 	| EndEvent
 	| ErrorEvent
-	| UsageEvent;
+	| UsageEvent
+	| HeartbeatEvent;
