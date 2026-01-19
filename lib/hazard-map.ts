@@ -90,10 +90,10 @@ export class HazardMapGenerator {
 		const scaledWidth = width * opts.scale;
 		const scaledHeight = height * opts.scale;
 
-		// ズームレベルが未指定の場合、半径5km程度が入るように調整 (Zoom 13程度)
-		// Zoom 13: 1px ≒ 19m (赤道付近) -> 640px ≒ 12km
-		// 日本付近(北緯35度)だと 1px ≒ 19 * cos(35deg) ≒ 15.5m -> 640px ≒ 10km (半径5km)
-		const zoom = opts.zoom ?? 13;
+		// ズームレベルが未指定の場合、半径2.5km程度が入るように調整 (Zoom 14)
+		// Zoom 14: 1px ≒ 9.75m (赤道付近)
+		// 日本付近(北緯35度)だと 1px ≒ 9.75 * cos(35deg) ≒ 8m -> 640px ≒ 5km (半径2.5km)
+		const zoom = opts.zoom ?? 14;
 
 		// 3. 必要なタイルの範囲を計算
 		const centerPixel = this.latLonToPixel(
@@ -286,13 +286,67 @@ export class HazardMapGenerator {
 	}
 
 	private drawMarker(ctx: PImage.Context, x: number, y: number) {
-		ctx.fillStyle = "red";
+		this.drawPin(ctx, x, y, "#ef4444", "#b91c1c"); // red-500, red-700
+	}
+
+	/**
+	 * ピン形状のマーカーを描画（Google Maps風）
+	 * @param x ピンの先端のX座標
+	 * @param y ピンの先端のY座標
+	 */
+	private drawPin(
+		ctx: PImage.Context,
+		x: number,
+		y: number,
+		fillColor: string,
+		darkColor: string,
+	) {
+		const radius = 12; // 円部分の半径
+		const tipLength = 14; // 先端部分の長さ
+		const centerY = y - tipLength - radius; // 円の中心Y座標
+
+		// 影を描画
+		ctx.globalAlpha = 0.3;
+		ctx.fillStyle = "#000000";
 		ctx.beginPath();
-		ctx.arc(x, y, (6 * ctx.canvas.width) / 640, 0, Math.PI * 2); // 画面サイズに応じて少し調整
+		ctx.arc(x + 3, y + 3, 6, 0, Math.PI * 2);
+		ctx.fill();
+		ctx.globalAlpha = 1.0;
+
+		// ピン本体（涙滴型）を描画
+		ctx.fillStyle = fillColor;
+
+		// 上部の円
+		ctx.beginPath();
+		ctx.arc(x, centerY, radius, 0, Math.PI * 2);
 		ctx.fill();
 
-		ctx.strokeStyle = "white";
-		ctx.lineWidth = 2;
-		ctx.stroke();
+		// 下部の三角形（先端）
+		ctx.beginPath();
+		ctx.moveTo(x - radius * 0.7, centerY + radius * 0.7);
+		ctx.lineTo(x, y);
+		ctx.lineTo(x + radius * 0.7, centerY + radius * 0.7);
+		ctx.closePath();
+		ctx.fill();
+
+		// 左側の暗い部分（立体感）
+		ctx.fillStyle = darkColor;
+		ctx.beginPath();
+		ctx.arc(x, centerY, radius, Math.PI * 0.6, Math.PI * 1.4);
+		ctx.lineTo(x, y);
+		ctx.closePath();
+		ctx.fill();
+
+		// 内側の白い円（ハイライト）
+		ctx.fillStyle = "#ffffff";
+		ctx.beginPath();
+		ctx.arc(x, centerY, radius * 0.45, 0, Math.PI * 2);
+		ctx.fill();
+
+		// 光沢（小さな白い円）
+		ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+		ctx.beginPath();
+		ctx.arc(x - radius * 0.25, centerY - radius * 0.25, radius * 0.2, 0, Math.PI * 2);
+		ctx.fill();
 	}
 }
