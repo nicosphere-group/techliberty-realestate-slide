@@ -95,7 +95,7 @@ export default function ClientPage() {
 			loanTermYears: undefined,
 			// 開発用
 			modelType: "middle",
-			parallel: false,
+			parallel: true,
 		} as z.infer<typeof formSchema>,
 		validators: {
 			onSubmit: formSchema,
