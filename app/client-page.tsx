@@ -41,6 +41,7 @@ import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Event, PlanEvent, SlideEvent, UsageInfo } from "@/lib/slide-generator";
 import { cn } from "@/lib/utils";
+import { convertPdfToSingleJpg, isPdfFile } from "@/lib/utils/pdf-converter";
 import { formSchema } from "./schemas";
 
 type PlanState = PlanEvent;
@@ -73,6 +74,7 @@ export default function ClientPage() {
 	const [selectedSlideIndices, setSelectedSlideIndices] = useState<number[]>(
 		[],
 	);
+	const [isConvertingPdf, setIsConvertingPdf] = useState(false);
 
 	// const isDevelopment = process.env.NODE_ENV === "development";
 	const isDevelopment = true;
@@ -712,12 +714,34 @@ export default function ClientPage() {
 															".gif",
 															".webp",
 														],
+														"application/pdf": [".pdf"],
 													}}
 													maxFiles={1}
-													maxSize={10 * 1024 * 1024}
+													maxSize={20 * 1024 * 1024}
 													src={field.state.value || []}
-													onDrop={(acceptedFiles) => {
-														field.handleChange(acceptedFiles);
+													disabled={isConvertingPdf}
+													onDrop={async (acceptedFiles) => {
+														if (acceptedFiles.length === 0) return;
+
+														const file = acceptedFiles[0];
+
+														// PDFの場合はJPGに変換（全ページを縦に連結）
+														if (isPdfFile(file)) {
+															setIsConvertingPdf(true);
+															try {
+																const result = await convertPdfToSingleJpg(file, 1440, 0.85);
+																field.handleChange([result.file]);
+															} catch (error) {
+																console.error("PDF変換エラー:", error);
+																toast.error("PDFの変換に失敗しました", {
+																	description: error instanceof Error ? error.message : "不明なエラー",
+																});
+															} finally {
+																setIsConvertingPdf(false);
+															}
+														} else {
+															field.handleChange(acceptedFiles);
+														}
 													}}
 													onError={(error) => {
 														toast.error(
@@ -729,8 +753,17 @@ export default function ClientPage() {
 													}}
 													className="h-40"
 												>
-													<DropzoneEmptyState />
-													<DropzoneContent />
+													{isConvertingPdf ? (
+														<div className="flex flex-col items-center justify-center">
+															<Loader2 className="h-8 w-8 animate-spin text-primary" />
+															<p className="my-2 font-medium text-sm">PDFを変換中...</p>
+														</div>
+													) : (
+														<>
+															<DropzoneEmptyState />
+															<DropzoneContent />
+														</>
+													)}
 												</Dropzone>
 												{isInvalid && (
 													<FieldError errors={field.state.meta.errors} />
