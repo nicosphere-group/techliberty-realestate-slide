@@ -337,6 +337,22 @@ export class SlideGenerator {
 提供されたマイソク画像から、以下の情報を正確に抽出してください:
 - 建物名
 - 所在地
+- 物件価格（例: 5,800万円）
+- 専有面積（例: 72.5㎡）
+- 築年または建築年（西暦4桁で抽出）
+
+築年・建築年の抽出ルール:
+- 「築年月: 1998年10月」→ 1998年
+- 「建築年: 2015年」→ 2015年
+- 「完成時期: 2020年5月」→ 2020年
+- 「平成10年」→ 1998年（西暦に変換）
+- 新築で建築年が未記載の場合は、完成予定年を使用
+- どうしても見つからない場合のみ省略可能
+
+注意:
+- 価格、面積が記載されていない場合は省略可能
+- 築年は必ず西暦4桁（例: 1998、2015）で抽出してください
+- 築年数（例: 築25年）ではなく、建築された年（例: 1998年）を抽出してください
 `,
 			messages: [
 				{
@@ -345,7 +361,7 @@ export class SlideGenerator {
 						{ type: "image", image: await flyerFile.arrayBuffer() },
 						{
 							type: "text",
-							text: "上記の画像は不動産物件のチラシです。記載されている全ての情報（物件名、価格、所在地、面積、間取り、特徴、設備、アクセス情報など）を詳細に抽出してください。",
+							text: "上記の画像は不動産物件のチラシです。記載されている全ての情報（物件名、価格、所在地、面積、築年、間取り、特徴、設備、アクセス情報など）を詳細に抽出してください。特に価格、面積、築年を正確に抽出してください。",
 						},
 					],
 				},
@@ -358,6 +374,87 @@ export class SlideGenerator {
 		});
 
 		return new FlyerDataModel(output);
+	}
+
+	/**
+	 * LLMをスキップしてツール結果を直接使用できるかを判定
+	 */
+	private canSkipLLM(slideType: SlideType): boolean {
+		// Slide 1 (Cover), 5 (Nearby), 6 (Price Analysis) はLLMスキップ可能
+		return slideType === "cover" || slideType === "nearby" || slideType === "price-analysis";
+	}
+
+	/**
+	 * ツール結果とマイソクデータからスライドコンテンツを直接生成（LLMスキップ）
+	 */
+	private buildSlideContentWithoutLLM(
+		slideType: SlideType,
+		toolResults: ToolExecutionResult | null,
+		input: PrimaryInput,
+	): unknown {
+		switch (slideType) {
+			case "cover": {
+				// Slide 1: flyerData + input + ツール結果のマージ
+				const imageUrl = toolResults?.results?.extract_property_image as { imageUrl?: string } | undefined;
+				return {
+					propertyName: this.flyerData?.name || "",
+					address: this.flyerData?.address,
+					companyName: input.companyName,
+					storeName: input.storeName,
+					storeAddress: input.storeAddress,
+					storePhoneNumber: input.storePhoneNumber,
+					storeEmailAddress: input.storeEmailAddress,
+					imageUrl: imageUrl?.imageUrl,
+				};
+			}
+
+			case "nearby": {
+				// Slide 5: ツール結果をそのまま使用
+				const nearbyData = toolResults?.results?.generate_nearby_map as {
+					facilityGroups?: unknown[];
+					address?: string;
+					mapImageUrl?: string;
+				} | undefined;
+
+				if (!nearbyData) {
+					throw new Error("Nearby map tool did not return expected data");
+				}
+
+				return {
+					facilityGroups: nearbyData.facilityGroups || [],
+					address: nearbyData.address || this.flyerData?.address || "",
+					mapImageUrl: nearbyData.mapImageUrl,
+				};
+			}
+
+			case "price-analysis": {
+				// Slide 6: ツール結果をそのまま使用
+				const priceData = toolResults?.results?.get_price_points as {
+					targetProperty?: unknown;
+					similarProperties?: unknown[];
+					estimatedPriceMin?: string;
+					estimatedPriceMax?: string;
+					averageUnitPrice?: number;
+					dataCount?: number;
+				} | undefined;
+
+				if (!priceData) {
+					throw new Error("Price analysis tool did not return expected data");
+				}
+
+				return {
+					targetProperty: priceData.targetProperty,
+					similarProperties: priceData.similarProperties || [],
+					estimatedPriceMin: priceData.estimatedPriceMin || "-",
+					estimatedPriceMax: priceData.estimatedPriceMax || "-",
+					averageUnitPrice: priceData.averageUnitPrice,
+					dataCount: priceData.dataCount,
+				};
+			}
+
+			default:
+				throw new Error(`Cannot build content without LLM for slide type: ${slideType}`);
+		}
 	}
 
 	/**
@@ -399,55 +496,82 @@ export class SlideGenerator {
 			);
 		}
 
-		// Phase 2: 構造化コンテンツを生成
-		// ツール結果をプロンプトに含める
-		const toolResultsPrompt = toolResults
-			? `
+		// Phase 2: LLMスキップ可能かチェック
+		let output: SlideContentMap[typeof slideType];
+		let usage: UsageInfo;
+
+		if (this.canSkipLLM(slideType)) {
+			console.log(`[SLIDE ${definition.index}] Skipping LLM - building content directly from tool results`);
+
+			// ツール結果から直接コンテンツを生成
+			const rawOutput = this.buildSlideContentWithoutLLM(slideType, toolResults, input);
+
+			// Zodでバリデーション
+			// biome-ignore lint/suspicious/noExplicitAny: 動的スキーマ選択
+			output = schema.parse(rawOutput) as any;
+
+			// ツール使用量のみ計上（LLMトークンはゼロ）
+			usage = toolResults?.usage || {
+				promptTokens: 0,
+				completionTokens: 0,
+				totalTokens: 0,
+			};
+
+			console.log(
+				`[SLIDE ${definition.index}] Content built without LLM:`,
+				safeStringify(output).substring(0, 500),
+			);
+		} else {
+			// Phase 2: 構造化コンテンツを生成（従来のLLM経由）
+			// ツール結果をプロンプトに含める
+			const toolResultsPrompt = toolResults
+				? `
 # ツール実行結果
 以下のツールを実行して取得したデータを使用してください。
-imageUrl等はそのまま使用してください。
+imageUrl, facilityGroups等、スキーマと一致するフィールドは**そのままコピー**してください。
 
 ${safeStringify(toolResults.results)}
 `
-			: "";
+				: "";
 
-		const systemPrompt = `あなたは不動産スライドのコンテンツ生成AIです。
+			const systemPrompt = `あなたは不動産スライドのコンテンツ生成AIです。
 指定されたスライドタイプ（${slideType}）に適した構造化データを生成してください。
 
 # 重要な制約
 - 全てのフィールドはスキーマで指定された文字数制限を厳守
 - リスト項目は最大数を超えない
+- 配列内の要素は重複不可（例: facilityGroupsで同じカテゴリーを2回含めない）
 - 文字数が長すぎる場合は要約して収める
 - これまでの会話で得られた情報を最大限活用する
-- ツール実行結果にimageUrl, imageAspectRatio等がある場合は、そのまま対応するフィールドにコピーすること
+- ツール実行結果にimageUrl, facilityGroups等、スキーマと一致するフィールドがある場合は、**そのまま対応するフィールドにコピー**すること
 
 # 出力形式
 構造化データのみを出力。余計な説明は不要。`;
 
-		const messages: ModelMessage[] = [
-			{
-				role: "user",
-				content: `
+			const messages: ModelMessage[] = [
+				{
+					role: "user",
+					content: `
 # スライド定義
 - タイトル: ${definition.title}
 - 概要: ${definition.description}
 - スライドタイプ: ${slideType}
 - コンテンツヒント: ${definition.contentHints.join(", ")}
 
-# 顧客情報
-- 顧客名: ${input.customerName}
-- 担当者名: ${input.agentName}
-${input.agentPhoneNumber ? `- 電話番号: ${input.agentPhoneNumber}` : ""}
-${input.agentEmailAddress ? `- メールアドレス: ${input.agentEmailAddress}` : ""}
+# 店舗情報
+- 会社名: ${input.companyName}
+${input.storeName ? `- 店舗名: ${input.storeName}` : ""}
+${input.storeAddress ? `- 住所: ${input.storeAddress}` : ""}
+${input.storePhoneNumber ? `- 電話番号: ${input.storePhoneNumber}` : ""}
+${input.storeEmailAddress ? `- メールアドレス: ${input.storeEmailAddress}` : ""}
 ${toolResultsPrompt}
 上記の情報に基づき、スライドのコンテンツを構造化データとして出力してください。
 スキーマの制約（文字数・項目数）を厳守してください。
 `,
-			},
-		];
+				},
+			];
 
-		try {
-			const { output, usage } = await generateText({
+			const result = await generateText({
 				model: this.model,
 				system: systemPrompt,
 				messages: [...this.messages, ...messages],
@@ -455,12 +579,28 @@ ${toolResultsPrompt}
 				output: Output.object({ name: "slide_content", schema: schema as any }),
 			});
 
+			output = result.output as SlideContentMap[typeof slideType];
+
+			// ツール使用量を加算
+			usage = {
+				promptTokens:
+					(result.usage.inputTokens ?? 0) + (toolResults?.usage.promptTokens ?? 0),
+				completionTokens:
+					(result.usage.outputTokens ?? 0) + (toolResults?.usage.completionTokens ?? 0),
+				totalTokens:
+					(result.usage.inputTokens ?? 0) +
+					(result.usage.outputTokens ?? 0) +
+					(toolResults?.usage.totalTokens ?? 0),
+			};
+
 			console.log(
 				`[SLIDE ${definition.index}] Structured output received:`,
 				safeStringify(output).substring(0, 500),
 			);
+		}
 
-			// 固定テンプレートでHTML生成
+		// Phase 3: HTML生成
+		try {
 			const html = renderSlideHtml(
 				slideType,
 				output as SlideContentMap[typeof slideType],
@@ -468,33 +608,17 @@ ${toolResultsPrompt}
 
 			console.log(`[SLIDE ${definition.index}] HTML generated successfully`);
 
-			// ツール使用量を加算
-			const totalUsage: UsageInfo = {
-				promptTokens:
-					(usage.inputTokens ?? 0) + (toolResults?.usage.promptTokens ?? 0),
-				completionTokens:
-					(usage.outputTokens ?? 0) + (toolResults?.usage.completionTokens ?? 0),
-				totalTokens:
-					(usage.inputTokens ?? 0) +
-					(usage.outputTokens ?? 0) +
-					(toolResults?.usage.totalTokens ?? 0),
-			};
-
 			// ログデータを構築
 			const logData: SlideLogData = {
 				definition,
-				inputPrompt: {
-					system: systemPrompt,
-					messages: [...this.messages, ...messages],
-				},
 				toolResults: toolResults?.results,
 				output,
 				html,
-				usage: totalUsage,
+				usage,
 				isStatic: false,
 			};
 
-			return { html, usage: totalUsage, logData };
+			return { html, usage, logData };
 		} catch (error) {
 			console.error(
 				`[SLIDE ${definition.index}] Error in generateSlideStructured:`,
@@ -504,10 +628,6 @@ ${toolResultsPrompt}
 			// エラー時もログデータを構築
 			const errorLogData: SlideLogData = {
 				definition,
-				inputPrompt: {
-					system: systemPrompt,
-					messages: [...this.messages, ...messages],
-				},
 				toolResults: toolResults?.results,
 				html: "",
 				error: {
@@ -565,13 +685,31 @@ ${toolResultsPrompt}
 
 				case "search_nearby_facilities":
 				case "generate_nearby_map":
-				case "get_price_points":
 					// 住所ベースのツール（addressパラメータ）
 					if (!this.flyerData?.address) {
 						throw new Error("物件住所が設定されていません");
 					}
 					result = await tool.execute({
 						address: this.flyerData.address,
+					});
+					break;
+
+				case "get_price_points":
+					// 価格分析ツール（addressパラメータ + targetPropertyInput）
+					if (!this.flyerData?.address) {
+						throw new Error("物件住所が設定されていません");
+					}
+					result = await tool.execute({
+						address: this.flyerData.address,
+						zoom: 13, // 検索範囲を広げる（14→13で範囲が2倍に）
+						yearsBack: 5,
+						maxResults: 6,
+						targetPropertyInput: {
+							name: this.flyerData.name,
+							price: this.flyerData.price,
+							area: this.flyerData.area,
+							constructionYear: this.flyerData.constructionYear,
+						},
 					});
 					break;
 
@@ -672,11 +810,12 @@ ${toolResultsPrompt}
 - スライドタイプ: ${definition.slideType}
 - コンテンツヒント: ${definition.contentHints.join(", ")}
 
-# 顧客情報
-- 顧客名: ${input.customerName}
-- 担当者名: ${input.agentName}
-${input.agentPhoneNumber ? `- 電話番号: ${input.agentPhoneNumber}` : ""}
-${input.agentEmailAddress ? `- メールアドレス: ${input.agentEmailAddress}` : ""}
+# 店舗情報
+- 会社名: ${input.companyName}
+${input.storeName ? `- 店舗名: ${input.storeName}` : ""}
+${input.storeAddress ? `- 住所: ${input.storeAddress}` : ""}
+${input.storePhoneNumber ? `- 電話番号: ${input.storePhoneNumber}` : ""}
+${input.storeEmailAddress ? `- メールアドレス: ${input.storeEmailAddress}` : ""}
 
 上記の情報に基づき、スライドのHTMLを生成してください。
 `,
@@ -752,16 +891,19 @@ ${input.agentEmailAddress ? `- メールアドレス: ${input.agentEmailAddress}
 		// テキスト情報を構造化して追加
 		const textParts: string[] = [];
 
-		textParts.push(`# 顧客情報`);
-		textParts.push(`- 顧客名: ${input.customerName}`);
-
-		textParts.push(`\n# 担当者情報`);
-		textParts.push(`- 担当者名: ${input.agentName}`);
-		if (input.agentPhoneNumber) {
-			textParts.push(`- 電話番号: ${input.agentPhoneNumber}`);
+		textParts.push(`# 店舗情報`);
+		textParts.push(`- 会社名: ${input.companyName}`);
+		if (input.storeName) {
+			textParts.push(`- 店舗名: ${input.storeName}`);
 		}
-		if (input.agentEmailAddress) {
-			textParts.push(`- メールアドレス: ${input.agentEmailAddress}`);
+		if (input.storeAddress) {
+			textParts.push(`- 住所: ${input.storeAddress}`);
+		}
+		if (input.storePhoneNumber) {
+			textParts.push(`- 電話番号: ${input.storePhoneNumber}`);
+		}
+		if (input.storeEmailAddress) {
+			textParts.push(`- メールアドレス: ${input.storeEmailAddress}`);
 		}
 
 		// 資金計画シミュレーション用の入力（オプション）
