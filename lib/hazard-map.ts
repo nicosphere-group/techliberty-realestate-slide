@@ -134,7 +134,7 @@ export class HazardMapGenerator {
 				const destY = tile.y * 256 - topLeftPixel.y;
 
 				try {
-					// ベース地図 (薄地図を使うとハザードが見やすい)
+					// ベース地図 (淡色地図を使用)
 					const baseTileUrl = `${HazardMapGenerator.BASE_URLS.std}/${tile.z}/${tile.x}/${tile.y}.png`;
 					const baseImg = await this.fetchImage(baseTileUrl);
 					if (baseImg) {

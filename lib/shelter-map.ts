@@ -64,6 +64,14 @@ export const shelterMapOptionsSchema = z.object({
 		.max(1)
 		.default(0.5)
 		.describe("ハザードマップの不透明度"),
+	maxShelters: z
+		.number()
+		.int()
+		.min(1)
+		.max(10)
+		.optional()
+		.default(3)
+		.describe("表示する最寄り避難所の最大数。デフォルトは3。"),
 });
 
 export type ShelterMapOptions = z.input<typeof shelterMapOptionsSchema>;
@@ -80,6 +88,11 @@ interface ShelterFeature {
 interface ShelterGeoJson {
 	type: "FeatureCollection";
 	features: ShelterFeature[];
+}
+
+export interface ShelterWithDistance extends ShelterFeature {
+	distance: number; // メートル
+	walkingMinutes: number; // 徒歩分数
 }
 
 export class ShelterMapGenerator {
@@ -193,8 +206,31 @@ export class ShelterMapGenerator {
 			}),
 		);
 
-		// 6. 避難所マーカーを描画
-		for (const shelter of allShelters) {
+		// 6. 避難所を距離順にソートして最寄りN個に絞り込む
+		const sheltersWithDistance: ShelterWithDistance[] = allShelters.map(
+			(shelter) => {
+				const [lon, lat] = shelter.geometry.coordinates;
+				const distance = this.calculateDistance(
+					centerCoords.lat,
+					centerCoords.lon,
+					lat,
+					lon,
+				);
+				const walkingMinutes = this.calculateWalkingMinutes(distance);
+				return {
+					...shelter,
+					distance,
+					walkingMinutes,
+				};
+			},
+		);
+
+		const nearestShelters = sheltersWithDistance
+			.sort((a, b) => a.distance - b.distance)
+			.slice(0, opts.maxShelters);
+
+		// 7. 最寄り避難所のマーカーを番号付きで描画
+		nearestShelters.forEach((shelter, index) => {
 			const [lon, lat] = shelter.geometry.coordinates;
 			const pixel = this.latLonToPixel(lat, lon, zoom);
 			const x = pixel.x - topLeftPixel.x;
@@ -202,14 +238,14 @@ export class ShelterMapGenerator {
 
 			// 画像内に収まるかチェック
 			if (x >= 0 && x <= scaledWidth && y >= 0 && y <= scaledHeight) {
-				this.drawShelterMarker(ctx, x, y, shelter.properties);
+				this.drawNumberedShelterMarker(ctx, x, y, index + 1);
 			}
-		}
+		});
 
-		// 7. 中心点のマーカー描画
+		// 8. 中心点のマーカー描画
 		this.drawCenterMarker(ctx, scaledWidth / 2, scaledHeight / 2);
 
-		// 8. 出力
+		// 9. 出力
 		let buffer: Buffer;
 		switch (opts.format) {
 			case "jpg": {
@@ -254,10 +290,7 @@ export class ShelterMapGenerator {
 	/**
 	 * 避難所データのみを取得する（地図画像なし）
 	 */
-	async getShelters(
-		center: string,
-		zoom = 14,
-	): Promise<ShelterFeature[]> {
+	async getShelters(center: string, zoom = 14): Promise<ShelterFeature[]> {
 		const centerCoords = await this.resolveCenter(center);
 		const centerPixel = this.latLonToPixel(
 			centerCoords.lat,
@@ -300,6 +333,42 @@ export class ShelterMapGenerator {
 		return uniqueShelters;
 	}
 
+	/**
+	 * 最寄りの避難所を取得（距離順）
+	 */
+	async getNearestShelters(
+		center: string,
+		zoom = 14,
+		maxCount = 3,
+	): Promise<ShelterWithDistance[]> {
+		const centerCoords = await this.resolveCenter(center);
+		const shelters = await this.getShelters(center, zoom);
+
+		// 中心座標からの距離を計算
+		const sheltersWithDistance: ShelterWithDistance[] = shelters.map(
+			(shelter) => {
+				const [lon, lat] = shelter.geometry.coordinates;
+				const distance = this.calculateDistance(
+					centerCoords.lat,
+					centerCoords.lon,
+					lat,
+					lon,
+				);
+				const walkingMinutes = this.calculateWalkingMinutes(distance);
+				return {
+					...shelter,
+					distance,
+					walkingMinutes,
+				};
+			},
+		);
+
+		// 距離でソートして最寄りN箇所を取得
+		return sheltersWithDistance
+			.sort((a, b) => a.distance - b.distance)
+			.slice(0, maxCount);
+	}
+
 	private async resolveCenter(
 		center: string,
 	): Promise<{ lat: number; lon: number }> {
@@ -334,6 +403,40 @@ export class ShelterMapGenerator {
 				256,
 		);
 		return { x, y };
+	}
+
+	/**
+	 * 2点間の距離を計算（Haversine公式）
+	 * @returns 距離（メートル）
+	 */
+	private calculateDistance(
+		lat1: number,
+		lon1: number,
+		lat2: number,
+		lon2: number,
+	): number {
+		const R = 6371e3; // 地球の半径（メートル）
+		const φ1 = (lat1 * Math.PI) / 180;
+		const φ2 = (lat2 * Math.PI) / 180;
+		const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+		const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+		const a =
+			Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+			Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+		const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+		return R * c;
+	}
+
+	/**
+	 * 距離から徒歩時間を計算
+	 * @param distanceMeters 距離（メートル）
+	 * @returns 徒歩時間（分）、80m/分で計算
+	 */
+	private calculateWalkingMinutes(distanceMeters: number): number {
+		const walkingSpeedMeterPerMinute = 80;
+		return Math.ceil(distanceMeters / walkingSpeedMeterPerMinute);
 	}
 
 	private getHazardTileUrl(
@@ -392,14 +495,142 @@ export class ShelterMapGenerator {
 		}
 	}
 
-	private drawShelterMarker(
+	/**
+	 * フォントファイルに依存せず、塗りつぶしで綺麗な数字を描画する
+	 */
+	private drawVectorNumber(
 		ctx: PImage.Context,
 		x: number,
 		y: number,
-		_properties: Record<string, unknown>,
+		num: number,
+		size: number,
+		color: string,
 	) {
-		// ピン形状のマーカー（緑色）
-		this.drawPin(ctx, x, y, "#22c55e", "#15803d"); // green-500, green-700
+		ctx.fillStyle = color;
+
+		const h = size * 0.5; // 文字の高さ
+		const w = size * 0.35; // 文字の幅
+		const lineWidth = h * 0.18; // 線の太さ
+
+		// 簡易的に矩形を組み合わせて数字を描画
+		const top = y - h / 2;
+		const bottom = y + h / 2;
+		const left = x - w / 2;
+		const right = x + w / 2;
+		const centerX = x;
+		const centerY = y;
+
+		switch (num) {
+			case 1:
+				// 縦棒
+				ctx.fillRect(centerX - lineWidth / 2, top, lineWidth, h);
+				break;
+			case 2:
+				// 上横
+				ctx.fillRect(left, top, w, lineWidth);
+				// 右上縦
+				ctx.fillRect(right - lineWidth, top, lineWidth, h * 0.45);
+				// 中横
+				ctx.fillRect(left, centerY - lineWidth / 2, w, lineWidth);
+				// 左下縦
+				ctx.fillRect(left, centerY, lineWidth, h * 0.5);
+				// 下横
+				ctx.fillRect(left, bottom - lineWidth, w, lineWidth);
+				break;
+			case 3:
+				// 上横
+				ctx.fillRect(left, top, w, lineWidth);
+				// 中横
+				ctx.fillRect(left, centerY - lineWidth / 2, w, lineWidth);
+				// 下横
+				ctx.fillRect(left, bottom - lineWidth, w, lineWidth);
+				// 右縦
+				ctx.fillRect(right - lineWidth, top, lineWidth, h);
+				break;
+			case 4:
+				// 左上縦
+				ctx.fillRect(left, top, lineWidth, h * 0.6);
+				// 中横
+				ctx.fillRect(left, centerY, w, lineWidth);
+				// 右縦
+				ctx.fillRect(right - lineWidth, top, lineWidth, h);
+				break;
+			case 5:
+				// 上横
+				ctx.fillRect(left, top, w, lineWidth);
+				// 左上縦
+				ctx.fillRect(left, top, lineWidth, h * 0.45);
+				// 中横
+				ctx.fillRect(left, centerY - lineWidth / 2, w, lineWidth);
+				// 右下縦
+				ctx.fillRect(right - lineWidth, centerY, lineWidth, h * 0.5);
+				// 下横
+				ctx.fillRect(left, bottom - lineWidth, w, lineWidth);
+				break;
+			default:
+				// フォールバック（丸）
+				ctx.beginPath();
+				ctx.arc(x, y, w / 2, 0, Math.PI * 2);
+				ctx.fill();
+				break;
+		}
+	}
+
+	/**
+	 * 番号付き避難所マーカーを描画（緑のピン + 番号）
+	 */
+	private drawNumberedShelterMarker(
+		ctx: PImage.Context,
+		x: number,
+		y: number,
+		number: number,
+	) {
+		const mainColor = "#22c55e"; // green-500
+		const darkColor = "#15803d"; // green-700
+		const radius = 16; // 円部分の半径（番号が入るように大きめ）
+		const tipLength = 18; // 先端部分の長さ
+		const centerY = y - tipLength - radius; // 円の中心Y座標
+
+		// 影を描画
+		ctx.globalAlpha = 0.3;
+		ctx.fillStyle = "#000000";
+		ctx.beginPath();
+		ctx.arc(x + 3, y + 3, 8, 0, Math.PI * 2);
+		ctx.fill();
+		ctx.globalAlpha = 1.0;
+
+		// ピン本体（涙滴型）を描画
+		ctx.fillStyle = mainColor;
+
+		// 上部の円
+		ctx.beginPath();
+		ctx.arc(x, centerY, radius, 0, Math.PI * 2);
+		ctx.fill();
+
+		// 下部の三角形（先端）
+		ctx.beginPath();
+		ctx.moveTo(x - radius * 0.7, centerY + radius * 0.7);
+		ctx.lineTo(x, y);
+		ctx.lineTo(x + radius * 0.7, centerY + radius * 0.7);
+		ctx.closePath();
+		ctx.fill();
+
+		// 左側の暗い部分（立体感）
+		ctx.fillStyle = darkColor;
+		ctx.beginPath();
+		ctx.arc(x, centerY, radius, Math.PI * 0.6, Math.PI * 1.4);
+		ctx.lineTo(x, y);
+		ctx.closePath();
+		ctx.fill();
+
+		// 内側の白い円（番号の背景）
+		ctx.fillStyle = "#ffffff";
+		ctx.beginPath();
+		ctx.arc(x, centerY, radius * 0.6, 0, Math.PI * 2);
+		ctx.fill();
+
+		// 番号を描画（ベクター描画で見やすく）
+		this.drawVectorNumber(ctx, x, centerY, number, radius * 0.9, mainColor);
 	}
 
 	private drawCenterMarker(ctx: PImage.Context, x: number, y: number) {
@@ -464,7 +695,13 @@ export class ShelterMapGenerator {
 		// 光沢（小さな白い円）
 		ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
 		ctx.beginPath();
-		ctx.arc(x - radius * 0.25, centerY - radius * 0.25, radius * 0.2, 0, Math.PI * 2);
+		ctx.arc(
+			x - radius * 0.25,
+			centerY - radius * 0.25,
+			radius * 0.2,
+			0,
+			Math.PI * 2,
+		);
 		ctx.fill();
 	}
 }
