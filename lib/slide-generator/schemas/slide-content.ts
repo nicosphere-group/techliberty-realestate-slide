@@ -18,9 +18,11 @@ import type { SlideType } from "../types/slide-types";
 export const coverContentSchema = z.object({
 	propertyName: z.string().describe("物件名（30文字以内）"),
 	address: z.string().describe("住所（50文字以内）").optional(),
-	customerName: z.string().describe("顧客名（20文字以内）"),
-	agentName: z.string().describe("担当者名（20文字以内）"),
-	agentDepartment: z.string().describe("部署名（30文字以内）").optional(),
+	companyName: z.string().describe("会社名（40文字以内）"),
+	storeName: z.string().describe("店舗名（30文字以内）").optional(),
+	storeAddress: z.string().describe("店舗住所（60文字以内）").optional(),
+	storePhoneNumber: z.string().describe("店舗電話番号").optional(),
+	storeEmailAddress: z.string().describe("店舗メールアドレス").optional(),
 	imageUrl: z.string().describe("物件外観画像のURL").optional(),
 });
 
@@ -30,8 +32,10 @@ export type CoverContent = z.infer<typeof coverContentSchema>;
 // 2. Property Highlight（物件ハイライト）
 // ========================================
 
-export const highlightColumnSchema = z.object({
-	category: z.string().describe("カテゴリ英語名（例: Location, Space, Quality）"),
+/**
+ * ハイライトカラムの共通スキーマ
+ */
+const highlightSectionSchema = z.object({
 	title: z.string().describe("日本語タイトル（20文字以内）"),
 	description: z.string().describe("説明文（60文字以内）"),
 	items: z
@@ -45,13 +49,14 @@ export const highlightColumnSchema = z.object({
 		.describe("リスト項目（最大3つ）"),
 });
 
+/**
+ * 物件ハイライトスキーマ（Location/Quality/Price固定）
+ */
 export const propertyHighlightContentSchema = z.object({
-	columns: z
-		.array(highlightColumnSchema)
-		.min(3)
-		.max(3)
-		.describe("3つのハイライトカラム"),
 	propertyName: z.string().describe("物件名（30文字以内）").optional(),
+	location: highlightSectionSchema.describe("立地・アクセスの魅力"),
+	quality: highlightSectionSchema.describe("物件の品質・特徴"),
+	price: highlightSectionSchema.describe("価格・コストパフォーマンス"),
 });
 
 export type PropertyHighlightContent = z.infer<
@@ -127,7 +132,7 @@ export const nearbyContentSchema = z.object({
 	facilityGroups: z
 		.array(facilityGroupSchema)
 		.max(4)
-		.describe("施設グループ（最大4つ: スーパー、コンビニ、公園、病院）"),
+		.describe("施設グループ（最大4つ: スーパー、コンビニ、公園、病院）。各カテゴリーは1回のみ含めること。重複不可。"),
 	address: z.string().describe("物件住所"),
 	mapImageUrl: z.string().describe("地図画像URL").optional(),
 });
@@ -150,7 +155,19 @@ export const similarPropertySchema = z.object({
 	unitPrice: z.string().describe("坪単価（例: '265万円'）"),
 });
 
+/**
+ * 対象物件のデータ（マイソクから抽出）
+ */
+export const targetPropertySchema = z.object({
+	name: z.string().describe("物件名"),
+	age: z.string().describe("築年数（例: '15年'）"),
+	area: z.string().describe("面積（例: '72.5㎡'）"),
+	price: z.string().describe("販売価格（例: '5,800万円'）"),
+	unitPrice: z.string().describe("坪単価（例: '265万円'）"),
+});
+
 export const priceAnalysisContentSchema = z.object({
+	targetProperty: targetPropertySchema.optional().describe("対象物件のデータ（マイソクから抽出）"),
 	similarProperties: z
 		.array(similarPropertySchema)
 		.max(6)
@@ -188,8 +205,8 @@ export const hazardContentSchema = z.object({
 				distance: z.string().describe("距離（例: 徒歩約5分）"),
 			}),
 		)
-		.max(2)
-		.describe("最寄り避難所（最大2つ）"),
+		.max(3)
+		.describe("最寄り避難所（最大3つ）"),
 	hazardMapUrl: z.string().describe("ハザードマップ画像URL").optional(),
 	shelterMapUrl: z.string().describe("避難所マップ画像URL").optional(),
 });
@@ -202,8 +219,6 @@ export type HazardContent = z.infer<typeof hazardContentSchema>;
 
 export const fundingContentSchema = z.object({
 	propertyName: z.string().describe("物件名"),
-	customerName: z.string().describe("顧客名"),
-	agentName: z.string().describe("担当者名").optional(),
 	propertyAddress: z.string().describe("物件住所").optional(),
 	loanConditions: z.object({
 		propertyPrice: z.string().describe("物件価格（例: 128,000,000円）"),
@@ -228,8 +243,6 @@ export type FundingContent = z.infer<typeof fundingContentSchema>;
 
 export const expensesContentSchema = z.object({
 	propertyName: z.string().describe("物件名"),
-	customerName: z.string().describe("顧客名"),
-	agentName: z.string().describe("担当者名").optional(),
 	propertyPrice: z
 		.number()
 		.optional()

@@ -6,11 +6,12 @@ import { SLIDE_TYPES } from "./types/slide-types";
 // ========================================
 
 export const primaryInputSchema = z.object({
-	customerName: z.string().min(1, "顧客名は必須です"),
-
-	agentName: z.string().min(1, "担当者名は必須です"),
-	agentPhoneNumber: z.string().optional(),
-	agentEmailAddress: z.string().optional(),
+	// 店舗情報
+	companyName: z.string().min(1, "会社名は必須です"),
+	storeName: z.string().optional().describe("店舗名（例: ○○支店）"),
+	storeAddress: z.string().optional().describe("店舗住所"),
+	storePhoneNumber: z.string().optional().describe("店舗電話番号"),
+	storeEmailAddress: z.string().optional().describe("店舗メールアドレス"),
 
 	flyerFiles: z
 		.instanceof(File)
@@ -29,6 +30,9 @@ export type PrimaryInput = z.infer<typeof primaryInputSchema>;
 export const flyerDataSchema = z.object({
 	name: z.string(),
 	address: z.string(),
+	price: z.string().optional().describe("物件価格（例: 5,800万円）"),
+	area: z.string().optional().describe("専有面積（例: 72.5㎡）"),
+	constructionYear: z.string().optional().describe("築年または建築年（例: 2015年、1985）"),
 });
 
 export type FlyerData = z.infer<typeof flyerDataSchema>;
@@ -36,14 +40,24 @@ export type FlyerData = z.infer<typeof flyerDataSchema>;
 export class FlyerDataModel implements FlyerData {
 	name: string;
 	address: string;
+	price?: string;
+	area?: string;
+	constructionYear?: string;
 
 	constructor(data: FlyerData) {
 		this.name = data.name;
 		this.address = data.address;
+		this.price = data.price;
+		this.area = data.area;
+		this.constructionYear = data.constructionYear;
 	}
 
 	toPrompt(): string {
-		return `建物名: ${this.name}\n所在地: ${this.address}`;
+		const parts = [`建物名: ${this.name}`, `所在地: ${this.address}`];
+		if (this.price) parts.push(`価格: ${this.price}`);
+		if (this.area) parts.push(`面積: ${this.area}`);
+		if (this.constructionYear) parts.push(`築年: ${this.constructionYear}`);
+		return parts.join("\n");
 	}
 }
 
