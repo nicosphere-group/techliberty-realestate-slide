@@ -6,7 +6,7 @@
  * LLMによるコンテンツ生成は不要です。
  */
 
-import { SLIDE_CONTAINER_CLASS } from "../design-system";
+import { SLIDE_CONTAINER_CLASS, NUMBER_FONT_STYLE } from "../design-system";
 
 export function renderTaxSlide(): string {
   return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
@@ -44,15 +44,15 @@ export function renderTaxSlide(): string {
 
       <div class="flex flex-col gap-6">
         <div class="flex items-center gap-5">
-          <div class="w-14 h-14 rounded-full bg-[#1A202C] text-[#C5A059] flex items-center justify-center font-serif font-bold text-2xl">1</div>
-          <p class="text-[22px] font-bold text-[#2D3748]">最大13年間の税額控除</p>
+          <div class="w-14 h-14 rounded-full bg-[#1A202C] text-[#C5A059] flex items-center justify-center font-serif font-bold text-2xl" style="${NUMBER_FONT_STYLE}">1</div>
+          <p class="text-[22px] font-bold text-[#2D3748]">最大<span style="${NUMBER_FONT_STYLE}">13</span>年間の税額控除</p>
         </div>
         <div class="flex items-center gap-5">
-          <div class="w-14 h-14 rounded-full bg-[#1A202C] text-[#C5A059] flex items-center justify-center font-serif font-bold text-2xl">2</div>
-          <p class="text-[22px] font-bold text-[#2D3748]">年末残高の0.7%が還付</p>
+          <div class="w-14 h-14 rounded-full bg-[#1A202C] text-[#C5A059] flex items-center justify-center font-serif font-bold text-2xl" style="${NUMBER_FONT_STYLE}">2</div>
+          <p class="text-[22px] font-bold text-[#2D3748]">年末残高の<span style="${NUMBER_FONT_STYLE}">0.7</span>%が還付</p>
         </div>
         <div class="flex items-center gap-5">
-          <div class="w-14 h-14 rounded-full bg-[#1A202C] text-[#C5A059] flex items-center justify-center font-serif font-bold text-2xl">3</div>
+          <div class="w-14 h-14 rounded-full bg-[#1A202C] text-[#C5A059] flex items-center justify-center font-serif font-bold text-2xl" style="${NUMBER_FONT_STYLE}">3</div>
           <p class="text-[22px] font-bold text-[#2D3748]">省エネ基準適合で枠拡大</p>
         </div>
       </div>
@@ -78,10 +78,10 @@ export function renderTaxSlide(): string {
              <span class="text-[22px] font-serif font-bold text-[#1A202C]">控除期間</span>
           </div>
           <div class="col-span-4 text-center border-l border-[#E2E8F0]">
-            <span class="text-[42px] font-serif font-medium text-[#718096] leading-none">13<span class="text-[18px] ml-2">年</span></span>
+            <span class="text-[42px] font-serif font-medium text-[#718096] leading-none"><span style="${NUMBER_FONT_STYLE}">13</span><span class="text-[18px] ml-2">年</span></span>
           </div>
           <div class="col-span-4 text-center border-l-2 border-[#C5A059] bg-[#FDF8F3]">
-            <span class="text-[56px] font-serif font-bold text-[#C5A059] leading-none">10<span class="text-[22px] text-[#2D3748] ml-2">年</span></span>
+            <span class="text-[56px] font-serif font-bold text-[#C5A059] leading-none"><span style="${NUMBER_FONT_STYLE}">10</span><span class="text-[22px] text-[#2D3748] ml-2">年</span></span>
           </div>
         </div>
 
@@ -91,10 +91,10 @@ export function renderTaxSlide(): string {
              <span class="text-[20px] font-serif font-medium text-[#2D3748]">控除率</span>
           </div>
           <div class="col-span-4 text-center border-l border-[#E2E8F0]">
-            <span class="text-[32px] font-serif font-medium text-[#718096]">0.7<span class="text-[18px] ml-2">%</span></span>
+            <span class="text-[32px] font-serif font-medium text-[#718096]"><span style="${NUMBER_FONT_STYLE}">0.7</span><span class="text-[18px] ml-2">%</span></span>
           </div>
           <div class="col-span-4 text-center border-l-2 border-[#C5A059] bg-[#FDF8F3]">
-            <span class="text-[40px] font-serif font-bold text-[#C5A059]">0.7<span class="text-[20px] text-[#2D3748] ml-2">%</span></span>
+            <span class="text-[40px] font-serif font-bold text-[#C5A059]"><span style="${NUMBER_FONT_STYLE}">0.7</span><span class="text-[20px] text-[#2D3748] ml-2">%</span></span>
           </div>
         </div>
 
@@ -104,10 +104,10 @@ export function renderTaxSlide(): string {
              <span class="text-[20px] font-serif font-medium text-[#2D3748]">借入残高上限</span>
           </div>
           <div class="col-span-4 text-center border-l border-[#E2E8F0] px-3">
-            <span class="text-[24px] font-serif font-medium text-[#718096] leading-tight">3,000~5,000<span class="text-[14px] ml-2">万</span></span>
+            <span class="text-[24px] font-serif font-medium text-[#718096] leading-tight"><span style="${NUMBER_FONT_STYLE}">3,000~5,000</span><span class="text-[14px] ml-2">万</span></span>
           </div>
           <div class="col-span-4 text-center border-l-2 border-[#C5A059] bg-[#FDF8F3] px-3">
-            <span class="text-[28px] font-serif font-bold text-[#C5A059] leading-tight">2,000~3,000<span class="text-[16px] text-[#2D3748] ml-2">万</span></span>
+            <span class="text-[28px] font-serif font-bold text-[#C5A059] leading-tight"><span style="${NUMBER_FONT_STYLE}">2,000~3,000</span><span class="text-[16px] text-[#2D3748] ml-2">万</span></span>
           </div>
         </div>
 
@@ -136,7 +136,7 @@ export function renderTaxSlide(): string {
 
   <footer class="flex-shrink-0 mt-8 border-t border-[#E2E8F0] pt-5">
     <p class="text-[14px] font-sans text-[#A0AEC0] text-right">
-      ※2024年度時点の税制に基づく内容です。物件の省エネ性能や入居時期により条件が異なる場合があります。詳細は税務署等にご確認ください。
+      ※<span style="${NUMBER_FONT_STYLE}">2024</span>年度時点の税制に基づく内容です。物件の省エネ性能や入居時期により条件が異なる場合があります。詳細は税務署等にご確認ください。
     </p>
   </footer>
 </div>`;

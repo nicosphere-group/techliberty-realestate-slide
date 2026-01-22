@@ -4,7 +4,7 @@ import { ShelterMapGenerator } from "../lib/shelter-map";
 
 async function main() {
 	const args = process.argv.slice(2);
-	const address = args[0] || "東京都千代田区千代田１−１";
+	const address = args[0] || "東京都港区芝公園4-2-8";
 	const outputPath =
 		args[1] || path.resolve(process.cwd(), "shelter-map-output.png");
 
@@ -27,13 +27,25 @@ async function main() {
 			}
 		}
 
-		// 地図画像を生成
-		console.log("\nGenerating map with shelters...");
+		// 最寄り3箇所の避難所を取得
+		console.log("\nGetting nearest 3 shelters...");
+		const nearestShelters = await generator.getNearestShelters(address, 14, 3);
+		console.log("\nNearest shelters:");
+		for (const shelter of nearestShelters) {
+			console.log(
+				`  - ${shelter.properties.facility_name_ja} (徒歩${shelter.walkingMinutes}分, 距離: ${Math.round(shelter.distance)}m)`,
+			);
+		}
+
+		// 地図画像を生成（最寄り3箇所の避難所を表示）
+		console.log("\nGenerating map with nearest 3 shelters...");
 		const buffer = await generator.generate({
 			center: address,
-			size: "800x600",
-			zoom: 14,
+			size: "900x675", // ハザードマップと同じサイズ
+			scale: 2, // ハザードマップと同じscale
+			zoom: 17, // より拡大して近くで表示
 			showHazardMap: false, // ハザードマップなし
+			maxShelters: 3, // 最寄り3箇所
 		});
 
 		await writeFile(outputPath, buffer);

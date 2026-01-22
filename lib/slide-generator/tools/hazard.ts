@@ -41,7 +41,7 @@ export const getHazardMapUrlTool = tool({
  */
 export const generateShelterMapTool = tool({
 	description:
-		"指定された住所周辺の避難所マーカー付き地図画像を生成します。避難所の位置と名前、中心地点からの位置関係を可視化します。",
+		"指定された住所周辺の最寄り避難所（最大3箇所）のマーカー付き地図画像を生成します。各避難所の名前と徒歩時間を含む詳細情報を返します。",
 	inputSchema: shelterMapOptionsSchema,
 	execute: async (params: ShelterMapOptions) => {
 		// 地図画像を生成
@@ -49,14 +49,22 @@ export const generateShelterMapTool = tool({
 		const format = params.format || "png";
 		const url = await uploadToS3(buffer, "shelter-maps", `image/${format}`);
 
-		// 避難所データも取得
+		// 避難所データも取得（距離順で最寄りN箇所）
 		const zoom = params.zoom ?? 14;
-		const shelters = await shelterMapGenerator.getShelters(params.center, zoom);
+		const maxShelters = params.maxShelters ?? 3;
+		const nearestShelters = await shelterMapGenerator.getNearestShelters(
+			params.center,
+			zoom,
+			maxShelters,
+		);
 
 		return {
 			imageUrl: url,
-			shelters: shelters.map((s) => ({
-				name: (s.properties.name as string) || "名称不明",
+			shelters: nearestShelters.map((s) => ({
+				name: (s.properties.facility_name_ja as string) || "避難所",
+				type: "指定緊急避難場所",
+				distance: `徒歩約${s.walkingMinutes}分`,
+				walkingMinutes: s.walkingMinutes,
 				lat: s.geometry.coordinates[1],
 				lng: s.geometry.coordinates[0],
 			})),

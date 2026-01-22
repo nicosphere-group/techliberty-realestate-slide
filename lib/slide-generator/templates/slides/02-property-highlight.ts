@@ -3,47 +3,59 @@
  */
 
 import type { PropertyHighlightContent } from "../../schemas/slide-content";
-import { SLIDE_CONTAINER_CLASS, escapeHtml } from "../design-system";
+import { SLIDE_CONTAINER_CLASS, escapeHtml, NUMBER_FONT_STYLE } from "../design-system";
+
+/**
+ * 固定カテゴリ（Location, Quality, Price）の定義
+ */
+const CATEGORIES = [
+  { key: "location" as const, label: "LOCATION", title: "立地・アクセス" },
+  { key: "quality" as const, label: "QUALITY", title: "品質・特徴" },
+  { key: "price" as const, label: "PRICE", title: "価格・価値" },
+] as const;
 
 export function renderPropertyHighlightSlide(
   content: PropertyHighlightContent,
 ): string {
-  // カラムごとのHTML生成
-  const columnsHtml = content.columns
-    .map((column, index) => {
-      const itemsHtml = column.items
+  // 固定3カテゴリのHTML生成
+  const columnsHtml = CATEGORIES
+    .map((category) => {
+      const section = content[category.key];
+      const itemsHtml = section.items
         .map((item) => {
           // 数値や強調したい値がある場合（スペック情報など）
           if (item.value) {
-            return `<li class="flex flex-col gap-2 border-b border-[#E2E8F0] pb-4 last:border-0">
-              <span class="text-[#C5A059] font-serif font-bold text-[40px] leading-none">${escapeHtml(item.value)}</span>
-              <span class="text-[20px] text-[#4A5568] font-sans font-medium">${escapeHtml(item.text)}</span>
+            // 数字部分だけにMeiryoを適用
+            const valueWithNumberFont = escapeHtml(item.value).replace(/(\d+(?:[.,]\d+)?)/g, '<span style="' + NUMBER_FONT_STYLE + '">$1</span>');
+            return `<li class="flex flex-col gap-2 border-b border-[#E2E8F0] pb-5 last:border-0">
+              <span class="text-[#1A202C] font-serif font-bold text-[48px] leading-[1.1] tracking-tight">${valueWithNumberFont}</span>
+              <span class="text-[18px] text-[#718096] font-sans font-normal">${escapeHtml(item.text)}</span>
             </li>`;
           }
           // テキストのみのリスト（特徴など）
-          return `<li class="flex items-start gap-4 border-b border-[#E2E8F0] pb-4 last:border-0">
-            <div class="w-[14px] h-[2px] bg-[#C5A059] mt-[14px] flex-shrink-0"></div>
-            <span class="text-[22px] text-[#2D3748] leading-[1.6]">${escapeHtml(item.text)}</span>
+          return `<li class="flex items-start gap-3 border-b border-[#E2E8F0] pb-4 last:border-0">
+            <div class="w-[8px] h-[8px] bg-[#C5A059] mt-[10px] flex-shrink-0 rounded-full"></div>
+            <span class="text-[20px] text-[#2D3748] leading-[1.5] font-normal">${escapeHtml(item.text)}</span>
           </li>`;
         })
         .join("\n");
 
       // デザイン：白背景のパネルスタイル、上部にゴールドのアクセントライン
-      return `<div class="bg-white/80 backdrop-blur-sm border border-[#E2E8F0] p-10 flex flex-col h-full relative group">
+      return `<div class="bg-white border border-[#E2E8F0] p-10 flex flex-col h-full relative">
         <div class="absolute top-0 left-0 w-full h-[4px] bg-[#C5A059]"></div>
-        
-        <div class="mb-8">
-          <h3 class="text-[14px] font-sans font-bold uppercase tracking-[0.2em] text-[#A0AEC0] mb-4">${escapeHtml(column.category)}</h3>
-          <h2 class="text-[34px] font-serif font-medium leading-[1.3] text-[#1A202C]">
-            ${escapeHtml(column.title)}
+
+        <div class="mb-7">
+          <h3 class="text-[20px] font-sans font-bold uppercase tracking-[0.15em] text-[#C5A059] mb-5">${category.label}</h3>
+          <h2 class="text-[32px] font-serif font-bold leading-[1.3] text-[#1A202C]">
+            ${escapeHtml(section.title)}
           </h2>
         </div>
-        
-        <p class="text-[18px] font-sans text-[#718096] leading-[1.8] mb-10 border-l-2 border-[#E2E8F0] pl-5">
-          ${escapeHtml(column.description)}
+
+        <p class="text-[17px] font-sans text-[#718096] leading-[1.7] mb-8 border-l-2 border-[#E2E8F0] pl-5">
+          ${escapeHtml(section.description)}
         </p>
-        
-        <ul class="flex-1 space-y-5">
+
+        <ul class="flex-1 space-y-6 pt-4 border-t border-[#E2E8F0]">
           ${itemsHtml}
         </ul>
       </div>`;

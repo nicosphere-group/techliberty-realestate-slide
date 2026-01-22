@@ -5,7 +5,7 @@
  */
 
 import type { NearbyContent } from "../../schemas/slide-content";
-import { SLIDE_CONTAINER_CLASS, escapeHtml } from "../design-system";
+import { SLIDE_CONTAINER_CLASS, escapeHtml, NUMBER_FONT_STYLE } from "../design-system";
 
 /**
  * 連番をマーカーラベルに変換（Google Static Maps互換）
@@ -32,15 +32,15 @@ export function renderNearbySlide(content: NearbyContent): string {
             const label = getMarkerLabel(facility.number);
             return `<div class="flex items-center justify-between py-3">
           <div class="flex items-center gap-4 flex-1 min-w-0">
-            <div class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-[15px] flex-shrink-0" style="background-color: ${color};">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-[15px] flex-shrink-0" style="background-color: ${color}; ${NUMBER_FONT_STYLE}">
               ${label}
             </div>
-            <span class="text-[18px] font-medium text-[#2D3748] font-sans truncate">
+            <span class="text-[22px] font-medium text-[#2D3748] font-sans truncate">
               ${escapeHtml(facility.name)}
             </span>
           </div>
           <div class="flex-shrink-0 flex items-baseline gap-1 ml-4">
-            <span class="text-[28px] font-serif font-bold" style="color: ${color};">${escapeHtml(facility.distance)}</span>
+            <span class="text-[32px] font-serif font-bold" style="color: ${color}; ${NUMBER_FONT_STYLE}">${escapeHtml(facility.distance)}</span>
             <span class="text-[14px] text-[#718096] font-sans">分</span>
           </div>
         </div>`;
@@ -64,8 +64,6 @@ export function renderNearbySlide(content: NearbyContent): string {
     .join("\n");
 
   return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
-  
-  <div class="absolute top-0 left-[45%] w-[1px] h-full bg-[#E2E8F0] pointer-events-none"></div>
 
   <header class="flex-shrink-0 mb-8 relative z-10">
     <div class="flex items-center gap-4 mb-5">
@@ -97,7 +95,7 @@ export function renderNearbySlide(content: NearbyContent): string {
       <div class="mt-4 pt-4 border-t border-[#E2E8F0]">
         <div class="flex flex-wrap gap-5 mb-3">
           <div class="flex items-center gap-2">
-            <div class="w-7 h-7 rounded-full bg-[#EF4444] flex items-center justify-center text-white text-[11px] font-bold">P</div>
+            <div class="w-7 h-7 rounded-full bg-[#EF4444] flex items-center justify-center text-white text-[14px] font-bold" style="${NUMBER_FONT_STYLE}">P</div>
             <span class="text-[15px] text-[#4A5568] font-sans">物件</span>
           </div>
           ${content.facilityGroups.map((group) => `
@@ -120,8 +118,8 @@ export function renderNearbySlide(content: NearbyContent): string {
       </div>
 
       <div class="mt-3 pt-3 border-t border-[#E2E8F0] flex items-center gap-4 opacity-60">
-        <span class="text-[11px] font-sans text-[#A0AEC0] tracking-wider">DISTANCE INFO</span>
-        <p class="text-[12px] font-sans text-[#718096]">
+        <span class="text-[14px] font-sans text-[#A0AEC0] tracking-wider">DISTANCE INFO</span>
+        <p class="text-[14px] font-sans text-[#718096]">
           ※徒歩分数は80mを1分として算出。番号は物件からの近さ順。
         </p>
       </div>

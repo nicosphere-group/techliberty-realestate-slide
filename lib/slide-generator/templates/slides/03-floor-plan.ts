@@ -5,7 +5,7 @@
  */
 
 import type { FloorPlanContent } from "../../schemas/slide-content";
-import { SLIDE_CONTAINER_CLASS, escapeHtml } from "../design-system";
+import { SLIDE_CONTAINER_CLASS, escapeHtml, NUMBER_FONT_STYLE } from "../design-system";
 
 /**
  * バルコニーの値が面積（数値）を含むかどうかを判定
@@ -26,12 +26,12 @@ export function renderFloorPlanSlide(content: FloorPlanContent): string {
     .map(
       (point, index) => `<div class="group">
       <div class="flex items-baseline gap-4 mb-3">
-        <span class="text-[18px] font-sans font-bold text-[#C5A059] tracking-widest">0${index + 1}</span>
-        <h3 class="text-[26px] font-serif font-bold text-[#1A202C]">
+        <span class="text-[18px] font-sans font-bold text-[#C5A059] tracking-widest" style="${NUMBER_FONT_STYLE}">0${index + 1}</span>
+        <h3 class="text-[32px] font-serif font-bold text-[#1A202C]">
           ${escapeHtml(point.title)}
         </h3>
       </div>
-      <p class="text-[20px] font-sans font-normal leading-[1.8] text-[#4A5568] pl-10 border-l-2 border-[#E2E8F0]">
+      <p class="text-[24px] font-sans font-normal leading-[1.8] text-[#2D3748] pl-10 border-l-2 border-[#E2E8F0]">
         ${escapeHtml(point.description)}
       </p>
     </div>`,
@@ -40,9 +40,6 @@ export function renderFloorPlanSlide(content: FloorPlanContent): string {
 
   // 統一レイアウト（左に画像、右に詳細）
   return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
-
-  <div class="absolute top-[140px] left-0 w-full h-[1px] bg-[#E2E8F0] pointer-events-none"></div>
-  <div class="absolute top-0 left-[55%] w-[1px] h-full bg-[#E2E8F0] pointer-events-none"></div>
 
   <header class="flex-shrink-0 mb-8 relative z-10">
     <div class="flex items-center gap-4 mb-5">
@@ -59,7 +56,7 @@ export function renderFloorPlanSlide(content: FloorPlanContent): string {
     <!-- 画像エリア（左側） -->
     <div class="col-span-7 h-full min-h-0 bg-white border border-[#E2E8F0] p-6 relative flex items-center justify-center overflow-hidden">
       <div class="absolute top-0 left-0 bg-[#1A202C] text-white px-5 py-2 z-10">
-        <span class="text-[12px] font-sans font-bold tracking-[0.2em] uppercase">Scale 1/100</span>
+        <span class="text-[14px] font-sans font-bold tracking-[0.2em] uppercase" style="${NUMBER_FONT_STYLE}">Floor Plan</span>
       </div>
 
       ${
@@ -70,7 +67,7 @@ export function renderFloorPlanSlide(content: FloorPlanContent): string {
 
       ${content.imageUrl ? `
       <div class="absolute bottom-3 right-3 bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded z-10">
-        <span class="text-[11px] font-sans text-white/80">※AIにより生成された画像です</span>
+        <span class="text-[14px] font-sans text-white/80">※AIにより生成された画像です</span>
       </div>
       ` : ""}
     </div>
@@ -81,17 +78,23 @@ export function renderFloorPlanSlide(content: FloorPlanContent): string {
       <div class="grid grid-cols-2 gap-y-8 gap-x-6 border-b-2 border-[#C5A059] pb-10 mb-10">
         <div>
           <span class="text-[14px] font-sans font-bold tracking-[0.2em] text-[#A0AEC0] uppercase block mb-2">Layout Type</span>
-          <span class="text-[42px] font-serif font-medium text-[#1A202C] leading-none">${escapeHtml(content.specs.layout)}</span>
+          <span class="text-[42px] font-serif font-medium text-[#1A202C] leading-none">
+            ${escapeHtml(content.specs.layout).replace(/(\d+)/g, '<span style="' + NUMBER_FONT_STYLE + '">$1</span>')}
+          </span>
         </div>
         <div>
           <span class="text-[14px] font-sans font-bold tracking-[0.2em] text-[#A0AEC0] uppercase block mb-2">Total Area</span>
-          <span class="text-[42px] font-serif font-medium text-[#1A202C] leading-none">${escapeHtml(content.specs.area)}</span>
+          <span class="text-[42px] font-serif font-medium text-[#1A202C] leading-none">
+            <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.specs.area.replace(/[㎡m²]/g, ''))}</span><span class="text-[32px]">${content.specs.area.match(/[㎡m²]/)?.[0] || '㎡'}</span>
+          </span>
         </div>
         ${
           showBalcony
             ? `<div class="col-span-2">
                 <span class="text-[14px] font-sans font-bold tracking-[0.2em] text-[#A0AEC0] uppercase block mb-2">Balcony Size</span>
-                <span class="text-[32px] font-serif font-medium text-[#4A5568] leading-none">${escapeHtml(content.specs.balcony!)}</span>
+                <span class="text-[32px] font-serif font-medium text-[#4A5568] leading-none">
+                  <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.specs.balcony!.replace(/[㎡m²]/g, ''))}</span><span class="text-[24px]">${content.specs.balcony!.match(/[㎡m²]/)?.[0] || '㎡'}</span>
+                </span>
                </div>`
             : ""
         }
