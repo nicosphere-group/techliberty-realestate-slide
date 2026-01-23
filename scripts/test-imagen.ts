@@ -16,8 +16,8 @@
  *   TEST_ADDRESS - テスト用住所（routemap-addressテスト用、デフォルト: 東京都渋谷区恵比寿1-1-1）
  */
 
-import { existsSync, readFileSync, writeFileSync } from "fs";
-import { resolve } from "path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 // .env ファイルを手動で読み込む
 const envPath = resolve(process.cwd(), ".env");

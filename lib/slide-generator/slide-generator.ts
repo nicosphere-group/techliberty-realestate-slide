@@ -934,7 +934,7 @@ ${input.storeEmailAddress ? `- メールアドレス: ${input.storeEmailAddress}
 		const slideDef = logData.definition;
 
 		// コンソール出力
-		console.log("\n" + "=".repeat(80));
+		console.log(`\n${"=".repeat(80)}`);
 		console.log(
 			`📄 SLIDE ${slideDef.index}: ${slideDef.title}${logData.isStatic ? " (STATIC)" : ""}`,
 		);
@@ -945,7 +945,7 @@ ${input.storeEmailAddress ? `- メールアドレス: ${input.storeEmailAddress}
 			console.log(logData.error.message);
 		}
 
-		console.log("=".repeat(80) + "\n");
+		console.log(`${"=".repeat(80)}\n`);
 
 		// ファイル出力は一時的に無効化
 		// const now = new Date();

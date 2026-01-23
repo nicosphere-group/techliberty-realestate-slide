@@ -129,7 +129,8 @@ export async function convertPdfToJpg(
 			const renderContext = {
 				canvasContext: context,
 				viewport: resizedViewport,
-			} as any; // PDF.js の型定義が不完全なため
+				canvas,
+			};
 			await page.render(renderContext).promise;
 
 			pageImages.push({
@@ -196,7 +197,7 @@ export async function convertPdfToJpg(
 					"PDFファイルの読み込みに失敗しました。ファイルが正しくアップロードされているか確認してください。",
 				);
 			}
-			if (error.message && error.message.includes("font")) {
+			if (error.message?.includes("font")) {
 				throw new Error(
 					"PDFのフォント処理でエラーが発生しました。文字化けの原因となる可能性があります。",
 				);
@@ -271,7 +272,8 @@ export async function convertPdfToSingleJpg(
 			const renderContext = {
 				canvasContext: context,
 				viewport: resizedViewport,
-			} as any;
+				canvas,
+			};
 			await page.render(renderContext).promise;
 
 			pageCanvases.push({ canvas, width, height });

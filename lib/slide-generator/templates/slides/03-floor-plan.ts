@@ -87,7 +87,7 @@ export function renderFloorPlanSlide(content: FloorPlanContent): string {
         <div>
           <span class="text-[14px] font-sans font-bold tracking-[0.2em] text-[#A0AEC0] uppercase block mb-2">Layout Type</span>
           <span class="text-[42px] font-serif font-medium text-[#1A202C] leading-none">
-            ${escapeHtml(content.specs.layout).replace(/(\d+)/g, '<span style="' + NUMBER_FONT_STYLE + '">$1</span>')}
+            ${escapeHtml(content.specs.layout).replace(/(\d+)/g, `<span style="${NUMBER_FONT_STYLE}">$1</span>`)}
           </span>
         </div>
         <div>
@@ -101,7 +101,7 @@ export function renderFloorPlanSlide(content: FloorPlanContent): string {
 						? `<div class="col-span-2">
                 <span class="text-[14px] font-sans font-bold tracking-[0.2em] text-[#A0AEC0] uppercase block mb-2">Balcony Size</span>
                 <span class="text-[32px] font-serif font-medium text-[#4A5568] leading-none">
-                  <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.specs.balcony!.replace(/[㎡m²]/g, ""))}</span><span class="text-[24px]">${content.specs.balcony!.match(/[㎡m²]/)?.[0] || "㎡"}</span>
+                  <span style="${NUMBER_FONT_STYLE}">${escapeHtml((content.specs.balcony ?? "").replace(/[㎡m²]/g, ""))}</span><span class="text-[24px]">${content.specs.balcony?.match(/[㎡m²]/)?.[0] || "㎡"}</span>
                 </span>
                </div>`
 						: ""

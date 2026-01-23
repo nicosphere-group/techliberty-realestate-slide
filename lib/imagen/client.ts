@@ -909,13 +909,16 @@ ${routeDetails}
 			);
 
 			const addressPlace = addressResponse.places?.[0];
-			if (!addressPlace?.location) {
+			if (
+				!addressPlace?.location?.latitude ||
+				!addressPlace?.location?.longitude
+			) {
 				console.error("Address not found:", address);
 				return null;
 			}
 
-			const propertyLat = addressPlace.location.latitude!;
-			const propertyLng = addressPlace.location.longitude!;
+			const propertyLat = addressPlace.location.latitude;
+			const propertyLng = addressPlace.location.longitude;
 
 			// 最寄り駅を検索
 			const [stationResponse] = await this.placesClient.searchNearby(
@@ -949,8 +952,18 @@ ${routeDetails}
 
 			// 最も近い駅を選択
 			const nearestStation = stations[0];
-			const stationLat = nearestStation.location?.latitude!;
-			const stationLng = nearestStation.location?.longitude!;
+			if (
+				!nearestStation.location?.latitude ||
+				!nearestStation.location?.longitude
+			) {
+				console.error(
+					"Station location not found:",
+					nearestStation.displayName,
+				);
+				return null;
+			}
+			const stationLat = nearestStation.location.latitude;
+			const stationLng = nearestStation.location.longitude;
 
 			// 徒歩時間を計算
 			const [walkResponse] = await this.routesClient.computeRoutes(
@@ -1018,7 +1031,10 @@ ${routeDetails}
 		// 並列でルート計算
 		const routePromises = stations.map(async (station) => {
 			try {
-				const [response] = await this.routesClient!.computeRoutes(
+				if (!this.routesClient) {
+					throw new Error("Routes client not initialized");
+				}
+				const [response] = await this.routesClient.computeRoutes(
 					{
 						origin: {
 							location: {

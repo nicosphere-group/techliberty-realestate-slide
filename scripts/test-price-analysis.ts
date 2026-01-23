@@ -86,7 +86,7 @@ async function main() {
 
 		for (const prop of result.similarProperties) {
 			console.log(
-				`${prop.name.padEnd(30)} ${(prop.age + "年").padStart(8)} ${prop.area.padStart(10)} ${(prop.price + "万円").padStart(12)} ${(prop.unitPrice + "万円").padStart(10)}`,
+				`${prop.name.padEnd(30)} ${(`${prop.age}年`).padStart(8)} ${prop.area.padStart(10)} ${(`${prop.price}万円`).padStart(12)} ${(`${prop.unitPrice}万円`).padStart(10)}`,
 			);
 		}
 		console.log("─".repeat(80));
