@@ -3,13 +3,19 @@
  */
 
 import type { AccessContent } from "../../schemas/slide-content";
-import { SLIDE_CONTAINER_CLASS, escapeHtml, NUMBER_FONT_STYLE } from "../design-system";
+import {
+	escapeHtml,
+	NUMBER_FONT_STYLE,
+	SLIDE_CONTAINER_CLASS,
+} from "../design-system";
 
 export function renderAccessSlide(content: AccessContent): string {
-  // 駅リストの生成
-  const stationsHtml = content.stations
-    .map(
-      (station) => `<li class="flex items-end justify-between border-b border-[#E2E8F0] pb-6">
+	// 駅リストの生成
+	const stationsHtml = content.stations
+		.map(
+			(
+				station,
+			) => `<li class="flex items-end justify-between border-b border-[#E2E8F0] pb-6">
       <div class="flex flex-col gap-2">
         <span class="text-[14px] font-sans font-bold tracking-[0.2em] text-[#718096] uppercase">
           ${escapeHtml(station.lines)}
@@ -27,10 +33,10 @@ export function renderAccessSlide(content: AccessContent): string {
         <span class="text-[20px] font-sans font-medium text-[#718096]">min</span>
       </div>
     </li>`,
-    )
-    .join("\n");
+		)
+		.join("\n");
 
-  return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
+	return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
 
   <header class="flex-shrink-0 mb-10 relative z-10">
     <div class="flex items-center gap-4 mb-5">
@@ -58,9 +64,9 @@ export function renderAccessSlide(content: AccessContent): string {
     <div class="w-[40%] flex flex-col h-full gap-8">
       <div class="flex-1 bg-[#EDF2F7] relative border border-[#E2E8F0] overflow-hidden group">
         ${
-          content.imageUrl
-            ? `<img src="${escapeHtml(content.imageUrl)}" class="w-full h-full object-cover opacity-90 grayscale-[0.2]" alt="Map" />`
-            : `<div class="absolute inset-0 flex flex-col items-center justify-center opacity-30">
+					content.imageUrl
+						? `<img src="${escapeHtml(content.imageUrl)}" class="w-full h-full object-cover opacity-90 grayscale-[0.2]" alt="Map" />`
+						: `<div class="absolute inset-0 flex flex-col items-center justify-center opacity-30">
                  <div class="w-[1px] h-full bg-[#CBD5E0] absolute left-1/2 transform -translate-x-1/2"></div>
                  <div class="h-[1px] w-full bg-[#CBD5E0] absolute top-1/2 transform -translate-y-1/2"></div>
                  <div class="w-40 h-40 border border-[#CBD5E0] rounded-full flex items-center justify-center">
@@ -68,7 +74,7 @@ export function renderAccessSlide(content: AccessContent): string {
                  </div>
                  <span class="absolute bottom-6 right-6 text-[14px] font-sans font-bold tracking-widest text-[#718096]">MAP AREA</span>
                </div>`
-        }
+				}
         
         <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1A202C] text-white px-6 py-4 shadow-xl">
           <div class="text-[14px] font-sans font-bold tracking-widest uppercase mb-2 text-[#C5A059]">Subject Property</div>
@@ -78,14 +84,14 @@ export function renderAccessSlide(content: AccessContent): string {
       </div>
 
       ${
-        content.description
-          ? `<div class="bg-white border-l-3 border-[#C5A059] p-8 shadow-sm">
+				content.description
+					? `<div class="bg-white border-l-3 border-[#C5A059] p-8 shadow-sm">
           <p class="text-[18px] font-sans leading-[1.8] text-[#4A5568] text-justify">
             ${escapeHtml(content.description)}
           </p>
         </div>`
-          : ""
-      }
+					: ""
+			}
     </div>
 
     <div class="flex-1 flex flex-col justify-center">

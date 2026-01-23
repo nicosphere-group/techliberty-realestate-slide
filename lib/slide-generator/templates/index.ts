@@ -4,31 +4,33 @@
  * スライドタイプベースのレンダリング関数をエクスポート
  */
 
-// スライドテンプレートのエクスポート
-export * from "./slides";
+// スライドコンテンツスキーマの再エクスポート
+export * from "../schemas/slide-content";
+// スライドタイプの再エクスポート
+export * from "../types/slide-types";
+export type {
+	ColorPalette,
+	FixedDesignSystem,
+	Typography,
+} from "./design-system";
 export {
-	wrapInHtmlDocument,
+	escapeHtml,
 	FIXED_DESIGN_SYSTEM,
 	generateThemeCss,
 	SLIDE_CONTAINER_CLASS,
-	escapeHtml,
+	wrapInHtmlDocument,
 } from "./design-system";
-export type { FixedDesignSystem, ColorPalette, Typography } from "./design-system";
+// スライドテンプレートのエクスポート
+export * from "./slides";
 
-// スライドコンテンツスキーマの再エクスポート
-export * from "../schemas/slide-content";
-
-// スライドタイプの再エクスポート
-export * from "../types/slide-types";
-
-import type { SlideType } from "../types/slide-types";
 import type { SlideContentMap } from "../schemas/slide-content";
+import type { SlideType } from "../types/slide-types";
+import { wrapInHtmlDocument } from "./design-system";
 import {
-	renderSlideBody,
 	dynamicSlideRenderers,
+	renderSlideBody,
 	STATIC_SLIDE_TYPES,
 } from "./slides";
-import { wrapInHtmlDocument } from "./design-system";
 
 /**
  * スライドタイプとコンテンツから完全なHTMLドキュメントを生成

@@ -29,7 +29,10 @@ export const flyerDataSchema = z.object({
 	address: z.string(),
 	price: z.string().optional().describe("物件価格（例: 5,800万円）"),
 	area: z.string().optional().describe("専有面積（例: 72.5㎡）"),
-	constructionYear: z.string().optional().describe("築年または建築年（例: 2015年、1985）"),
+	constructionYear: z
+		.string()
+		.optional()
+		.describe("築年または建築年（例: 2015年、1985）"),
 });
 
 export type FlyerData = z.infer<typeof flyerDataSchema>;

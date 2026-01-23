@@ -8,7 +8,7 @@
  *   npx tsx scripts/test-nearby-map.ts "東京都千代田区丸の内1-9-1"
  */
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PlacesClient } from "@googlemaps/places";
 
@@ -35,10 +35,34 @@ const GMAP_ICONS = "https://maps.google.com/mapfiles/ms/icons";
 
 // 検索する施設カテゴリ
 const FACILITY_CATEGORIES = [
-	{ type: "supermarket", label: "S", color: "blue", name: "スーパー", icon: `${GMAP_ICONS}/shopping.png` },
-	{ type: "convenience_store", label: "C", color: "green", name: "コンビニ", icon: `${GMAP_ICONS}/convenience.png` },
-	{ type: "park", label: "K", color: "orange", name: "公園", icon: `${GMAP_ICONS}/tree.png` },
-	{ type: "hospital", label: "H", color: "purple", name: "病院", icon: `${GMAP_ICONS}/hospitals.png` },
+	{
+		type: "supermarket",
+		label: "S",
+		color: "blue",
+		name: "スーパー",
+		icon: `${GMAP_ICONS}/shopping.png`,
+	},
+	{
+		type: "convenience_store",
+		label: "C",
+		color: "green",
+		name: "コンビニ",
+		icon: `${GMAP_ICONS}/convenience.png`,
+	},
+	{
+		type: "park",
+		label: "K",
+		color: "orange",
+		name: "公園",
+		icon: `${GMAP_ICONS}/tree.png`,
+	},
+	{
+		type: "hospital",
+		label: "H",
+		color: "purple",
+		name: "病院",
+		icon: `${GMAP_ICONS}/hospitals.png`,
+	},
 ];
 
 // 検索半径（メートル）
@@ -142,8 +166,7 @@ async function main() {
 				{
 					otherArgs: {
 						headers: {
-							"X-Goog-FieldMask":
-								"places.displayName,places.location",
+							"X-Goog-FieldMask": "places.displayName,places.location",
 						},
 					},
 				},
@@ -207,10 +230,7 @@ async function main() {
 	// 施設マーカー
 	for (const f of facilities) {
 		if (f.icon) {
-			url.searchParams.append(
-				"markers",
-				`icon:${f.icon}|${f.lat},${f.lng}`,
-			);
+			url.searchParams.append("markers", `icon:${f.icon}|${f.lat},${f.lng}`);
 		} else {
 			url.searchParams.append(
 				"markers",

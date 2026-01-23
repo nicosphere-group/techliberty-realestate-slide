@@ -1,9 +1,9 @@
 import type { DataSource } from "./schemas";
 import {
-	type SlideType,
-	SLIDE_TYPES,
-	SLIDE_TYPE_TITLES,
 	SLIDE_TYPE_DESCRIPTIONS,
+	SLIDE_TYPE_TITLES,
+	SLIDE_TYPES,
+	type SlideType,
 } from "./types/slide-types";
 
 /**
@@ -75,12 +75,7 @@ export const SLIDE_DEFINITIONS: FixedSlideDefinition[] = [
 		title: SLIDE_TYPE_TITLES.nearby,
 		description: SLIDE_TYPE_DESCRIPTIONS.nearby,
 		dataSource: "research",
-		researchTopics: [
-			"周辺スーパー",
-			"コンビニ",
-			"公園",
-			"病院・クリニック",
-		],
+		researchTopics: ["周辺スーパー", "コンビニ", "公園", "病院・クリニック"],
 		contentHints: ["スーパー", "コンビニ", "公園", "病院", "周辺地図"],
 	},
 	{

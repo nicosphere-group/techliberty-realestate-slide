@@ -5,13 +5,13 @@
 import { tool } from "ai";
 import {
 	HazardMapGenerator,
-	hazardMapOptionsSchema,
 	type HazardMapOptions,
+	hazardMapOptionsSchema,
 } from "@/lib/hazard-map";
 import {
 	ShelterMapGenerator,
-	shelterMapOptionsSchema,
 	type ShelterMapOptions,
+	shelterMapOptionsSchema,
 } from "@/lib/shelter-map";
 import { uploadToS3 } from "./upload";
 

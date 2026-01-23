@@ -103,7 +103,10 @@ export const contentLeftContentSchema = z.object({
 	/** 左側の画像URL */
 	imageUrl: z.url().optional(),
 	/** 左側の画像キャプション */
-	imageCaption: z.string().describe("画像キャプション（30文字以内）").optional(),
+	imageCaption: z
+		.string()
+		.describe("画像キャプション（30文字以内）")
+		.optional(),
 	/** 右側のコンテンツ */
 	content: z.object({
 		/** 見出し */
@@ -136,7 +139,10 @@ export const contentRightContentSchema = z.object({
 	/** 右側の画像URL */
 	imageUrl: z.url().optional(),
 	/** 右側の画像キャプション */
-	imageCaption: z.string().describe("画像キャプション（30文字以内）").optional(),
+	imageCaption: z
+		.string()
+		.describe("画像キャプション（30文字以内）")
+		.optional(),
 	/** 左側のコンテンツ */
 	content: z.object({
 		/** 見出し */
@@ -173,7 +179,10 @@ export const gridItemSchema = z.object({
 	/** アイコン（絵文字1文字を推奨） */
 	icon: z.string().describe("アイコン（絵文字1文字を推奨、例: 🏪）").optional(),
 	/** 距離・時間などの補足情報 */
-	meta: z.string().describe("距離・時間などの補足情報（20文字以内）").optional(),
+	meta: z
+		.string()
+		.describe("距離・時間などの補足情報（20文字以内）")
+		.optional(),
 });
 
 export type GridItem = z.infer<typeof gridItemSchema>;

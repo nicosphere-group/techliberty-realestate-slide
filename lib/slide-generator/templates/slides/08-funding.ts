@@ -4,10 +4,14 @@
  */
 
 import type { FundingContent } from "../../schemas/slide-content";
-import { SLIDE_CONTAINER_CLASS, escapeHtml, NUMBER_FONT_STYLE } from "../design-system";
+import {
+	escapeHtml,
+	NUMBER_FONT_STYLE,
+	SLIDE_CONTAINER_CLASS,
+} from "../design-system";
 
 export function renderFundingSlide(content: FundingContent): string {
-  return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
+	return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
 
   <header class="flex-shrink-0 mb-8 relative z-10">
     <div class="flex items-center gap-4 mb-5">
@@ -28,7 +32,7 @@ export function renderFundingSlide(content: FundingContent): string {
         <div class="text-[16px] font-sans font-bold tracking-[0.1em] text-[#A0AEC0] uppercase mb-2">Estimated Monthly Payment</div>
         <div class="flex items-baseline justify-end gap-2 text-[#C5A059]">
           <span class="text-[96px] font-serif font-bold leading-none tracking-tighter filter drop-shadow-sm">
-            <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.monthlyPayments.total.replace(/円$/, ''))}</span><span class="text-[48px]">円</span>
+            <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.monthlyPayments.total.replace(/円$/, ""))}</span><span class="text-[48px]">円</span>
           </span>
           </div>
       </div>
@@ -50,21 +54,21 @@ export function renderFundingSlide(content: FundingContent): string {
           <div class="flex flex-col gap-2 border-b border-[#E2E8F0] pb-3">
             <span class="text-[14px] text-[#718096] uppercase tracking-wider font-sans">Property Price</span>
             <span class="text-[40px] font-serif font-medium text-[#1A202C]">
-              <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.loanConditions.propertyPrice.replace(/円$/, ''))}</span><span class="text-[24px]">円</span>
+              <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.loanConditions.propertyPrice.replace(/円$/, ""))}</span><span class="text-[24px]">円</span>
             </span>
           </div>
 
           <div class="flex flex-col gap-2 border-b border-[#E2E8F0] pb-3">
             <span class="text-[14px] text-[#718096] uppercase tracking-wider font-sans">Down Payment (Head Money)</span>
             <span class="text-[40px] font-serif font-medium text-[#1A202C]">
-              <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.loanConditions.downPayment.replace(/円$/, ''))}</span><span class="text-[24px]">円</span>
+              <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.loanConditions.downPayment.replace(/円$/, ""))}</span><span class="text-[24px]">円</span>
             </span>
           </div>
 
           <div class="flex flex-col gap-2 border-b border-[#E2E8F0] pb-3 bg-[#F7FAFC] -mx-3 px-3 rounded-sm">
             <span class="text-[14px] text-[#4A5568] uppercase tracking-wider font-sans font-bold">Loan Amount</span>
             <span class="text-[48px] font-serif font-bold text-[#2D3748]">
-              <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.loanConditions.loanAmount.replace(/円$/, ''))}</span><span class="text-[28px]">円</span>
+              <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.loanConditions.loanAmount.replace(/円$/, ""))}</span><span class="text-[28px]">円</span>
             </span>
           </div>
         </div>
@@ -85,13 +89,13 @@ export function renderFundingSlide(content: FundingContent): string {
              <div class="flex flex-col gap-2 border-b border-[#E2E8F0] pb-3">
                <span class="text-[14px] text-[#718096] uppercase tracking-wider font-sans">Interest Rate</span>
                <span class="text-[30px] font-serif font-medium text-[#1A202C] truncate">
-                 ${(content.loanConditions.loanTermAndRate.split('/')[1] || content.loanConditions.loanTermAndRate).replace(/[\d.]+%/g, (match) => `<span style="${NUMBER_FONT_STYLE}">${match.replace(/%.*/, '')}</span>%`).replace(/（.+）/, (match) => `<span class="text-[20px]">${escapeHtml(match)}</span>`)}
+                 ${(content.loanConditions.loanTermAndRate.split("/")[1] || content.loanConditions.loanTermAndRate).replace(/[\d.]+%/g, (match) => `<span style="${NUMBER_FONT_STYLE}">${match.replace(/%.*/, "")}</span>%`).replace(/（.+）/, (match) => `<span class="text-[20px]">${escapeHtml(match)}</span>`)}
                </span>
              </div>
              <div class="flex flex-col gap-2 border-b border-[#E2E8F0] pb-3">
                <span class="text-[14px] text-[#718096] uppercase tracking-wider font-sans">Period</span>
                <span class="text-[30px] font-serif font-medium text-[#1A202C] truncate">
-                 <span style="${NUMBER_FONT_STYLE}">${escapeHtml((content.loanConditions.loanTermAndRate.split('/')[0] || '35年').replace(/年$/, ''))}</span><span class="text-[20px]">年</span>
+                 <span style="${NUMBER_FONT_STYLE}">${escapeHtml((content.loanConditions.loanTermAndRate.split("/")[0] || "35年").replace(/年$/, ""))}</span><span class="text-[20px]">年</span>
                </span>
              </div>
            </div>
@@ -104,7 +108,7 @@ export function renderFundingSlide(content: FundingContent): string {
            <div class="flex flex-col gap-2 pt-2">
              <span class="text-[14px] text-[#718096] uppercase tracking-wider font-sans">Loan Repayment / Month</span>
              <span class="text-[40px] font-serif font-bold text-[#2D3748]">
-               <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.monthlyPayments.loanRepayment.replace(/円$/, ''))}</span><span class="text-[24px]">円</span>
+               <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.monthlyPayments.loanRepayment.replace(/円$/, ""))}</span><span class="text-[24px]">円</span>
              </span>
            </div>
         </div>
@@ -130,19 +134,19 @@ export function renderFundingSlide(content: FundingContent): string {
             <div class="flex justify-between items-center border-b border-white/20 pb-3">
               <span class="text-[18px] text-white/70 font-sans">ローン返済額</span>
               <span class="text-[30px] font-serif font-medium">
-                <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.monthlyPayments.loanRepayment.replace(/円$/, ''))}</span><span class="text-[20px]">円</span>
+                <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.monthlyPayments.loanRepayment.replace(/円$/, ""))}</span><span class="text-[20px]">円</span>
               </span>
             </div>
             <div class="flex justify-between items-center border-b border-white/20 pb-3">
               <span class="text-[18px] text-white/70 font-sans">管理費</span>
               <span class="text-[30px] font-serif font-medium">
-                <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.monthlyPayments.managementFee.replace(/円$/, ''))}</span><span class="text-[20px]">円</span>
+                <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.monthlyPayments.managementFee.replace(/円$/, ""))}</span><span class="text-[20px]">円</span>
               </span>
             </div>
             <div class="flex justify-between items-center border-b border-white/20 pb-3">
               <span class="text-[18px] text-white/70 font-sans">修繕積立金</span>
               <span class="text-[30px] font-serif font-medium">
-                <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.monthlyPayments.repairReserve.replace(/円$/, ''))}</span><span class="text-[20px]">円</span>
+                <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.monthlyPayments.repairReserve.replace(/円$/, ""))}</span><span class="text-[20px]">円</span>
               </span>
             </div>
           </div>
@@ -151,7 +155,7 @@ export function renderFundingSlide(content: FundingContent): string {
         <div class="mt-10 pt-8 border-t border-[#C5A059]">
           <div class="text-[14px] font-sans font-bold tracking-[0.2em] text-[#C5A059] uppercase mb-3">Total Monthly Cost</div>
           <div class="text-[68px] font-serif font-bold leading-none tracking-tight">
-            <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.monthlyPayments.total.replace(/円$/, ''))}</span><span class="text-[40px]">円</span>
+            <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.monthlyPayments.total.replace(/円$/, ""))}</span><span class="text-[40px]">円</span>
           </div>
         </div>
       </div>
@@ -161,15 +165,15 @@ export function renderFundingSlide(content: FundingContent): string {
   
   <footer class="flex-shrink-0 mt-6 text-right">
     ${
-      content.note
-        ? `<p class="text-[14px] font-sans text-[#A0AEC0] leading-relaxed max-w-3xl ml-auto text-justify">
+			content.note
+				? `<p class="text-[14px] font-sans text-[#A0AEC0] leading-relaxed max-w-3xl ml-auto text-justify">
             ${escapeHtml(content.note)}
            </p>`
-        : `<p class="text-[14px] font-sans text-[#A0AEC0]">
+				: `<p class="text-[14px] font-sans text-[#A0AEC0]">
             ※頭金や金利等の条件により異なります。別途、購入諸費用（登記費用・仲介手数料等）や固定資産税・都市計画税がかかります。
             シミュレーション結果は概算であり、将来の金利動向等を保証するものではありません。
            </p>`
-    }
+		}
   </footer>
 </div>`;
 }

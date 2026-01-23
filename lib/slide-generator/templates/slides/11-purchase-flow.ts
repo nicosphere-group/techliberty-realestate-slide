@@ -10,50 +10,53 @@ import { SLIDE_CONTAINER_CLASS } from "../design-system";
 
 /** 静的な購入フローステップ */
 const PURCHASE_STEPS = [
-  {
-    title: "購入申込",
-    description: "気に入った物件が見つかったら、購入申込書を提出します。",
-    checkItems: ["購入申込書の記入", "申込金の準備"],
-  },
-  {
-    title: "住宅ローン事前審査",
-    description: "金融機関に事前審査を申し込み、借入可能額を確認します。",
-    checkItems: ["必要書類の準備", "金融機関の選定"],
-  },
-  {
-    title: "売買契約締結",
-    description: "重要事項説明を受け、売買契約を締結します。手付金をお支払いいただきます。",
-    checkItems: ["重要事項説明の確認", "手付金のご用意"],
-  },
-  {
-    title: "住宅ローン本審査",
-    description: "売買契約後、金融機関の本審査を受けます。",
-    checkItems: ["本審査書類の提出", "団信への加入"],
-  },
-  {
-    title: "金銭消費貸借契約",
-    description: "住宅ローンの正式な契約を金融機関と締結します。",
-    checkItems: ["契約内容の最終確認", "印鑑証明書等の準備"],
-  },
-  {
-    title: "決済・引渡し",
-    description: "残代金の支払いと同時に、物件の引渡しを受けます。",
-    checkItems: ["残代金・諸費用の準備", "鍵の受け取り"],
-  },
+	{
+		title: "購入申込",
+		description: "気に入った物件が見つかったら、購入申込書を提出します。",
+		checkItems: ["購入申込書の記入", "申込金の準備"],
+	},
+	{
+		title: "住宅ローン事前審査",
+		description: "金融機関に事前審査を申し込み、借入可能額を確認します。",
+		checkItems: ["必要書類の準備", "金融機関の選定"],
+	},
+	{
+		title: "売買契約締結",
+		description:
+			"重要事項説明を受け、売買契約を締結します。手付金をお支払いいただきます。",
+		checkItems: ["重要事項説明の確認", "手付金のご用意"],
+	},
+	{
+		title: "住宅ローン本審査",
+		description: "売買契約後、金融機関の本審査を受けます。",
+		checkItems: ["本審査書類の提出", "団信への加入"],
+	},
+	{
+		title: "金銭消費貸借契約",
+		description: "住宅ローンの正式な契約を金融機関と締結します。",
+		checkItems: ["契約内容の最終確認", "印鑑証明書等の準備"],
+	},
+	{
+		title: "決済・引渡し",
+		description: "残代金の支払いと同時に、物件の引渡しを受けます。",
+		checkItems: ["残代金・諸費用の準備", "鍵の受け取り"],
+	},
 ] as const;
 
 export function renderPurchaseFlowSlide(): string {
-  const stepsHtml = PURCHASE_STEPS.map((step, index) => {
-    const checkItemsHtml = step.checkItems
-      .map(
-        (item) => `<li class="flex items-start gap-3 text-[18px] text-[#4A5568] font-sans leading-[1.6]">
+	const stepsHtml = PURCHASE_STEPS.map((step, index) => {
+		const checkItemsHtml = step.checkItems
+			.map(
+				(
+					item,
+				) => `<li class="flex items-start gap-3 text-[18px] text-[#4A5568] font-sans leading-[1.6]">
           <span class="w-1.5 h-1.5 bg-[#C5A059] mt-[10px] rounded-full flex-shrink-0"></span>
           <span>${item}</span>
         </li>`,
-      )
-      .join("\n");
+			)
+			.join("\n");
 
-    return `<div class="relative bg-white border border-[#E2E8F0] p-8 flex flex-col h-full">
+		return `<div class="relative bg-white border border-[#E2E8F0] p-8 flex flex-col h-full">
         <div class="absolute top-4 right-6 text-[100px] font-serif font-bold text-[#F7F5F2] leading-none pointer-events-none">
           ${String(index + 1).padStart(2, "0")}
         </div>
@@ -75,9 +78,9 @@ export function renderPurchaseFlowSlide(): string {
           </ul>
         </div>
       </div>`;
-  }).join("\n");
+	}).join("\n");
 
-  return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-12 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
+	return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-12 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
 
   <div class="absolute top-[200px] left-0 w-full h-[1px] bg-[#E2E8F0] pointer-events-none"></div>
 

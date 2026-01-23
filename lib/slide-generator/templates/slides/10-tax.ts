@@ -6,10 +6,10 @@
  * LLMによるコンテンツ生成は不要です。
  */
 
-import { SLIDE_CONTAINER_CLASS, NUMBER_FONT_STYLE } from "../design-system";
+import { NUMBER_FONT_STYLE, SLIDE_CONTAINER_CLASS } from "../design-system";
 
 export function renderTaxSlide(): string {
-  return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
+	return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
 
   <div class="absolute top-[200px] left-0 w-full h-[1px] bg-[#E2E8F0] pointer-events-none"></div>
 

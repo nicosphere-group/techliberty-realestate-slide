@@ -21,9 +21,7 @@ function getImagenClient(): RealEstateImagenClient {
  * 物件画像抽出スキーマ
  */
 const extractPropertyImageSchema = z.object({
-	maisokuImageUrl: z
-		.string()
-		.describe("マイソク画像のURL（data:URL形式も可）"),
+	maisokuImageUrl: z.string().describe("マイソク画像のURL（data:URL形式も可）"),
 });
 
 type ExtractPropertyImageParams = z.infer<typeof extractPropertyImageSchema>;
@@ -64,9 +62,7 @@ export const extractPropertyImageTool = tool({
  * 間取り図抽出スキーマ
  */
 const extractFloorplanImageSchema = z.object({
-	maisokuImageUrl: z
-		.string()
-		.describe("マイソク画像のURL（data:URL形式も可）"),
+	maisokuImageUrl: z.string().describe("マイソク画像のURL（data:URL形式も可）"),
 });
 
 type ExtractFloorplanImageParams = z.infer<typeof extractFloorplanImageSchema>;

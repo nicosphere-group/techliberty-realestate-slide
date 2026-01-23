@@ -7,26 +7,25 @@
  * 画像URLのみ外部から渡されます。
  */
 
-import { SLIDE_CONTAINER_CLASS, escapeHtml } from "../design-system";
+import { escapeHtml, SLIDE_CONTAINER_CLASS } from "../design-system";
 
 export function renderFlyerSlide(imageUrls: string[]): string {
-
-  // 画像がない場合のフォールバック
-  if (imageUrls.length === 0) {
-    return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] flex items-center justify-center">
+	// 画像がない場合のフォールバック
+	if (imageUrls.length === 0) {
+		return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] flex items-center justify-center">
       <div class="text-center">
         <div class="text-[100px] text-[#E2E8F0] mb-6">■</div>
         <p class="text-3xl font-serif text-[#A0AEC0] tracking-widest">NO FLYER IMAGE</p>
       </div>
     </div>`;
-  }
+	}
 
-  // 画像生成ロジック
-  let imagesHtml = "";
+	// 画像生成ロジック
+	let imagesHtml = "";
 
-  if (imageUrls.length === 1) {
-    // 【単一画像モード】画像を大きく中央表示
-    imagesHtml = `
+	if (imageUrls.length === 1) {
+		// 【単一画像モード】画像を大きく中央表示
+		imagesHtml = `
       <div class="flex-1 min-h-0 flex items-center justify-center">
         <img
           src="${escapeHtml(imageUrls[0])}"
@@ -35,20 +34,24 @@ export function renderFlyerSlide(imageUrls: string[]): string {
         />
       </div>
     `;
-  } else {
-    // 【複数画像モード】2枚なら左右分割、3枚以上ならグリッド
-    const gridClass = imageUrls.length === 2 ? "grid-cols-2 gap-8" : "grid-cols-3 gap-6";
+	} else {
+		// 【複数画像モード】2枚なら左右分割、3枚以上ならグリッド
+		const gridClass =
+			imageUrls.length === 2 ? "grid-cols-2 gap-8" : "grid-cols-3 gap-6";
 
-    const items = imageUrls.map(url =>
-      `<div class="flex items-center justify-center overflow-hidden bg-white border border-[#E2E8F0] shadow-md p-4">
+		const items = imageUrls
+			.map(
+				(url) =>
+					`<div class="flex items-center justify-center overflow-hidden bg-white border border-[#E2E8F0] shadow-md p-4">
          <img src="${escapeHtml(url)}" alt="マイソク" class="max-w-full max-h-full object-contain" />
-       </div>`
-    ).join("\n");
+       </div>`,
+			)
+			.join("\n");
 
-    imagesHtml = `<div class="flex-1 min-h-0 grid ${gridClass}">${items}</div>`;
-  }
+		imagesHtml = `<div class="flex-1 min-h-0 grid ${gridClass}">${items}</div>`;
+	}
 
-  return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
+	return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
 
   <!-- 水平線デコレーション -->
   <div class="absolute top-[140px] left-0 w-full h-[1px] bg-[#E2E8F0] pointer-events-none"></div>

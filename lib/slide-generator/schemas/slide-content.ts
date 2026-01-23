@@ -41,7 +41,10 @@ const highlightSectionSchema = z.object({
 	items: z
 		.array(
 			z.object({
-				value: z.string().describe("数値や強調テキスト（15文字以内）").optional(),
+				value: z
+					.string()
+					.describe("数値や強調テキスト（15文字以内）")
+					.optional(),
 				text: z.string().describe("項目テキスト（40文字以内）"),
 			}),
 		)
@@ -100,8 +103,14 @@ export const stationInfoSchema = z.object({
 export const accessContentSchema = z.object({
 	propertyName: z.string().describe("物件名（30文字以内）"),
 	address: z.string().describe("住所（50文字以内）"),
-	stations: z.array(stationInfoSchema).max(3).describe("最寄り駅情報（最大3つ）"),
-	description: z.string().describe("アクセスの魅力説明文（100文字以内）").optional(),
+	stations: z
+		.array(stationInfoSchema)
+		.max(3)
+		.describe("最寄り駅情報（最大3つ）"),
+	description: z
+		.string()
+		.describe("アクセスの魅力説明文（100文字以内）")
+		.optional(),
 	imageUrl: z.string().describe("アクセス画像URL").optional(),
 });
 
@@ -112,10 +121,14 @@ export type AccessContent = z.infer<typeof accessContentSchema>;
 // ========================================
 
 export const facilityGroupSchema = z.object({
-	category: z.string().describe("カテゴリ名（例: スーパー, コンビニ, 公園, 病院）"),
+	category: z
+		.string()
+		.describe("カテゴリ名（例: スーパー, コンビニ, 公園, 病院）"),
 	color: z
 		.string()
-		.describe("HTMLカラーコード（#7dabfd=スーパー, #8aae02=コンビニ, #dc8501=公園, #926da6=病院）"),
+		.describe(
+			"HTMLカラーコード（#7dabfd=スーパー, #8aae02=コンビニ, #dc8501=公園, #926da6=病院）",
+		),
 	facilities: z
 		.array(
 			z.object({
@@ -132,7 +145,9 @@ export const nearbyContentSchema = z.object({
 	facilityGroups: z
 		.array(facilityGroupSchema)
 		.max(4)
-		.describe("施設グループ（最大4つ: スーパー、コンビニ、公園、病院）。各カテゴリーは1回のみ含めること。重複不可。"),
+		.describe(
+			"施設グループ（最大4つ: スーパー、コンビニ、公園、病院）。各カテゴリーは1回のみ含めること。重複不可。",
+		),
 	address: z.string().describe("物件住所"),
 	mapImageUrl: z.string().describe("地図画像URL").optional(),
 });
@@ -167,7 +182,9 @@ export const targetPropertySchema = z.object({
 });
 
 export const priceAnalysisContentSchema = z.object({
-	targetProperty: targetPropertySchema.optional().describe("対象物件のデータ（マイソクから抽出）"),
+	targetProperty: targetPropertySchema
+		.optional()
+		.describe("対象物件のデータ（マイソクから抽出）"),
 	similarProperties: z
 		.array(similarPropertySchema)
 		.max(6)
@@ -187,7 +204,10 @@ export type PriceAnalysisContent = z.infer<typeof priceAnalysisContentSchema>;
 export const hazardContentSchema = z.object({
 	propertyName: z.string().describe("物件名"),
 	address: z.string().describe("住所"),
-	description: z.string().describe("防災情報の説明文（100文字以内）").optional(),
+	description: z
+		.string()
+		.describe("防災情報の説明文（100文字以内）")
+		.optional(),
 	hazardRisks: z
 		.array(
 			z.object({
@@ -224,7 +244,9 @@ export const fundingContentSchema = z.object({
 		propertyPrice: z.string().describe("物件価格（例: 128,000,000円）"),
 		downPayment: z.string().describe("自己資金（例: 28,000,000円）"),
 		loanAmount: z.string().describe("借入金額（例: 100,000,000円）"),
-		loanTermAndRate: z.string().describe("返済期間/金利（例: 35年 / 0.5%（変動））"),
+		loanTermAndRate: z
+			.string()
+			.describe("返済期間/金利（例: 35年 / 0.5%（変動））"),
 	}),
 	monthlyPayments: z.object({
 		loanRepayment: z.string().describe("ローン返済額（例: 259,500円）"),
@@ -246,7 +268,9 @@ export const expensesContentSchema = z.object({
 	propertyPrice: z
 		.number()
 		.optional()
-		.describe("物件価格（万円単位、例: 8000）。諸費用計算に使用。未指定の場合は割合表示"),
+		.describe(
+			"物件価格（万円単位、例: 8000）。諸費用計算に使用。未指定の場合は割合表示",
+		),
 	expenses: z
 		.array(
 			z.object({
@@ -256,7 +280,10 @@ export const expensesContentSchema = z.object({
 		)
 		.max(6)
 		.describe("諸費用項目（最大6つ）"),
-	totalDescription: z.string().describe("合計の説明文（80文字以内）").optional(),
+	totalDescription: z
+		.string()
+		.describe("合計の説明文（80文字以内）")
+		.optional(),
 	note: z.string().describe("注釈（80文字以内）").optional(),
 });
 
@@ -289,7 +316,10 @@ export type PurchaseFlowContent = z.infer<typeof purchaseFlowContentSchema>;
 // 画像URLのみ外部から渡される
 
 export const flyerContentSchema = z.object({
-	imageUrls: z.array(z.string()).min(1).describe("マイソク画像URL配列（最低1枚）"),
+	imageUrls: z
+		.array(z.string())
+		.min(1)
+		.describe("マイソク画像URL配列（最低1枚）"),
 });
 
 export type FlyerContent = z.infer<typeof flyerContentSchema>;

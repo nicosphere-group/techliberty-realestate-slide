@@ -15,8 +15,8 @@ export { renderTaxSlide } from "./10-tax";
 export { renderPurchaseFlowSlide } from "./11-purchase-flow";
 export { renderFlyerSlide } from "./12-flyer";
 
-import type { SlideType } from "../../types/slide-types";
 import type { SlideContentMap } from "../../schemas/slide-content";
+import type { SlideType } from "../../types/slide-types";
 import { renderCoverSlide } from "./01-cover";
 import { renderPropertyHighlightSlide } from "./02-property-highlight";
 import { renderFloorPlanSlide } from "./03-floor-plan";

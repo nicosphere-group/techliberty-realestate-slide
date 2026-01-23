@@ -3,73 +3,77 @@
  */
 
 import type { PriceAnalysisContent } from "../../schemas/slide-content";
-import { SLIDE_CONTAINER_CLASS, escapeHtml, NUMBER_FONT_STYLE } from "../design-system";
+import {
+	escapeHtml,
+	NUMBER_FONT_STYLE,
+	SLIDE_CONTAINER_CLASS,
+} from "../design-system";
 
 /**
  * 建築年から築年数を計算する
  */
 function calculateBuildingAge(ageStr: string): string {
-  const currentYear = new Date().getFullYear();
-  const yearMatch = ageStr.match(/\d+/);
-  if (!yearMatch) return ageStr;
-  
-  const builtYear = Number.parseInt(yearMatch[0], 10);
-  if (builtYear < 1900 || builtYear > currentYear) return ageStr;
-  
-  const age = currentYear - builtYear;
-  return `${age}年`;
+	const currentYear = new Date().getFullYear();
+	const yearMatch = ageStr.match(/\d+/);
+	if (!yearMatch) return ageStr;
+
+	const builtYear = Number.parseInt(yearMatch[0], 10);
+	if (builtYear < 1900 || builtYear > currentYear) return ageStr;
+
+	const age = currentYear - builtYear;
+	return `${age}年`;
 }
 
-export function renderPriceAnalysisSlide(content: PriceAnalysisContent): string {
-  // 対象物件データ（テーブル行）
-  const targetPropertyRowHtml = content.targetProperty
-    ? `<tr class="border-b-4 border-[#C5A059] bg-gradient-to-r from-[#FFF9F0] to-[#FFFAF5]">
+export function renderPriceAnalysisSlide(
+	content: PriceAnalysisContent,
+): string {
+	// 対象物件データ（テーブル行）
+	const targetPropertyRowHtml = content.targetProperty
+		? `<tr class="border-b-4 border-[#C5A059] bg-gradient-to-r from-[#FFF9F0] to-[#FFFAF5]">
         <td class="py-6 pl-6 pr-4 text-[24px] font-sans font-bold text-[#1A202C] leading-snug">
           ${escapeHtml(content.targetProperty.name)}
           <span class="ml-2 text-[14px] font-sans font-bold text-[#C5A059] bg-white px-2 py-0.5 rounded-full border border-[#C5A059] align-middle">対象</span>
         </td>
         <td class="py-6 px-4 text-[28px] font-serif font-bold text-[#1A202C] text-center tabular-nums">
-          <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.targetProperty.age.replace(/年$/, ''))}</span><span class="text-[20px]">年</span>
+          <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.targetProperty.age.replace(/年$/, ""))}</span><span class="text-[20px]">年</span>
         </td>
         <td class="py-6 px-4 text-[28px] font-serif font-bold text-[#1A202C] text-center tabular-nums">
-          <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.targetProperty.area.replace(/[㎡m²]/g, ''))}</span><span class="text-[20px]">${content.targetProperty.area.match(/[㎡m²]/)?.[0] || '㎡'}</span>
+          <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.targetProperty.area.replace(/[㎡m²]/g, ""))}</span><span class="text-[20px]">${content.targetProperty.area.match(/[㎡m²]/)?.[0] || "㎡"}</span>
         </td>
         <td class="py-6 px-4 text-[28px] font-serif font-bold text-[#1A202C] text-right tabular-nums tracking-wide">
-          <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.targetProperty.price.replace(/万円$/, ''))}</span><span class="text-[20px]">万円</span>
+          <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.targetProperty.price.replace(/万円$/, ""))}</span><span class="text-[20px]">万円</span>
         </td>
         <td class="py-6 pl-4 pr-6 text-[30px] font-serif font-bold text-[#C5A059] text-right tabular-nums bg-white tracking-wide">
-          <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.targetProperty.unitPrice.replace(/万円$/, ''))}</span><span class="text-[20px]">万円</span>
+          <span style="${NUMBER_FONT_STYLE}">${escapeHtml(content.targetProperty.unitPrice.replace(/万円$/, ""))}</span><span class="text-[20px]">万円</span>
         </td>
       </tr>`
-    : "";
+		: "";
 
-  // 類似物件データ（テーブル行）
-  const tableRowsHtml = content.similarProperties
-    ? content.similarProperties
-        .map(
-          (prop) => {
-            const age = calculateBuildingAge(prop.age);
-            return `<tr class="border-b border-[#E2E8F0] last:border-0">
+	// 類似物件データ（テーブル行）
+	const tableRowsHtml = content.similarProperties
+		? content.similarProperties
+				.map((prop) => {
+					const age = calculateBuildingAge(prop.age);
+					return `<tr class="border-b border-[#E2E8F0] last:border-0">
           <td class="py-5 pl-6 pr-4 text-[22px] font-sans font-medium text-[#2D3748] truncate max-w-[300px]">${escapeHtml(prop.name)}</td>
           <td class="py-5 px-4 text-[26px] font-serif text-[#1A202C] text-center tabular-nums">
-            <span style="${NUMBER_FONT_STYLE}">${escapeHtml(age.replace(/年$/, ''))}</span><span class="text-[18px]">年</span>
+            <span style="${NUMBER_FONT_STYLE}">${escapeHtml(age.replace(/年$/, ""))}</span><span class="text-[18px]">年</span>
           </td>
           <td class="py-5 px-4 text-[26px] font-serif text-[#1A202C] text-center tabular-nums">
-            <span style="${NUMBER_FONT_STYLE}">${escapeHtml(prop.area.replace(/[㎡m²]/g, ''))}</span><span class="text-[18px]">${prop.area.match(/[㎡m²]/)?.[0] || '㎡'}</span>
+            <span style="${NUMBER_FONT_STYLE}">${escapeHtml(prop.area.replace(/[㎡m²]/g, ""))}</span><span class="text-[18px]">${prop.area.match(/[㎡m²]/)?.[0] || "㎡"}</span>
           </td>
           <td class="py-5 px-4 text-[26px] font-serif text-[#1A202C] text-right tabular-nums tracking-wide">
-            <span style="${NUMBER_FONT_STYLE}">${escapeHtml(prop.price.replace(/万円$/, ''))}</span><span class="text-[18px]">万円</span>
+            <span style="${NUMBER_FONT_STYLE}">${escapeHtml(prop.price.replace(/万円$/, ""))}</span><span class="text-[18px]">万円</span>
           </td>
           <td class="py-5 pl-4 pr-6 text-[28px] font-serif font-bold text-[#1A202C] text-right tabular-nums bg-[#F7F5F2] tracking-wide">
-            <span style="${NUMBER_FONT_STYLE}">${escapeHtml(prop.unitPrice.replace(/万円$/, ''))}</span><span class="text-[18px]">万円</span>
+            <span style="${NUMBER_FONT_STYLE}">${escapeHtml(prop.unitPrice.replace(/万円$/, ""))}</span><span class="text-[18px]">万円</span>
           </td>
         </tr>`;
-          },
-        )
-        .join("\n")
-    : `<tr class="border-b border-[#E2E8F0]"><td colspan="5" class="py-8 text-center text-[#A0AEC0] text-xl">No Comparable Data Available</td></tr>`;
+				})
+				.join("\n")
+		: `<tr class="border-b border-[#E2E8F0]"><td colspan="5" class="py-8 text-center text-[#A0AEC0] text-xl">No Comparable Data Available</td></tr>`;
 
-  return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-16 py-10 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
+	return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-16 py-10 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
 
   <header class="flex-shrink-0 mb-6 relative z-10">
     <div class="flex items-center gap-3 mb-3">

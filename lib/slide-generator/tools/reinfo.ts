@@ -5,8 +5,8 @@
  */
 import { tool } from "ai";
 import { z } from "zod";
-import { ReinfoClient } from "@/lib/reinfo/client";
 import { CSISGeocoder } from "@/lib/geocode";
+import { ReinfoClient } from "@/lib/reinfo/client";
 
 const REINFO_API_KEY = process.env.REINFO_API_KEY;
 
@@ -28,26 +28,17 @@ function getReinfoClient(): ReinfoClient {
  * 価格情報取得スキーマ
  */
 const priceInfoSchema = z.object({
-	year: z
-		.number()
-		.int()
-		.min(2005)
-		.describe("西暦年（2005年以降）"),
+	year: z.number().int().min(2005).describe("西暦年（2005年以降）"),
 	quarter: z
 		.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
 		.optional()
 		.describe("四半期（1-4）。省略時は年間全体。"),
-	area: z
-		.string()
-		.describe("都道府県コード（例: '13' = 東京都）"),
+	area: z.string().describe("都道府県コード（例: '13' = 東京都）"),
 	city: z
 		.string()
 		.optional()
 		.describe("市区町村コード（例: '13101' = 千代田区）"),
-	station: z
-		.string()
-		.optional()
-		.describe("最寄り駅名"),
+	station: z.string().optional().describe("最寄り駅名"),
 	priceClassification: z
 		.enum(["01", "02"])
 		.optional()
@@ -79,9 +70,7 @@ export const getPriceInfoTool = tool({
  * 市区町村コード取得スキーマ
  */
 const municipalitiesSchema = z.object({
-	area: z
-		.string()
-		.describe("都道府県コード（例: '13' = 東京都）"),
+	area: z.string().describe("都道府県コード（例: '13' = 東京都）"),
 });
 
 type MunicipalitiesParams = z.infer<typeof municipalitiesSchema>;
@@ -129,7 +118,10 @@ function latLonToTile(
  * 現在日付から期間パラメータ(from/to)を計算
  * 形式: YYYYQ (例: 20241 = 2024年Q1)
  */
-function calculatePeriodParams(yearsBack: number = 5): { from: number; to: number } {
+function calculatePeriodParams(yearsBack: number = 5): {
+	from: number;
+	to: number;
+} {
 	const now = new Date();
 	const currentYear = now.getFullYear();
 	const currentMonth = now.getMonth() + 1;
@@ -200,7 +192,12 @@ export async function fetchNearbyTransactions(
 		targetPropertyInput?: TargetPropertyInput;
 	} = {},
 ): Promise<PriceAnalysisResult> {
-	const { zoom = 14, yearsBack = 5, maxResults = 6, targetPropertyInput } = options;
+	const {
+		zoom = 14,
+		yearsBack = 5,
+		maxResults = 6,
+		targetPropertyInput,
+	} = options;
 
 	// 1. ジオコーディング：住所から緯度経度を取得
 	const geocoder = new CSISGeocoder();
@@ -247,13 +244,18 @@ export async function fetchNearbyTransactions(
 	type FeatureProperties = Record<string, unknown>;
 	const transactions = features
 		.map((feature: unknown) => {
-			const props = (feature as { properties?: FeatureProperties })?.properties ?? {};
+			const props =
+				(feature as { properties?: FeatureProperties })?.properties ?? {};
 
 			// 建築年から築年数を計算
 			const constructionYearStr = String(props.u_construction_year_ja ?? "");
 			const constructionYearMatch = constructionYearStr.match(/(\d{4})/);
-			const constructionYear = constructionYearMatch ? Number(constructionYearMatch[1]) : null;
-			const buildingAge = constructionYear ? currentYear - constructionYear : null;
+			const constructionYear = constructionYearMatch
+				? Number(constructionYearMatch[1])
+				: null;
+			const buildingAge = constructionYear
+				? currentYear - constructionYear
+				: null;
 
 			// 価格を数値に変換（万円単位）
 			const priceStr = String(props.u_transaction_price_total_ja ?? "");
@@ -285,7 +287,8 @@ export async function fetchNearbyTransactions(
 			const floorPlan = String(props.floor_plan_name_ja ?? "");
 			const structurePart = structure ? ` ${structure}造` : "";
 			const floorPlanPart = floorPlan ? ` ${floorPlan}` : "";
-			const name = `${districtName}${structurePart}${floorPlanPart}`.trim() || "物件";
+			const name =
+				`${districtName}${structurePart}${floorPlanPart}`.trim() || "物件";
 
 			return {
 				name,
@@ -293,11 +296,18 @@ export async function fetchNearbyTransactions(
 				area: areaNum > 0 ? String(Math.round(areaNum)) : "-",
 				price: priceNum > 0 ? priceNum.toLocaleString() : "-",
 				unitPrice: unitPriceNum > 0 ? unitPriceNum.toLocaleString() : "-",
-				transactionPeriod: String(props.u_transaction_period_ja ?? props.transaction_period ?? ""),
+				transactionPeriod: String(
+					props.u_transaction_period_ja ?? props.transaction_period ?? "",
+				),
 				// ソート用に数値化
 				_unitPriceNum: unitPriceNum,
 				_priceNum: priceNum,
-				_periodNum: Number(String(props.u_transaction_period_ja ?? props.transaction_period ?? "0").replace(/[^0-9]/g, "")) || 0,
+				_periodNum:
+					Number(
+						String(
+							props.u_transaction_period_ja ?? props.transaction_period ?? "0",
+						).replace(/[^0-9]/g, ""),
+					) || 0,
 			};
 		})
 		.filter((t) => t._unitPriceNum > 0); // 坪単価がないデータは除外
@@ -309,12 +319,17 @@ export async function fetchNearbyTransactions(
 	const topTransactions = transactions.slice(0, maxResults);
 
 	// 9. 推定価格範囲を計算（表示される上位N件の実際の販売価格から算出）
-	const topPrices = topTransactions.map((t) => t._priceNum).filter((p) => p > 0);
-	const topUnitPrices = topTransactions.map((t) => t._unitPriceNum).filter((p) => p > 0);
+	const topPrices = topTransactions
+		.map((t) => t._priceNum)
+		.filter((p) => p > 0);
+	const topUnitPrices = topTransactions
+		.map((t) => t._unitPriceNum)
+		.filter((p) => p > 0);
 
-	const avgUnitPrice = topUnitPrices.length > 0
-		? topUnitPrices.reduce((sum, p) => sum + p, 0) / topUnitPrices.length
-		: 0;
+	const avgUnitPrice =
+		topUnitPrices.length > 0
+			? topUnitPrices.reduce((sum, p) => sum + p, 0) / topUnitPrices.length
+			: 0;
 
 	// 推定価格範囲：表示される類似物件の実際の価格の最小〜最大
 	const estimatedMin = topPrices.length > 0 ? Math.min(...topPrices) : 0;
@@ -341,9 +356,11 @@ export async function fetchNearbyTransactions(
 		let unitPrice = "-";
 		if (targetPropertyInput.price && targetPropertyInput.area) {
 			// 価格を数値に変換（万円単位）
-			const priceNum = Number(targetPropertyInput.price.replace(/[^0-9]/g, "")) || 0;
+			const priceNum =
+				Number(targetPropertyInput.price.replace(/[^0-9]/g, "")) || 0;
 			// 面積を数値に変換（㎡）
-			const areaNum = Number(targetPropertyInput.area.replace(/[^0-9.]/g, "")) || 0;
+			const areaNum =
+				Number(targetPropertyInput.area.replace(/[^0-9.]/g, "")) || 0;
 
 			if (priceNum > 0 && areaNum > 0) {
 				// 坪単価 = 価格（万円） ÷ （面積（㎡） × 0.3025）
@@ -364,7 +381,9 @@ export async function fetchNearbyTransactions(
 
 	return {
 		targetProperty,
-		similarProperties: topTransactions.map(({ _unitPriceNum, _periodNum, transactionPeriod, ...rest }) => rest),
+		similarProperties: topTransactions.map(
+			({ _unitPriceNum, _periodNum, transactionPeriod, ...rest }) => rest,
+		),
 		estimatedPriceMin: estimatedMin > 0 ? String(estimatedMin) : "-",
 		estimatedPriceMax: estimatedMax > 0 ? String(estimatedMax) : "-",
 		averageUnitPrice: Math.round(avgUnitPrice),
@@ -401,12 +420,18 @@ const pricePointsSchema = z.object({
 		.optional()
 		.default(6)
 		.describe("取得する最大件数。デフォルト6件。"),
-	targetPropertyInput: z.object({
-		name: z.string().optional().describe("物件名"),
-		price: z.string().optional().describe("物件価格（例: '5,800万円'）"),
-		area: z.string().optional().describe("専有面積（例: '72.5㎡'）"),
-		constructionYear: z.string().optional().describe("築年または建築年（例: '2015年'）"),
-	}).optional().describe("対象物件の情報（マイソクから抽出）"),
+	targetPropertyInput: z
+		.object({
+			name: z.string().optional().describe("物件名"),
+			price: z.string().optional().describe("物件価格（例: '5,800万円'）"),
+			area: z.string().optional().describe("専有面積（例: '72.5㎡'）"),
+			constructionYear: z
+				.string()
+				.optional()
+				.describe("築年または建築年（例: '2015年'）"),
+		})
+		.optional()
+		.describe("対象物件の情報（マイソクから抽出）"),
 });
 
 type PricePointsParams = z.infer<typeof pricePointsSchema>;

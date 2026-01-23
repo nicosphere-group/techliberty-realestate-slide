@@ -346,7 +346,13 @@ export class HazardMapGenerator {
 		// 光沢（小さな白い円）
 		ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
 		ctx.beginPath();
-		ctx.arc(x - radius * 0.25, centerY - radius * 0.25, radius * 0.2, 0, Math.PI * 2);
+		ctx.arc(
+			x - radius * 0.25,
+			centerY - radius * 0.25,
+			radius * 0.2,
+			0,
+			Math.PI * 2,
+		);
 		ctx.fill();
 	}
 }

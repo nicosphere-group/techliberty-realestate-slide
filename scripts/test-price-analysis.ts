@@ -11,7 +11,9 @@ import { fetchNearbyTransactions } from "../lib/slide-generator/tools/reinfo";
 async function main() {
 	const apiKey = process.env.REINFO_API_KEY;
 	if (!apiKey) {
-		console.error("❌ REINFO_API_KEY が未設定です。環境変数に設定してください。");
+		console.error(
+			"❌ REINFO_API_KEY が未設定です。環境変数に設定してください。",
+		);
 		process.exit(1);
 	}
 
@@ -67,26 +69,29 @@ async function main() {
 
 		// 推定価格範囲
 		console.log("💰 【推定価格範囲】");
-		console.log(`  ${result.estimatedPriceMin} ～ ${result.estimatedPriceMax}万円`);
+		console.log(
+			`  ${result.estimatedPriceMin} ～ ${result.estimatedPriceMax}万円`,
+		);
 		console.log(`  平均坪単価: ${result.averageUnitPrice}万円\n`);
 
 		// 類似物件リスト
-		console.log(`📋 【類似物件】 (${result.similarProperties.length}件 / 全${result.dataCount}件)`);
+		console.log(
+			`📋 【類似物件】 (${result.similarProperties.length}件 / 全${result.dataCount}件)`,
+		);
 		console.log("─".repeat(80));
 		console.log(
-			`${"物件名".padEnd(30)} ${"築年数".padStart(8)} ${"面積".padStart(10)} ${"価格".padStart(12)} ${"坪単価".padStart(10)}`
+			`${"物件名".padEnd(30)} ${"築年数".padStart(8)} ${"面積".padStart(10)} ${"価格".padStart(12)} ${"坪単価".padStart(10)}`,
 		);
 		console.log("─".repeat(80));
 
 		for (const prop of result.similarProperties) {
 			console.log(
-				`${prop.name.padEnd(30)} ${(prop.age + "年").padStart(8)} ${prop.area.padStart(10)} ${(prop.price + "万円").padStart(12)} ${(prop.unitPrice + "万円").padStart(10)}`
+				`${prop.name.padEnd(30)} ${(prop.age + "年").padStart(8)} ${prop.area.padStart(10)} ${(prop.price + "万円").padStart(12)} ${(prop.unitPrice + "万円").padStart(10)}`,
 			);
 		}
 		console.log("─".repeat(80));
 
 		console.log("\n✨ テスト完了\n");
-
 	} catch (error) {
 		console.error("\n❌ エラーが発生しました:");
 		if (error instanceof Error) {

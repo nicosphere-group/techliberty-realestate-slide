@@ -3,36 +3,38 @@
  */
 
 import type { PropertyHighlightContent } from "../../schemas/slide-content";
-import { SLIDE_CONTAINER_CLASS, escapeHtml, NUMBER_FONT_STYLE } from "../design-system";
+import {
+	escapeHtml,
+	NUMBER_FONT_STYLE,
+	SLIDE_CONTAINER_CLASS,
+} from "../design-system";
 
 /**
  * 固定カテゴリ定義
  */
 const CATEGORIES = [
-  { key: "location" as const, label: "LOCATION", title: "立地・アクセス" },
-  { key: "quality" as const, label: "QUALITY", title: "品質・特徴" },
-  { key: "price" as const, label: "PRICE", title: "価格・価値" },
+	{ key: "location" as const, label: "LOCATION", title: "立地・アクセス" },
+	{ key: "quality" as const, label: "QUALITY", title: "品質・特徴" },
+	{ key: "price" as const, label: "PRICE", title: "価格・価値" },
 ] as const;
 
 export function renderPropertyHighlightSlide(
-  content: PropertyHighlightContent,
+	content: PropertyHighlightContent,
 ): string {
-  
-  const columnsHtml = CATEGORIES
-    .map((category) => {
-      const section = content[category.key];
-      
-      // リスト項目の生成
-      const itemsHtml = section.items
-        .map((item) => {
-          // 数値スペック強調パターン（valueに数字が含まれる場合）
-          if (item.value && /\d/.test(item.value)) {
-            const valueWithStyle = escapeHtml(item.value).replace(
-              /(\d+(?:[.,]\d+)?)/g, 
-              `<span style="${NUMBER_FONT_STYLE}" class="text-[#C5A059] text-[68px] font-medium">$1</span>`
-            );
-            
-            return `<li class="flex flex-col border-b border-[#E2E8F0] pb-4 mb-4 last:border-0 last:mb-0 last:pb-0">
+	const columnsHtml = CATEGORIES.map((category) => {
+		const section = content[category.key];
+
+		// リスト項目の生成
+		const itemsHtml = section.items
+			.map((item) => {
+				// 数値スペック強調パターン（valueに数字が含まれる場合）
+				if (item.value && /\d/.test(item.value)) {
+					const valueWithStyle = escapeHtml(item.value).replace(
+						/(\d+(?:[.,]\d+)?)/g,
+						`<span style="${NUMBER_FONT_STYLE}" class="text-[#C5A059] text-[68px] font-medium">$1</span>`,
+					);
+
+					return `<li class="flex flex-col border-b border-[#E2E8F0] pb-4 mb-4 last:border-0 last:mb-0 last:pb-0">
               <div class="font-serif text-[28px] leading-[1.1] tracking-tight text-[#1A202C]">
                 ${valueWithStyle}
               </div>
@@ -41,11 +43,11 @@ export function renderPropertyHighlightSlide(
                 ${escapeHtml(item.text)}
               </span>
             </li>`;
-          }
-          
-          // ラベル付きテキストパターン（valueはあるが数字がない場合）
-          if (item.value) {
-            return `<li class="flex flex-col border-b border-[#E2E8F0] pb-4 mb-4 last:border-0 last:mb-0 last:pb-0">
+				}
+
+				// ラベル付きテキストパターン（valueはあるが数字がない場合）
+				if (item.value) {
+					return `<li class="flex flex-col border-b border-[#E2E8F0] pb-4 mb-4 last:border-0 last:mb-0 last:pb-0">
               <div class="text-[26px] font-serif font-medium text-[#1A202C] mb-1">
                 ${escapeHtml(item.value)}
               </div>
@@ -54,10 +56,10 @@ export function renderPropertyHighlightSlide(
                 ${escapeHtml(item.text)}
               </span>
             </li>`;
-          }
-          
-          // 通常テキスト（特徴）パターン
-          return `<li class="flex items-start gap-3 py-2 border-b border-[#EDF2F7] last:border-0">
+				}
+
+				// 通常テキスト（特徴）パターン
+				return `<li class="flex items-start gap-3 py-2 border-b border-[#EDF2F7] last:border-0">
             <div class="mt-[10px] flex-shrink-0 text-[#C5A059]">
               <svg width="8" height="8" viewBox="0 0 8 8" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="4" y="0" width="5.65" height="5.65" transform="rotate(45 4 0)" fill="currentColor"/>
@@ -67,11 +69,11 @@ export function renderPropertyHighlightSlide(
               ${escapeHtml(item.text)}
             </span>
           </li>`;
-        })
-        .join("\n");
+			})
+			.join("\n");
 
-      // カード部分のHTML
-      return `<div class="bg-white flex flex-col h-full border border-[#CBD5E0] relative">
+		// カード部分のHTML
+		return `<div class="bg-white flex flex-col h-full border border-[#CBD5E0] relative">
         <div class="h-[6px] w-full bg-[#C5A059]"></div>
 
         <div class="p-8 flex flex-col h-full">
@@ -99,10 +101,9 @@ export function renderPropertyHighlightSlide(
           </ul>
         </div>
       </div>`;
-    })
-    .join("\n");
+	}).join("\n");
 
-  return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-16 py-12 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
+	return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-16 py-12 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
   
   <header class="flex-shrink-0 mb-10 flex justify-between items-end">
     <div>
@@ -116,15 +117,15 @@ export function renderPropertyHighlightSlide(
     </div>
     
     ${
-      content.propertyName
-        ? `<div class="text-right hidden md:block border-l-2 border-[#C5A059] pl-5 py-1">
+			content.propertyName
+				? `<div class="text-right hidden md:block border-l-2 border-[#C5A059] pl-5 py-1">
             <div class="text-[13px] font-sans font-bold tracking-[0.2em] text-[#718096] uppercase mb-1">Building</div>
             <div class="text-[22px] font-serif font-bold text-[#2D3748]">
               ${escapeHtml(content.propertyName)}
             </div>
           </div>`
-        : ""
-    }
+				: ""
+		}
   </header>
 
   <main class="flex-1 min-h-0">

@@ -2,8 +2,9 @@
  * 周辺施設・地図関連のツール定義
  * スライド5（周辺施設）で使用
  */
-import { tool } from "ai";
+
 import { PlacesClient } from "@googlemaps/places";
+import { tool } from "ai";
 import ky from "ky";
 import { z } from "zod";
 import { uploadToS3 } from "./upload";
@@ -117,13 +118,13 @@ const staticMapSchema = z.object({
 		.string()
 		.length(2)
 		.optional()
-		.describe("地政学的機密性に基づいて表示する境界を定義する2文字のccTLDコード。"),
+		.describe(
+			"地政学的機密性に基づいて表示する境界を定義する2文字のccTLDコード。",
+		),
 	markers: z
 		.array(
 			z.object({
-				location: z
-					.string()
-					.describe("マーカーの位置。緯度経度または住所。"),
+				location: z.string().describe("マーカーの位置。緯度経度または住所。"),
 				color: z
 					.string()
 					.optional()

@@ -4,13 +4,17 @@
  */
 
 import type { HazardContent } from "../../schemas/slide-content";
-import { SLIDE_CONTAINER_CLASS, escapeHtml, NUMBER_FONT_STYLE } from "../design-system";
+import {
+	escapeHtml,
+	NUMBER_FONT_STYLE,
+	SLIDE_CONTAINER_CLASS,
+} from "../design-system";
 
 export function renderHazardSlide(content: HazardContent): string {
-  // 下部情報エリアの高さを定義（以前より広げて余白を確保）
-  const INFO_AREA_HEIGHT = "h-[165px]";
+	// 下部情報エリアの高さを定義（以前より広げて余白を確保）
+	const INFO_AREA_HEIGHT = "h-[165px]";
 
-  return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-[#F7F5F2] text-[#2D3748] px-20 py-12 flex flex-col overflow-hidden relative" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
+	return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-[#F7F5F2] text-[#2D3748] px-20 py-12 flex flex-col overflow-hidden relative" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
 
   <header class="flex-shrink-0 mb-8 relative z-10">
     <div class="flex items-center gap-4 mb-3">
@@ -28,10 +32,10 @@ export function renderHazardSlide(content: HazardContent): string {
       
       <div class="flex-1 relative min-h-0 border border-[#E2E8F0] bg-white shadow-sm overflow-hidden">
         ${
-          content.hazardMapUrl
-            ? `<img src="${escapeHtml(content.hazardMapUrl)}" class="absolute inset-0 w-full h-full object-cover" alt="Hazard Map">`
-            : `<div class="absolute inset-0 flex items-center justify-center text-[#A0AEC0] font-sans tracking-widest text-xl bg-[#EDF2F7]">HAZARD MAP</div>`
-        }
+					content.hazardMapUrl
+						? `<img src="${escapeHtml(content.hazardMapUrl)}" class="absolute inset-0 w-full h-full object-cover" alt="Hazard Map">`
+						: `<div class="absolute inset-0 flex items-center justify-center text-[#A0AEC0] font-sans tracking-widest text-xl bg-[#EDF2F7]">HAZARD MAP</div>`
+				}
         <div class="absolute top-0 left-0 bg-[#1A202C] text-white px-6 py-3 z-20">
           <span class="text-[13px] font-sans font-bold tracking-[0.2em] uppercase">Hazard Map</span>
         </div>
@@ -77,10 +81,10 @@ export function renderHazardSlide(content: HazardContent): string {
       
       <div class="flex-1 relative min-h-0 border border-[#E2E8F0] bg-white shadow-sm overflow-hidden">
         ${
-          content.shelterMapUrl
-            ? `<img src="${escapeHtml(content.shelterMapUrl)}" class="absolute inset-0 w-full h-full object-cover object-center" alt="Shelter Map">`
-            : `<div class="absolute inset-0 flex items-center justify-center text-[#A0AEC0] font-sans tracking-widest text-xl bg-[#EDF2F7]">SHELTER MAP</div>`
-        }
+					content.shelterMapUrl
+						? `<img src="${escapeHtml(content.shelterMapUrl)}" class="absolute inset-0 w-full h-full object-cover object-center" alt="Shelter Map">`
+						: `<div class="absolute inset-0 flex items-center justify-center text-[#A0AEC0] font-sans tracking-widest text-xl bg-[#EDF2F7]">SHELTER MAP</div>`
+				}
         <div class="absolute top-0 left-0 bg-[#C5A059] text-white px-6 py-3 z-20">
           <span class="text-[13px] font-sans font-bold tracking-[0.2em] uppercase">Evacuation</span>
         </div>
@@ -97,18 +101,18 @@ export function renderHazardSlide(content: HazardContent): string {
           </div>
 
           ${
-            content.shelters && content.shelters.length > 0
-              ? `<div class="grid grid-cols-3 gap-8">
+						content.shelters && content.shelters.length > 0
+							? `<div class="grid grid-cols-3 gap-8">
                   ${content.shelters
-                    .slice(0, 3)
-                    .map((shelter, index) => {
-                      // 距離文字列から数字だけを抽出して強調表示するための処理
-                      // 例: "徒歩約9分" -> "徒歩" + "9"(大) + "分"
-                      const distanceText = shelter.distance
-                        .replace(/[^\d]/g, "") // 数字以外を除去
-                        || "0"; // 数字がなければ0
-                      
-                      return `
+										.slice(0, 3)
+										.map((shelter, index) => {
+											// 距離文字列から数字だけを抽出して強調表示するための処理
+											// 例: "徒歩約9分" -> "徒歩" + "9"(大) + "分"
+											const distanceText =
+												shelter.distance.replace(/[^\d]/g, "") || // 数字以外を除去
+												"0"; // 数字がなければ0
+
+											return `
                   <div class="flex flex-col">
                     <div class="flex items-center gap-2 mb-2">
                       <span class="flex items-center justify-center w-5 h-5 rounded-full bg-[#48BB78] text-[12px] font-bold text-white font-sans flex-shrink-0" style="${NUMBER_FONT_STYLE}">${index + 1}</span>
@@ -126,11 +130,11 @@ export function renderHazardSlide(content: HazardContent): string {
                     </div>
                   </div>
                 `;
-                    })
-                    .join("")}
+										})
+										.join("")}
                 </div>`
-              : `<div class="flex items-center justify-center h-[60px] text-[13px] text-gray-400 bg-gray-50 rounded">避難所情報なし</div>`
-          }
+							: `<div class="flex items-center justify-center h-[60px] text-[13px] text-gray-400 bg-gray-50 rounded">避難所情報なし</div>`
+					}
         </div>
 
         <div class="text-right mt-3 pt-2">
