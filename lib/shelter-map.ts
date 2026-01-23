@@ -19,7 +19,7 @@ export const shelterMapOptionsSchema = z.object({
 		.max(15)
 		.optional()
 		.describe(
-			"地図のズームレベル（11-15）。避難所APIはこの範囲のみ対応。デフォルトは14。",
+			"地図のズームレベル（11-15）。避難所APIはこの範囲のみ対応。デフォルトは15。",
 		),
 	size: z
 		.string()
@@ -126,8 +126,8 @@ export class ShelterMapGenerator {
 		const scaledWidth = width * opts.scale;
 		const scaledHeight = height * opts.scale;
 
-		// ズームレベル（11-15の範囲、デフォルト14）
-		const zoom = opts.zoom ?? 14;
+		// ズームレベル（11-15の範囲、デフォルト15）
+		const zoom = opts.zoom ?? 15;
 
 		// 3. 必要なタイルの範囲を計算
 		const centerPixel = this.latLonToPixel(
@@ -172,7 +172,7 @@ export class ShelterMapGenerator {
 
 				try {
 					// ベース地図
-					const baseTileUrl = `${ShelterMapGenerator.BASE_URLS.std}/${tile.z}/${tile.x}/${tile.y}.png`;
+					const baseTileUrl = `${ShelterMapGenerator.BASE_URLS.pale}/${tile.z}/${tile.x}/${tile.y}.png`;
 					const baseImg = await this.fetchImage(baseTileUrl);
 					if (baseImg) {
 						ctx.drawImage(baseImg, destX, destY, 256, 256);
@@ -290,7 +290,7 @@ export class ShelterMapGenerator {
 	/**
 	 * 避難所データのみを取得する（地図画像なし）
 	 */
-	async getShelters(center: string, zoom = 14): Promise<ShelterFeature[]> {
+	async getShelters(center: string, zoom = 15): Promise<ShelterFeature[]> {
 		const centerCoords = await this.resolveCenter(center);
 		const centerPixel = this.latLonToPixel(
 			centerCoords.lat,
@@ -338,7 +338,7 @@ export class ShelterMapGenerator {
 	 */
 	async getNearestShelters(
 		center: string,
-		zoom = 14,
+		zoom = 15,
 		maxCount = 3,
 	): Promise<ShelterWithDistance[]> {
 		const centerCoords = await this.resolveCenter(center);
