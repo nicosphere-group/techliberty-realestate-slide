@@ -6,6 +6,7 @@ import type { CoverContent } from "../../schemas/slide-content";
 import {
   SLIDE_CONTAINER_CLASS,
   escapeHtml,
+  NUMBER_FONT_STYLE,
 } from "../design-system";
 
 /**
@@ -35,10 +36,7 @@ export function renderCoverSlide(content: CoverContent): string {
         <span class="text-[11px] font-sans text-white/80">※AIにより生成された画像です</span>
       </div>
     </div>
-  ` : `
-    <div class="absolute top-0 right-0 w-[35%] h-full border-l border-[#C5A059] opacity-[0.08] pointer-events-none z-0"></div>
-    <div class="absolute bottom-[28%] right-0 w-[35%] h-[1px] bg-[#C5A059] opacity-[0.08] pointer-events-none z-0"></div>
-  `;
+  ` : ``;
 
   return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#1A202C] px-20 py-14 flex flex-col justify-between relative overflow-hidden" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
 
@@ -67,31 +65,33 @@ export function renderCoverSlide(content: CoverContent): string {
   </header>
 
   <div class="flex-1 flex items-center py-10 relative z-10 max-w-[55%]">
-    <div class="w-full">
-      <p class="text-[16px] font-sans font-bold uppercase tracking-[0.25em] text-[#A0AEC0] mb-5 pl-1">Prepared For</p>
-      <div class="flex items-end gap-8 relative">
-        <h2 class="text-[72px] font-serif font-medium text-[#1A202C] leading-none whitespace-nowrap">
-          ${escapeHtml(content.customerName)} <span class="text-[40px] font-light text-[#A0AEC0] ml-3">様</span>
-        </h2>
-        <div class="flex-1 h-[2px] bg-gradient-to-r from-[#C5A059] to-transparent opacity-40 mb-5"></div>
-      </div>
-    </div>
   </div>
 
   <footer class="relative z-10 border-t border-[#E2E8F0] pt-10 max-w-[55%]">
     <div class="flex justify-between items-end">
-      
-      <div class="flex flex-col gap-3">
-        <div class="text-[14px] font-sans font-bold tracking-[0.25em] text-[#C5A059] uppercase">Consultant</div>
-        <div class="flex items-baseline gap-5">
-          <span class="text-[36px] font-serif font-bold text-[#1A202C]">${escapeHtml(content.agentName)}</span>
-          ${content.agentDepartment ? `<span class="text-[20px] font-sans text-[#718096] font-light">${escapeHtml(content.agentDepartment)}</span>` : ""}
+
+      <div class="flex flex-col gap-4">
+        <div class="text-[14px] font-sans font-bold tracking-[0.25em] text-[#C5A059] uppercase">Provided By</div>
+        <div class="space-y-2">
+          <div class="text-[36px] font-serif font-bold text-[#1A202C] leading-tight">${escapeHtml(content.companyName)}</div>
+          ${content.storeName ? `<div class="text-[24px] font-sans text-[#4A5568] font-medium">${escapeHtml(content.storeName)}</div>` : ""}
+          ${content.storeAddress ? `<div class="text-[16px] font-sans text-[#718096] leading-relaxed">${escapeHtml(content.storeAddress)}</div>` : ""}
+          <div class="flex gap-6 text-[14px] font-sans text-[#718096] mt-3">
+            ${content.storePhoneNumber ? `<div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-[#C5A059]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+              <span>${escapeHtml(content.storePhoneNumber)}</span>
+            </div>` : ""}
+            ${content.storeEmailAddress ? `<div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-[#C5A059]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+              <span>${escapeHtml(content.storeEmailAddress)}</span>
+            </div>` : ""}
+          </div>
         </div>
       </div>
 
       <div class="text-right">
         <div class="text-[14px] font-sans font-bold tracking-[0.25em] text-[#A0AEC0] uppercase mb-2">Issue Date</div>
-        <div class="text-[26px] font-sans font-medium text-[#4A5568] tracking-widest">
+        <div class="text-[26px] font-sans font-medium text-[#4A5568] tracking-widest" style="${NUMBER_FONT_STYLE}">
           ${getTodayFormatted()}
         </div>
       </div>

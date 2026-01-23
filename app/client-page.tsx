@@ -85,10 +85,11 @@ export default function ClientPage() {
 
 	const form = useForm({
 		defaultValues: {
-			customerName: "",
-			agentName: "",
-			agentPhoneNumber: "",
-			agentEmailAddress: "",
+			companyName: "",
+			storeName: "",
+			storeAddress: "",
+			storePhoneNumber: "",
+			storeEmailAddress: "",
 			flyerFiles: [],
 			// 資金計画シミュレーション用
 			annualIncome: undefined,
@@ -119,10 +120,11 @@ export default function ClientPage() {
 
 				// ファイル以外のデータをJSONとして追加
 				const inputData = {
-					customerName: value.customerName,
-					agentName: value.agentName,
-					agentPhoneNumber: value.agentPhoneNumber,
-					agentEmailAddress: value.agentEmailAddress,
+					companyName: value.companyName,
+					storeName: value.storeName,
+					storeAddress: value.storeAddress,
+					storePhoneNumber: value.storePhoneNumber,
+					storeEmailAddress: value.storeEmailAddress,
 					annualIncome: value.annualIncome,
 					downPayment: value.downPayment,
 					interestRate: value.interestRate,
@@ -424,9 +426,9 @@ export default function ClientPage() {
 									form.handleSubmit();
 								}}
 							>
-								{/* Customer Name */}
+								{/* Company Name */}
 								<form.Field
-									name="customerName"
+									name="companyName"
 									children={(field) => {
 										const isInvalid =
 											field.state.meta.isTouched && !field.state.meta.isValid;
@@ -436,7 +438,7 @@ export default function ClientPage() {
 													htmlFor={field.name}
 													className="text-base font-medium"
 												>
-													顧客名
+													会社名
 												</FieldLabel>
 												<Input
 													id={field.name}
@@ -445,8 +447,8 @@ export default function ClientPage() {
 													onBlur={field.handleBlur}
 													onChange={(e) => field.handleChange(e.target.value)}
 													aria-invalid={isInvalid}
-													placeholder="例: 山田 太郎"
-													autoComplete="off"
+													placeholder="例: 株式会社○○不動産"
+													autoComplete="organization"
 												/>
 												{isInvalid && (
 													<FieldError errors={field.state.meta.errors} />
@@ -456,41 +458,9 @@ export default function ClientPage() {
 									}}
 								/>
 
-								{/* Agent Name */}
+								{/* Store Name */}
 								<form.Field
-									name="agentName"
-									children={(field) => {
-										const isInvalid =
-											field.state.meta.isTouched && !field.state.meta.isValid;
-										return (
-											<Field data-invalid={isInvalid}>
-												<FieldLabel
-													htmlFor={field.name}
-													className="text-base font-medium"
-												>
-													担当者名
-												</FieldLabel>
-												<Input
-													id={field.name}
-													name={field.name}
-													value={field.state.value}
-													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													aria-invalid={isInvalid}
-													placeholder="例: 鈴木 一郎"
-													autoComplete="name"
-												/>
-												{isInvalid && (
-													<FieldError errors={field.state.meta.errors} />
-												)}
-											</Field>
-										);
-									}}
-								/>
-
-								{/* Agent Phone Number */}
-								<form.Field
-									name="agentPhoneNumber"
+									name="storeName"
 									children={(field) => {
 										return (
 											<Field>
@@ -498,7 +468,71 @@ export default function ClientPage() {
 													htmlFor={field.name}
 													className="text-base font-medium"
 												>
-													担当者電話番号
+													店舗名
+													<Badge
+														variant="secondary"
+														className="ml-2 text-xs font-normal"
+													>
+														任意
+													</Badge>
+												</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													value={field.state.value || ""}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													placeholder="例: 渋谷支店"
+													autoComplete="off"
+												/>
+											</Field>
+										);
+									}}
+								/>
+
+								{/* Store Address */}
+								<form.Field
+									name="storeAddress"
+									children={(field) => {
+										return (
+											<Field>
+												<FieldLabel
+													htmlFor={field.name}
+													className="text-base font-medium"
+												>
+													店舗住所
+													<Badge
+														variant="secondary"
+														className="ml-2 text-xs font-normal"
+													>
+														任意
+													</Badge>
+												</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													value={field.state.value || ""}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													placeholder="例: 〒150-0001 東京都渋谷区..."
+													autoComplete="street-address"
+												/>
+											</Field>
+										);
+									}}
+								/>
+
+								{/* Store Phone Number */}
+								<form.Field
+									name="storePhoneNumber"
+									children={(field) => {
+										return (
+											<Field>
+												<FieldLabel
+													htmlFor={field.name}
+													className="text-base font-medium"
+												>
+													店舗電話番号
 													<Badge
 														variant="secondary"
 														className="ml-2 text-xs font-normal"
@@ -521,9 +555,9 @@ export default function ClientPage() {
 									}}
 								/>
 
-								{/* Agent Email */}
+								{/* Store Email */}
 								<form.Field
-									name="agentEmailAddress"
+									name="storeEmailAddress"
 									children={(field) => {
 										return (
 											<Field>
@@ -531,7 +565,7 @@ export default function ClientPage() {
 													htmlFor={field.name}
 													className="text-base font-medium"
 												>
-													担当者メールアドレス
+													店舗メールアドレス
 													<Badge
 														variant="secondary"
 														className="ml-2 text-xs font-normal"
@@ -546,7 +580,7 @@ export default function ClientPage() {
 													value={field.state.value || ""}
 													onBlur={field.handleBlur}
 													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="例: example@company.com"
+													placeholder="例: info@example.com"
 													autoComplete="email"
 												/>
 											</Field>

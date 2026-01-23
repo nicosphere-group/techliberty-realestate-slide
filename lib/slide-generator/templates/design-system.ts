@@ -22,6 +22,7 @@ export interface ColorPalette {
  */
 export interface Typography {
 	fontFamily: string;
+	numberFontFamily: string; // 数字専用フォント（メイリオ）
 }
 
 /**
@@ -46,6 +47,7 @@ export const FIXED_DESIGN_SYSTEM: FixedDesignSystem = {
 	},
 	typography: {
 		fontFamily: "'Noto Serif JP', 'Playfair Display', serif",
+		numberFontFamily: "'Meiryo', 'メイリオ', 'Hiragino Sans', sans-serif",
 	},
 };
 
@@ -63,6 +65,7 @@ export function generateThemeCss(
     --color-surface: ${designSystem.colorPalette.surface};
     --color-text: ${designSystem.colorPalette.text};
     --font-sans: ${designSystem.typography.fontFamily};
+    --font-number: ${designSystem.typography.numberFontFamily};
   }`;
 }
 
@@ -132,6 +135,12 @@ export const BODY_CLASS =
  */
 export const LABEL_CLASS =
 	"text-[18px] font-sans font-light tracking-widest text-[#718096] uppercase";
+
+/**
+ * 数字用フォントファミリー（メイリオ）
+ * インラインスタイルとして使用: style="${NUMBER_FONT_STYLE}"
+ */
+export const NUMBER_FONT_STYLE = `font-family: ${FIXED_DESIGN_SYSTEM.typography.numberFontFamily};`;
 
 /**
  * カードスタイル

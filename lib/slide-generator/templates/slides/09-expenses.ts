@@ -5,7 +5,7 @@
  */
 
 import type { ExpensesContent } from "../../schemas/slide-content";
-import { SLIDE_CONTAINER_CLASS, escapeHtml } from "../design-system";
+import { SLIDE_CONTAINER_CLASS, escapeHtml, NUMBER_FONT_STYLE } from "../design-system";
 
 /**
  * 金額をフォーマット（万円単位、カンマ区切り）
@@ -29,7 +29,7 @@ export function renderExpensesSlide(content: ExpensesContent): string {
       <span class="text-[22px] font-sans font-medium text-[#2D3748]">
         ${escapeHtml(expense.item)}
       </span>
-      <span class="text-[28px] font-serif font-medium text-[#1A202C] tabular-nums">
+      <span class="text-[28px] font-serif font-medium text-[#1A202C] tabular-nums" style="${NUMBER_FONT_STYLE}">
         ${escapeHtml(expense.amount)}
       </span>
     </div>`,
@@ -37,8 +37,6 @@ export function renderExpensesSlide(content: ExpensesContent): string {
     .join("\n");
 
   return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
-  
-  <div class="absolute top-0 left-[50%] w-[1px] h-full bg-[#E2E8F0] pointer-events-none"></div>
 
   <header class="flex-shrink-0 mb-8 relative z-10">
     <div class="flex items-center gap-4 mb-5">
@@ -73,13 +71,13 @@ export function renderExpensesSlide(content: ExpensesContent): string {
       ${hasPropertyPrice ? `
       <div class="flex items-baseline gap-2 relative z-10">
         <span class="text-[20px] font-sans text-[#718096]">約</span>
-        <span class="text-[72px] font-serif font-bold text-[#C5A059] leading-none tracking-tight">
+        <span class="text-[72px] font-serif font-bold text-[#C5A059] leading-none tracking-tight" style="${NUMBER_FONT_STYLE}">
           ${formatAmount(minExpense)}
         </span>
         <span class="text-[24px] font-sans text-[#718096]">万円</span>
-        <span class="text-[36px] font-serif text-[#A0AEC0] mx-4">〜</span>
+        <span class="text-[36px] font-serif text-[#A0AEC0] mx-4" style="${NUMBER_FONT_STYLE}">〜</span>
         <span class="text-[20px] font-sans text-[#718096]">約</span>
-        <span class="text-[72px] font-serif font-bold text-[#C5A059] leading-none tracking-tight">
+        <span class="text-[72px] font-serif font-bold text-[#C5A059] leading-none tracking-tight" style="${NUMBER_FONT_STYLE}">
           ${formatAmount(maxExpense)}
         </span>
         <span class="text-[24px] font-sans text-[#718096]">万円</span>
@@ -87,7 +85,10 @@ export function renderExpensesSlide(content: ExpensesContent): string {
       ` : `
       <div class="flex items-baseline gap-2 relative z-10">
         <span class="text-[72px] font-serif font-bold text-[#1A202C] leading-none tracking-tight">
-          物件価格の約6〜10
+          物件価格の約
+        </span>
+        <span class="text-[72px] font-serif font-bold text-[#1A202C] leading-none tracking-tight" style="${NUMBER_FONT_STYLE}">
+          6〜10
         </span>
         <span class="text-[30px] font-sans font-medium text-[#718096]">%程度</span>
       </div>

@@ -3,7 +3,7 @@
  */
 
 import type { AccessContent } from "../../schemas/slide-content";
-import { SLIDE_CONTAINER_CLASS, escapeHtml } from "../design-system";
+import { SLIDE_CONTAINER_CLASS, escapeHtml, NUMBER_FONT_STYLE } from "../design-system";
 
 export function renderAccessSlide(content: AccessContent): string {
   // 駅リストの生成
@@ -21,7 +21,7 @@ export function renderAccessSlide(content: AccessContent): string {
       
       <div class="flex items-baseline gap-3 mb-2">
         <span class="text-[14px] font-sans font-bold tracking-[0.2em] text-[#A0AEC0] uppercase mr-2">Walk</span>
-        <span class="text-[80px] font-serif font-bold text-[#1A202C] leading-[0.8] tracking-tighter">
+        <span class="text-[80px] font-serif font-bold text-[#1A202C] leading-[0.8] tracking-tighter" style="${NUMBER_FONT_STYLE}">
           ${station.walkMinutes}
         </span>
         <span class="text-[20px] font-sans font-medium text-[#718096]">min</span>
@@ -31,9 +31,6 @@ export function renderAccessSlide(content: AccessContent): string {
     .join("\n");
 
   return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
-  
-  <div class="absolute top-0 left-[40%] w-[1px] h-full bg-[#E2E8F0] pointer-events-none"></div>
-  <div class="absolute top-[30%] left-0 w-[40%] h-[1px] bg-[#E2E8F0] pointer-events-none"></div>
 
   <header class="flex-shrink-0 mb-10 relative z-10">
     <div class="flex items-center gap-4 mb-5">
@@ -69,7 +66,7 @@ export function renderAccessSlide(content: AccessContent): string {
                  <div class="w-40 h-40 border border-[#CBD5E0] rounded-full flex items-center justify-center">
                    <div class="w-3 h-3 bg-[#A0AEC0] rounded-full"></div>
                  </div>
-                 <span class="absolute bottom-6 right-6 text-[12px] font-sans font-bold tracking-widest text-[#718096]">MAP AREA</span>
+                 <span class="absolute bottom-6 right-6 text-[14px] font-sans font-bold tracking-widest text-[#718096]">MAP AREA</span>
                </div>`
         }
         

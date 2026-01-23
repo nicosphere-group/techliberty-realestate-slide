@@ -469,7 +469,24 @@ export const generateNearbyMapTool = tool({
 				};
 			});
 
-		// 4. マーカー付き地図を生成
+		// 4. カテゴリー別にグループ化（facilityGroups形式）
+		const facilityGroups = FACILITY_CATEGORIES.map((category) => {
+			const categoryFacilities = numberedFacilities
+				.filter((f) => f.category === category.name)
+				.map((f) => ({
+					name: f.name,
+					distance: String(f.walkMinutes),
+					number: f.number,
+				}));
+
+			return {
+				category: category.name,
+				color: category.htmlColor,
+				facilities: categoryFacilities,
+			};
+		}).filter((group) => group.facilities.length > 0); // 施設がないカテゴリーは除外
+
+		// 5. マーカー付き地図を生成
 		const url = new URL("https://maps.googleapis.com/maps/api/staticmap");
 		url.searchParams.append("center", `${centerLat},${centerLng}`);
 		url.searchParams.append("zoom", "15");
@@ -509,9 +526,7 @@ export const generateNearbyMapTool = tool({
 		const mapImageUrl = await uploadToS3(buffer, "nearby-maps", "image/png");
 
 		return {
-			facilities: numberedFacilities,
-			centerLat,
-			centerLng,
+			facilityGroups,
 			address: place.formattedAddress || params.address,
 			mapImageUrl,
 		};

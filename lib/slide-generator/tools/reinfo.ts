@@ -155,14 +155,36 @@ export interface SimilarProperty {
 }
 
 /**
+ * 対象物件データの型定義
+ */
+export interface TargetProperty {
+	name: string;
+	age: string;
+	area: string;
+	price: string;
+	unitPrice: string;
+}
+
+/**
  * 価格分析結果の型定義
  */
 export interface PriceAnalysisResult {
+	targetProperty?: TargetProperty;
 	similarProperties: SimilarProperty[];
 	estimatedPriceMin: string;
 	estimatedPriceMax: string;
 	averageUnitPrice: number;
 	dataCount: number;
+}
+
+/**
+ * 対象物件の入力情報
+ */
+export interface TargetPropertyInput {
+	name?: string;
+	price?: string;
+	area?: string;
+	constructionYear?: string;
 }
 
 /**
@@ -175,9 +197,10 @@ export async function fetchNearbyTransactions(
 		zoom?: number;
 		yearsBack?: number;
 		maxResults?: number;
+		targetPropertyInput?: TargetPropertyInput;
 	} = {},
 ): Promise<PriceAnalysisResult> {
-	const { zoom = 14, yearsBack = 5, maxResults = 6 } = options;
+	const { zoom = 14, yearsBack = 5, maxResults = 6, targetPropertyInput } = options;
 
 	// 1. ジオコーディング：住所から緯度経度を取得
 	const geocoder = new CSISGeocoder();
@@ -284,7 +307,50 @@ export async function fetchNearbyTransactions(
 	const estimatedMin = Math.round(minUnitPrice * avgTsubo / 100) * 100;
 	const estimatedMax = Math.round(maxUnitPrice * avgTsubo / 100) * 100;
 
+	// 10. 対象物件の情報を計算（マイソクから取得したデータを使用）
+	let targetProperty: TargetProperty | undefined;
+	if (targetPropertyInput) {
+		const currentYear = new Date().getFullYear();
+
+		// 築年数を計算
+		let buildingAge = "-";
+		if (targetPropertyInput.constructionYear) {
+			const yearMatch = targetPropertyInput.constructionYear.match(/(\d{4})/);
+			if (yearMatch) {
+				const constructionYear = Number(yearMatch[1]);
+				if (constructionYear >= 1900 && constructionYear <= currentYear) {
+					buildingAge = String(currentYear - constructionYear);
+				}
+			}
+		}
+
+		// 坪単価を計算
+		let unitPrice = "-";
+		if (targetPropertyInput.price && targetPropertyInput.area) {
+			// 価格を数値に変換（万円単位）
+			const priceNum = Number(targetPropertyInput.price.replace(/[^0-9]/g, "")) || 0;
+			// 面積を数値に変換（㎡）
+			const areaNum = Number(targetPropertyInput.area.replace(/[^0-9.]/g, "")) || 0;
+
+			if (priceNum > 0 && areaNum > 0) {
+				// 坪単価 = 価格（万円） ÷ （面積（㎡） × 0.3025）
+				const tsubo = areaNum * 0.3025;
+				const unitPriceNum = Math.round(priceNum / tsubo);
+				unitPrice = unitPriceNum.toLocaleString();
+			}
+		}
+
+		targetProperty = {
+			name: targetPropertyInput.name || "対象物件",
+			age: buildingAge,
+			area: targetPropertyInput.area || "-",
+			price: targetPropertyInput.price || "-",
+			unitPrice: unitPrice,
+		};
+	}
+
 	return {
+		targetProperty,
 		similarProperties: topTransactions.map(({ _unitPriceNum, _periodNum, transactionPeriod, ...rest }) => rest),
 		estimatedPriceMin: estimatedMin > 0 ? String(estimatedMin) : "-",
 		estimatedPriceMax: estimatedMax > 0 ? String(estimatedMax) : "-",
@@ -322,6 +388,12 @@ const pricePointsSchema = z.object({
 		.optional()
 		.default(6)
 		.describe("取得する最大件数。デフォルト6件。"),
+	targetPropertyInput: z.object({
+		name: z.string().optional().describe("物件名"),
+		price: z.string().optional().describe("物件価格（例: '5,800万円'）"),
+		area: z.string().optional().describe("専有面積（例: '72.5㎡'）"),
+		constructionYear: z.string().optional().describe("築年または建築年（例: '2015年'）"),
+	}).optional().describe("対象物件の情報（マイソクから抽出）"),
 });
 
 type PricePointsParams = z.infer<typeof pricePointsSchema>;
@@ -339,6 +411,7 @@ export const getPricePointsTool = tool({
 			zoom: params.zoom,
 			yearsBack: params.yearsBack,
 			maxResults: params.maxResults,
+			targetPropertyInput: params.targetPropertyInput,
 		});
 	},
 });
