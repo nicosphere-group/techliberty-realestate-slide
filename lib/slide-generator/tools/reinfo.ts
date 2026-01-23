@@ -279,10 +279,13 @@ export async function fetchNearbyTransactions(
 				unitPriceNum = Math.round(priceNum / areaTsubo);
 			}
 
-			// 物件名: 地区名 + 間取り
+			// 物件名: 地区名 + 構造 + 間取り
 			const districtName = String(props.district_name_ja ?? "");
+			const structure = String(props.building_structure_name_ja ?? "");
 			const floorPlan = String(props.floor_plan_name_ja ?? "");
-			const name = `${districtName}${floorPlan ? ` ${floorPlan}` : ""}`.trim() || "物件";
+			const structurePart = structure ? ` ${structure}造` : "";
+			const floorPlanPart = floorPlan ? ` ${floorPlan}` : "";
+			const name = `${districtName}${structurePart}${floorPlanPart}`.trim() || "物件";
 
 			return {
 				name,
