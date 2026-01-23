@@ -1,51 +1,45 @@
-# GitHub Copilot Instructions
+# Copilot Instructions (Tech Liberty Real Estate Slide Generator)
 
-## 🏗 Project Architecture & Overview
+## プロジェクト概要
+- Next.js App Routerの単一アプリで、物件情報とチラシ画像からスライドを自動生成する。
+- フロントはフォーム入力→SSEストリーミングで生成イベントを受信→iframeで1920x1080のスライドHTMLをプレビュー。
 
-This is a **Next.js 16 (App Router)** application focused on AI-powered slide generation. The core logic resides in a "Slide Generator" domain that streams progress and results to the client.
+## 主要アーキテクチャ / データフロー
+- UI入口は [app/page.tsx](app/page.tsx) → [app/client-page.tsx](app/client-page.tsx)。
+- 生成フローはSSE: フォーム送信 → POST /api/generate → `SlideGenerator.run()` のイベントを順次送信。
+  - 受信イベント型: `start`, `plan:start/end`, `slide:start/generating/end`, `usage`, `end`, `error`。
+  - サーバー側は Hono + `streamSSE` を使用 ([app/api/[[...route]]/route.ts](app/api/%5B%5B...route%5D%5D/route.ts)).
+- スライドHTMLは `wrapInHtmlDocument()` で自己完結HTML化し、iframeで隔離表示。
+  - 参照: [lib/slide-generator/templates](lib/slide-generator/templates) と [components/slide-preview.tsx](components/slide-preview.tsx)。
 
-- **Framework**: Next.js 16, React 19 (Server Actions + Client Components).
-- **Language**: TypeScript (Strict).
-- **Styling**: Tailwind CSS v4, Shadcn/UI (in `components/ui`).
-- **AI Integration**: Vercel AI SDK (`ai`, `@ai-sdk/google`, `@ai-sdk/rsc`).
-- **Linter**: Biome (`biome.json`).
+## スライド生成のコア仕様
+- 固定12枚構成。定義は [lib/slide-generator/config.ts](lib/slide-generator/config.ts)。
+- `SlideGenerator` は `AsyncGenerator` でイベントをyieldし、静的テンプレートはLLMをスキップ。
+  - 中核実装: [lib/slide-generator/slide-generator.ts](lib/slide-generator/slide-generator.ts)。
+- スライド種別ごとのテンプレート/スキーマは [lib/slide-generator/templates](lib/slide-generator/templates) と [lib/slide-generator/schemas](lib/slide-generator/schemas.ts)。
 
-## 🧱 Core Concepts & Data Flow
+## 外部依存とツール連携
+- 画像/地図/価格分析ツールはスライド番号で切替。
+  - ツール一覧・マッピング: [lib/slide-generator/tools/index.ts](lib/slide-generator/tools/index.ts)。
+- Google Maps/Places/Routes, REINFO API, ハザード/避難所データを利用。
+  - 例: 周辺施設/静的地図 [lib/slide-generator/tools/nearby.ts](lib/slide-generator/tools/nearby.ts)、価格分析 [lib/slide-generator/tools/reinfo.ts](lib/slide-generator/tools/reinfo.ts)。
+- 生成画像・地図はSupabase Storage(S3互換)へアップロード。
+  - アップロード処理: [lib/slide-generator/tools/upload.ts](lib/slide-generator/tools/upload.ts)。
 
-### 1. Slide Generation Engine (`lib/slide-generator/`)
-- **Orchestration**: The `SlideGenerator` class (`slide-generator.ts`) is the heart of the app. It implements an `async *run(input)` generator pattern.
-- **Streaming**: It `yield`s `Event` objects (e.g., `plan:start`, `slide:generating`) which are streamed to the client via `createStreamableValue` in Server Actions (`app/actions.ts`).
-- **Models**: Currently uses Gemini models (`gemini-3-flash-preview`) via `@ai-sdk/google`.
-- **Isolation**: Generated slides are **self-contained HTML strings**. They include their own Tailwind CDN script and `@theme` configuration to ensure consistent rendering in iframes and export contexts.
+## 必須/主要な環境変数
+- `GOOGLE_GENERATIVE_AI_API_KEY` (Gemini/Imagen)
+- `GOOGLE_MAPS_API_KEY` (地図・周辺検索)
+- `REINFO_API_KEY` (国交省 REINFO)
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` (Supabase Storage S3互換)
 
-### 2. Client-Side State (`app/client-page.tsx`)
-- **State Management**: Uses `useState` to accumulate streamed events.
-- **Form Handling**: `@tanstack/react-form` with Zod validation (`primaryInputSchema`).
-- **Preview**: `SlidePreview` uses an `iframe` with `srcDoc` to render the self-contained slide HTML.
-- **Scaling**: A custom `ResizeObserver` implementation (`ScaledFrame`) scales the 1920x1080 slides to fit the UI.
+## 開発ワークフロー
+- 開発: `npm run dev`
+- ビルド: `npm run build`
+- 起動: `npm run start`
+- Lint/Format: `npm run lint` (Biome)
+  - 参照: [package.json](package.json) / [README.md](README.md)
 
-### 3. Rendering Strategy
-- **Isolation**: Do NOT try to render generated slides as React components directly. They must remain as raw HTML strings injected into iframes to prevent style bleeding and ensure the `dom-to-pptx` export works correctly.
-
-## 💻 Critical Workflows
-
-- **Linting**: Run `npm run lint` which triggers `biome check`.
-- **Server Actions**: Defined in `app/actions.ts`. Use `use server` directive.
-
-## 📁 Project Conventions
-
-- **File Structure**:
-  - `app/`: Next.js App Router (Routes & Actions).
-  - `components/ui/`: Primitive UI components (Shadcn/UI).
-  - `lib/slide-generator/`: core domain logic (Class, Types, Schemas).
-- **Naming**: Use kebab-case for filenames (e.g., `slide-preview.tsx`).
-- **Type Safety**:
-  - Use Zod schemas (`lib/slide-generator/schemas.ts`) for all AI inputs/outputs and form structure.
-  - Share types via `lib/slide-generator/types.ts`.
-- **Slide Dimensions**: Hardcoded to 1920x1080 in `components/slide-preview.tsx` and the generator logic.
-
-## ⚠️ Important Implementation Details
-
-- **Tailwind v4**: The project uses Tailwind v4. Configuration is predominantly in CSS, not `tailwind.config.js`.
-- **PPTX Export**: The `dom-to-pptx` library is used. Ensure generated HTML is compatible (avoid complex CSS specific to browsers that might break export).
-- **Streamable Values**: When modifying the generator flow, ensure the `Event` union type in `types.ts` is updated and handled in the `client-page.tsx` switch statement.
+## コード変更時の注意点
+- フォーム検証はZodスキーマを起点にする: [app/schemas.ts](app/schemas.ts) → [lib/slide-generator/schemas.ts](lib/slide-generator/schemas.ts)。
+- スライドHTMLは必ず `wrapInHtmlDocument()` で閉じたHTMLにし、iframe表示/エクスポート互換を維持。
+- React/Next.jsの最適化規約は .github/skills/vercel-react-best-practices を遵守。
