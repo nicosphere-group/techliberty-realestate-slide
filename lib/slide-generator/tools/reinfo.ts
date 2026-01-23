@@ -308,13 +308,13 @@ export async function fetchNearbyTransactions(
 	// 8. 上位N件を取得
 	const topTransactions = transactions.slice(0, maxResults);
 
-	// 9. 坪単価から推定価格範囲を計算
-	const unitPrices = transactions.map((t) => t._unitPriceNum).filter((p) => p > 0);
-	const avgUnitPrice = unitPrices.length > 0
-		? unitPrices.reduce((sum, p) => sum + p, 0) / unitPrices.length
+	// 9. 坪単価から推定価格範囲を計算（表示される上位N件のみ使用）
+	const topUnitPrices = topTransactions.map((t) => t._unitPriceNum).filter((p) => p > 0);
+	const avgUnitPrice = topUnitPrices.length > 0
+		? topUnitPrices.reduce((sum, p) => sum + p, 0) / topUnitPrices.length
 		: 0;
-	const minUnitPrice = unitPrices.length > 0 ? Math.min(...unitPrices) : 0;
-	const maxUnitPrice = unitPrices.length > 0 ? Math.max(...unitPrices) : 0;
+	const minUnitPrice = topUnitPrices.length > 0 ? Math.min(...topUnitPrices) : 0;
+	const maxUnitPrice = topUnitPrices.length > 0 ? Math.max(...topUnitPrices) : 0;
 
 	// 推定価格範囲（坪単価の最小〜最大に基づく概算）
 	// 70㎡ ≒ 21.2坪として計算
