@@ -259,13 +259,25 @@ export async function fetchNearbyTransactions(
 			const priceStr = String(props.u_transaction_price_total_ja ?? "");
 			const priceNum = Number(priceStr.replace(/[^0-9]/g, "")) || 0;
 
-			// 坪単価を数値に変換
-			const unitPriceStr = String(props.u_unit_price_per_tsubo_ja ?? "");
-			const unitPriceNum = Number(unitPriceStr.replace(/[^0-9]/g, "")) || 0;
-
 			// 面積を数値に変換
 			const areaStr = String(props.u_area_ja ?? "");
 			const areaNum = Number(areaStr.replace(/[^0-9.]/g, "")) || 0;
+
+			// 坪単価を取得または計算
+			let unitPriceNum = 0;
+			const unitPriceStr = String(props.u_unit_price_per_tsubo_ja ?? "");
+			const unitPriceFromApi = Number(unitPriceStr.replace(/[^0-9]/g, "")) || 0;
+
+			if (unitPriceFromApi > 0) {
+				// APIから坪単価が提供されている場合
+				unitPriceNum = unitPriceFromApi;
+			} else if (priceNum > 0 && areaNum > 0) {
+				// APIに坪単価がない場合は計算する
+				// 坪単価（万円/坪） = 価格（万円） ÷ 面積（坪）
+				// 面積（坪） = 面積（㎡） × 0.3025
+				const areaTsubo = areaNum * 0.3025;
+				unitPriceNum = Math.round(priceNum / areaTsubo);
+			}
 
 			// 物件名: 地区名 + 間取り
 			const districtName = String(props.district_name_ja ?? "");
