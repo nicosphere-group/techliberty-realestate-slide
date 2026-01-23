@@ -76,13 +76,17 @@ export function wrapInHtmlDocument(bodyContent: string): string {
 	const themeCss = generateThemeCss();
 
 	return `<!doctype html>
-<html>
+<html lang="ja">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
       ${themeCss}
+      
+      body {
+        word-break: auto-phrase;
+      }
     </style>
   </head>
   <body>
