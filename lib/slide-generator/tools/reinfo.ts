@@ -308,19 +308,17 @@ export async function fetchNearbyTransactions(
 	// 8. 上位N件を取得
 	const topTransactions = transactions.slice(0, maxResults);
 
-	// 9. 坪単価から推定価格範囲を計算（表示される上位N件のみ使用）
+	// 9. 推定価格範囲を計算（表示される上位N件の実際の販売価格から算出）
+	const topPrices = topTransactions.map((t) => t._priceNum).filter((p) => p > 0);
 	const topUnitPrices = topTransactions.map((t) => t._unitPriceNum).filter((p) => p > 0);
+
 	const avgUnitPrice = topUnitPrices.length > 0
 		? topUnitPrices.reduce((sum, p) => sum + p, 0) / topUnitPrices.length
 		: 0;
-	const minUnitPrice = topUnitPrices.length > 0 ? Math.min(...topUnitPrices) : 0;
-	const maxUnitPrice = topUnitPrices.length > 0 ? Math.max(...topUnitPrices) : 0;
 
-	// 推定価格範囲（坪単価の最小〜最大に基づく概算）
-	// 70㎡ ≒ 21.2坪として計算
-	const avgTsubo = 21.2;
-	const estimatedMin = Math.round(minUnitPrice * avgTsubo / 100) * 100;
-	const estimatedMax = Math.round(maxUnitPrice * avgTsubo / 100) * 100;
+	// 推定価格範囲：表示される類似物件の実際の価格の最小〜最大
+	const estimatedMin = topPrices.length > 0 ? Math.min(...topPrices) : 0;
+	const estimatedMax = topPrices.length > 0 ? Math.max(...topPrices) : 0;
 
 	// 10. 対象物件の情報を計算（マイソクから取得したデータを使用）
 	let targetProperty: TargetProperty | undefined;
