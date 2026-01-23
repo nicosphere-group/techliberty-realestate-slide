@@ -5,6 +5,7 @@
  * npx tsx scripts/test-price-analysis.ts "東京都港区六本木1-1-1"
  */
 
+import "dotenv/config";
 import { fetchNearbyTransactions } from "../lib/slide-generator/tools/reinfo";
 
 async function main() {

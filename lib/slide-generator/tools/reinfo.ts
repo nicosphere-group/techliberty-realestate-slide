@@ -259,18 +259,33 @@ export async function fetchNearbyTransactions(
 			const priceStr = String(props.u_transaction_price_total_ja ?? "");
 			const priceNum = Number(priceStr.replace(/[^0-9]/g, "")) || 0;
 
-			// 坪単価を数値に変換
-			const unitPriceStr = String(props.u_unit_price_per_tsubo_ja ?? "");
-			const unitPriceNum = Number(unitPriceStr.replace(/[^0-9]/g, "")) || 0;
-
 			// 面積を数値に変換
 			const areaStr = String(props.u_area_ja ?? "");
 			const areaNum = Number(areaStr.replace(/[^0-9.]/g, "")) || 0;
 
-			// 物件名: 地区名 + 間取り
+			// 坪単価を取得または計算
+			let unitPriceNum = 0;
+			const unitPriceStr = String(props.u_unit_price_per_tsubo_ja ?? "");
+			const unitPriceFromApi = Number(unitPriceStr.replace(/[^0-9]/g, "")) || 0;
+
+			if (unitPriceFromApi > 0) {
+				// APIから坪単価が提供されている場合
+				unitPriceNum = unitPriceFromApi;
+			} else if (priceNum > 0 && areaNum > 0) {
+				// APIに坪単価がない場合は計算する
+				// 坪単価（万円/坪） = 価格（万円） ÷ 面積（坪）
+				// 面積（坪） = 面積（㎡） × 0.3025
+				const areaTsubo = areaNum * 0.3025;
+				unitPriceNum = Math.round(priceNum / areaTsubo);
+			}
+
+			// 物件名: 地区名 + 構造 + 間取り
 			const districtName = String(props.district_name_ja ?? "");
+			const structure = String(props.building_structure_name_ja ?? "");
 			const floorPlan = String(props.floor_plan_name_ja ?? "");
-			const name = `${districtName}${floorPlan ? ` ${floorPlan}` : ""}`.trim() || "物件";
+			const structurePart = structure ? ` ${structure}造` : "";
+			const floorPlanPart = floorPlan ? ` ${floorPlan}` : "";
+			const name = `${districtName}${structurePart}${floorPlanPart}`.trim() || "物件";
 
 			return {
 				name,
@@ -293,19 +308,17 @@ export async function fetchNearbyTransactions(
 	// 8. 上位N件を取得
 	const topTransactions = transactions.slice(0, maxResults);
 
-	// 9. 坪単価から推定価格範囲を計算
-	const unitPrices = transactions.map((t) => t._unitPriceNum).filter((p) => p > 0);
-	const avgUnitPrice = unitPrices.length > 0
-		? unitPrices.reduce((sum, p) => sum + p, 0) / unitPrices.length
-		: 0;
-	const minUnitPrice = unitPrices.length > 0 ? Math.min(...unitPrices) : 0;
-	const maxUnitPrice = unitPrices.length > 0 ? Math.max(...unitPrices) : 0;
+	// 9. 推定価格範囲を計算（表示される上位N件の実際の販売価格から算出）
+	const topPrices = topTransactions.map((t) => t._priceNum).filter((p) => p > 0);
+	const topUnitPrices = topTransactions.map((t) => t._unitPriceNum).filter((p) => p > 0);
 
-	// 推定価格範囲（坪単価の最小〜最大に基づく概算）
-	// 70㎡ ≒ 21.2坪として計算
-	const avgTsubo = 21.2;
-	const estimatedMin = Math.round(minUnitPrice * avgTsubo / 100) * 100;
-	const estimatedMax = Math.round(maxUnitPrice * avgTsubo / 100) * 100;
+	const avgUnitPrice = topUnitPrices.length > 0
+		? topUnitPrices.reduce((sum, p) => sum + p, 0) / topUnitPrices.length
+		: 0;
+
+	// 推定価格範囲：表示される類似物件の実際の価格の最小〜最大
+	const estimatedMin = topPrices.length > 0 ? Math.min(...topPrices) : 0;
+	const estimatedMax = topPrices.length > 0 ? Math.max(...topPrices) : 0;
 
 	// 10. 対象物件の情報を計算（マイソクから取得したデータを使用）
 	let targetProperty: TargetProperty | undefined;

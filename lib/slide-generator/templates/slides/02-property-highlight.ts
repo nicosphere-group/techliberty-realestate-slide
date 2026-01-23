@@ -6,7 +6,7 @@ import type { PropertyHighlightContent } from "../../schemas/slide-content";
 import { SLIDE_CONTAINER_CLASS, escapeHtml, NUMBER_FONT_STYLE } from "../design-system";
 
 /**
- * 固定カテゴリ（Location, Quality, Price）の定義
+ * 固定カテゴリ定義
  */
 const CATEGORIES = [
   { key: "location" as const, label: "LOCATION", title: "立地・アクセス" },
@@ -17,72 +17,109 @@ const CATEGORIES = [
 export function renderPropertyHighlightSlide(
   content: PropertyHighlightContent,
 ): string {
-  // 固定3カテゴリのHTML生成
+  
   const columnsHtml = CATEGORIES
     .map((category) => {
       const section = content[category.key];
+      
+      // リスト項目の生成
       const itemsHtml = section.items
         .map((item) => {
-          // 数値や強調したい値がある場合（スペック情報など）
-          if (item.value) {
-            // 数字部分だけにMeiryoを適用
-            const valueWithNumberFont = escapeHtml(item.value).replace(/(\d+(?:[.,]\d+)?)/g, '<span style="' + NUMBER_FONT_STYLE + '">$1</span>');
-            return `<li class="flex flex-col gap-2 border-b border-[#E2E8F0] pb-5 last:border-0">
-              <span class="text-[#1A202C] font-serif font-bold text-[48px] leading-[1.1] tracking-tight">${valueWithNumberFont}</span>
-              <span class="text-[18px] text-[#718096] font-sans font-normal">${escapeHtml(item.text)}</span>
+          // 数値スペック強調パターン（valueに数字が含まれる場合）
+          if (item.value && /\d/.test(item.value)) {
+            const valueWithStyle = escapeHtml(item.value).replace(
+              /(\d+(?:[.,]\d+)?)/g, 
+              `<span style="${NUMBER_FONT_STYLE}" class="text-[#C5A059] text-[68px] font-medium">$1</span>`
+            );
+            
+            return `<li class="flex flex-col border-b border-[#E2E8F0] pb-4 mb-4 last:border-0 last:mb-0 last:pb-0">
+              <div class="font-serif text-[28px] leading-[1.1] tracking-tight text-[#1A202C]">
+                ${valueWithStyle}
+              </div>
+              <span class="text-[20px] text-[#4A5568] font-sans font-bold tracking-wide mt-2 flex items-center gap-2">
+                <span class="w-6 h-[2px] bg-[#C5A059]"></span>
+                ${escapeHtml(item.text)}
+              </span>
             </li>`;
           }
-          // テキストのみのリスト（特徴など）
-          return `<li class="flex items-start gap-3 border-b border-[#E2E8F0] pb-4 last:border-0">
-            <div class="w-[8px] h-[8px] bg-[#C5A059] mt-[10px] flex-shrink-0 rounded-full"></div>
-            <span class="text-[20px] text-[#2D3748] leading-[1.5] font-normal">${escapeHtml(item.text)}</span>
+          
+          // ラベル付きテキストパターン（valueはあるが数字がない場合）
+          if (item.value) {
+            return `<li class="flex flex-col border-b border-[#E2E8F0] pb-4 mb-4 last:border-0 last:mb-0 last:pb-0">
+              <div class="text-[26px] font-serif font-medium text-[#1A202C] mb-1">
+                ${escapeHtml(item.value)}
+              </div>
+              <span class="text-[20px] text-[#4A5568] font-sans font-bold tracking-wide flex items-center gap-2">
+                <span class="w-6 h-[2px] bg-[#C5A059]"></span>
+                ${escapeHtml(item.text)}
+              </span>
+            </li>`;
+          }
+          
+          // 通常テキスト（特徴）パターン
+          return `<li class="flex items-start gap-3 py-2 border-b border-[#EDF2F7] last:border-0">
+            <div class="mt-[10px] flex-shrink-0 text-[#C5A059]">
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="0" width="5.65" height="5.65" transform="rotate(45 4 0)" fill="currentColor"/>
+              </svg>
+            </div>
+            <span class="text-[20px] text-[#2D3748] leading-[1.6] font-normal text-justify">
+              ${escapeHtml(item.text)}
+            </span>
           </li>`;
         })
         .join("\n");
 
-      // デザイン：白背景のパネルスタイル、上部にゴールドのアクセントライン
-      return `<div class="bg-white border border-[#E2E8F0] p-10 flex flex-col h-full relative">
-        <div class="absolute top-0 left-0 w-full h-[4px] bg-[#C5A059]"></div>
+      // カード部分のHTML
+      return `<div class="bg-white flex flex-col h-full border border-[#CBD5E0] relative">
+        <div class="h-[6px] w-full bg-[#C5A059]"></div>
 
-        <div class="mb-7">
-          <h3 class="text-[20px] font-sans font-bold uppercase tracking-[0.15em] text-[#C5A059] mb-5">${category.label}</h3>
-          <h2 class="text-[32px] font-serif font-bold leading-[1.3] text-[#1A202C]">
-            ${escapeHtml(section.title)}
-          </h2>
+        <div class="p-8 flex flex-col h-full">
+          <div class="mb-5">
+            <div class="flex justify-between items-center mb-3">
+               <h3 class="text-[16px] font-sans font-bold uppercase tracking-[0.2em] text-[#C5A059] border border-[#C5A059] px-3 py-[3px]">
+                 ${category.label}
+               </h3>
+            </div>
+            <h2 class="text-[32px] font-serif font-bold leading-[1.3] text-[#1A202C]">
+              ${escapeHtml(section.title)}
+            </h2>
+          </div>
+
+          <div class="min-h-[5em] mb-6">
+            <p class="text-[19px] font-sans text-[#4A5568] leading-[1.8]">
+              ${escapeHtml(section.description)}
+            </p>
+          </div>
+
+          <div class="w-full h-[1px] bg-[#E2E8F0] mb-5"></div>
+
+          <ul class="flex-1 space-y-2">
+            ${itemsHtml}
+          </ul>
         </div>
-
-        <p class="text-[17px] font-sans text-[#718096] leading-[1.7] mb-8 border-l-2 border-[#E2E8F0] pl-5">
-          ${escapeHtml(section.description)}
-        </p>
-
-        <ul class="flex-1 space-y-6 pt-4 border-t border-[#E2E8F0]">
-          ${itemsHtml}
-        </ul>
       </div>`;
     })
     .join("\n");
 
-  return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
+  return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-16 py-12 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
   
-  <div class="absolute top-0 left-[33.33%] w-[1px] h-full bg-[#C5A059] opacity-[0.05] pointer-events-none"></div>
-  <div class="absolute top-0 left-[66.66%] w-[1px] h-full bg-[#C5A059] opacity-[0.05] pointer-events-none"></div>
-
-  <header class="flex-shrink-0 mb-10 flex justify-between items-end relative z-10">
+  <header class="flex-shrink-0 mb-10 flex justify-between items-end">
     <div>
-      <div class="flex items-center gap-4 mb-5">
+      <div class="flex items-center gap-4 mb-4">
         <div class="h-[2px] w-12 bg-[#C5A059]"></div>
         <span class="text-[16px] font-sans font-bold uppercase tracking-[0.25em] text-[#C5A059]">Feature Overview</span>
       </div>
-      <h1 class="text-[72px] font-serif font-bold leading-none tracking-tight text-[#1A202C]">
+      <h1 class="text-[64px] font-serif font-bold leading-none tracking-tight text-[#1A202C]">
         物件のハイライト
       </h1>
     </div>
     
     ${
       content.propertyName
-        ? `<div class="text-right hidden md:block">
-            <div class="text-[14px] font-sans font-bold tracking-[0.2em] text-[#A0AEC0] uppercase mb-2">Building</div>
-            <div class="text-[20px] font-serif font-medium text-[#4A5568] border-b-2 border-[#C5A059] pb-2 inline-block">
+        ? `<div class="text-right hidden md:block border-l-2 border-[#C5A059] pl-5 py-1">
+            <div class="text-[13px] font-sans font-bold tracking-[0.2em] text-[#718096] uppercase mb-1">Building</div>
+            <div class="text-[22px] font-serif font-bold text-[#2D3748]">
               ${escapeHtml(content.propertyName)}
             </div>
           </div>`
@@ -90,10 +127,14 @@ export function renderPropertyHighlightSlide(
     }
   </header>
 
-  <main class="flex-1 min-h-0 relative z-10">
-    <div class="grid grid-cols-3 gap-10 h-full">
+  <main class="flex-1 min-h-0">
+    <div class="grid grid-cols-3 gap-6 h-full items-stretch">
       ${columnsHtml}
     </div>
   </main>
+  
+  <div class="absolute bottom-6 right-8 text-[#A0AEC0] text-[12px] font-sans tracking-widest uppercase">
+    Highlights & Features
+  </div>
 </div>`;
 }
