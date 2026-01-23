@@ -1,6 +1,8 @@
 "use client";
 
+import { fetchEventSource } from "@microsoft/fetch-event-source";
 import { useForm } from "@tanstack/react-form";
+import type { LanguageModelUsage } from "ai";
 import { exportToPptx } from "dom-to-pptx";
 import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
@@ -39,13 +41,28 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import type { Event, PlanEvent, SlideEvent, UsageInfo } from "@/lib/slide-generator";
+import type { Event, PlanEvent, SlideEvent } from "@/lib/slide-generator";
 import { cn } from "@/lib/utils";
 import { convertPdfToSingleJpg, isPdfFile } from "@/lib/utils/pdf-converter";
 import { formSchema } from "./schemas";
 
 type PlanState = PlanEvent;
 type SlideState = SlideEvent;
+
+const INITIAL_TOTAL_USAGE = {
+	inputTokens: 0,
+	inputTokenDetails: {
+		noCacheTokens: 0,
+		cacheReadTokens: 0,
+		cacheWriteTokens: 0,
+	},
+	outputTokens: 0,
+	outputTokenDetails: {
+		textTokens: 0,
+		reasoningTokens: 0,
+	},
+	totalTokens: 0,
+} satisfies LanguageModelUsage;
 
 // コスト計算用の料金レート（per 1M tokens）
 const PRICING = {
@@ -59,11 +76,7 @@ export default function ClientPage() {
 	const [slidesByPage, setSlidesByPage] = useState<Record<number, SlideState>>(
 		{},
 	);
-	const [totalUsage, setTotalUsage] = useState<UsageInfo>({
-		promptTokens: 0,
-		completionTokens: 0,
-		totalTokens: 0,
-	});
+	const [totalUsage, setTotalUsage] = useState(INITIAL_TOTAL_USAGE);
 	const [generationDurationMs, setGenerationDurationMs] = useState<number>(0);
 	const generationStartTimeRef = useRef<number>(0);
 	const slideIframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
@@ -80,7 +93,9 @@ export default function ClientPage() {
 	const isDevelopment = true;
 
 	const orderedSlides = useMemo(() => {
-		return Object.values(slidesByPage).sort((a, b) => a.index - b.index);
+		return Object.values(slidesByPage).sort(
+			(a, b) => a.data.index - b.data.index,
+		);
 	}, [slidesByPage]);
 
 	const form = useForm({
@@ -106,146 +121,151 @@ export default function ClientPage() {
 		onSubmit: async ({ value }) => {
 			setPlan(undefined);
 			setSlidesByPage({});
-			setTotalUsage({ promptTokens: 0, completionTokens: 0, totalTokens: 0 });
+			setTotalUsage(INITIAL_TOTAL_USAGE);
 			setGenerationDurationMs(0);
 			generationStartTimeRef.current = Date.now();
 			slideIframeRefs.current.clear();
 
+			// FormDataを構築
+			const formData = new FormData();
+
+			const inputData = {
+				companyName: value.companyName,
+				storeName: value.storeName,
+				storeAddress: value.storeAddress,
+				storePhoneNumber: value.storePhoneNumber,
+				storeEmailAddress: value.storeEmailAddress,
+				annualIncome: value.annualIncome,
+				downPayment: value.downPayment,
+				interestRate: value.interestRate,
+				loanTermYears: value.loanTermYears,
+				modelType: value.modelType,
+				useStructuredOutput: value.useStructuredOutput,
+			};
+			formData.append("input", JSON.stringify(inputData));
+
+			for (const file of value.flyerFiles) {
+				formData.append("flyerFiles", file);
+			}
+
 			// AbortControllerでキャンセル可能にする
 			abortControllerRef.current = new AbortController();
 
-			try {
-				// FormDataを作成
-				const formData = new FormData();
+			// SSEストリームをフェッチ
+			await fetchEventSource("/api/generate", {
+				method: "POST",
+				body: formData,
+				signal: abortControllerRef.current.signal,
 
-				// ファイル以外のデータをJSONとして追加
-				const inputData = {
-					companyName: value.companyName,
-					storeName: value.storeName,
-					storeAddress: value.storeAddress,
-					storePhoneNumber: value.storePhoneNumber,
-					storeEmailAddress: value.storeEmailAddress,
-					annualIncome: value.annualIncome,
-					downPayment: value.downPayment,
-					interestRate: value.interestRate,
-					loanTermYears: value.loanTermYears,
-					modelType: value.modelType,
-					useStructuredOutput: value.useStructuredOutput,
-				};
-				formData.append("input", JSON.stringify(inputData));
-
-				// ファイルを追加
-				if (value.flyerFiles && value.flyerFiles.length > 0) {
-					formData.append("flyerFile", value.flyerFiles[0]);
-				}
-
-				// SSEストリームをフェッチ
-				const response = await fetch("/api/generate", {
-					method: "POST",
-					body: formData,
-					signal: abortControllerRef.current?.signal,
-				});
-
-				if (!response.ok) {
-					const errorData = await response.json();
-					throw new Error(errorData.error || "Generation failed");
-				}
-
-				if (!response.body) {
-					throw new Error("No response body");
-				}
-
-				// SSEストリームを読み取り
-				const reader = response.body.getReader();
-				const decoder = new TextDecoder();
-				let buffer = "";
-
-				while (true) {
-					const { done, value: chunk } = await reader.read();
-					if (done) break;
-
-					buffer += decoder.decode(chunk, { stream: true });
-
-					// SSEイベントをパース（"data: " で始まり "\n\n" で終わる）
-					const lines = buffer.split("\n\n");
-					buffer = lines.pop() || ""; // 最後の不完全な行をバッファに残す
-
-					for (const line of lines) {
-						if (line.startsWith("data: ")) {
-							const jsonStr = line.slice(6); // "data: " を除去
-							try {
-								const event = JSON.parse(jsonStr) as Event;
-
-								// デバッグ: 受信したイベントをログ出力
-								const eventInfo = event.type === "slide:end" || event.type === "slide:generating" || event.type === "slide:start"
-									? `index=${(event as { index: number }).index}`
-									: "";
-								console.log(`[client] Event received: ${event.type} ${eventInfo}`);
-
-								switch (event.type) {
-									case "plan:start":
-									case "plan:end":
-										setPlan(event);
-										break;
-
-									case "slide:start":
-									case "slide:generating":
-									case "slide:end":
-										console.log(`[client] Updating slide ${event.index} with type ${event.type}`);
-										setSlidesByPage((prev) => {
-											const updated = {
-												...prev,
-												[event.index]: event,
-											};
-											console.log(`[client] slidesByPage keys after update:`, Object.keys(updated));
-											return updated;
-										});
-										break;
-									case "error":
-										toast.error(event.message, {
-											icon: <AlertCircle className="h-4 w-4" />,
-										});
-										break;
-									case "usage":
-										setTotalUsage((prev) => ({
-											promptTokens: prev.promptTokens + event.usage.promptTokens,
-											completionTokens:
-												prev.completionTokens + event.usage.completionTokens,
-											totalTokens: prev.totalTokens + event.usage.totalTokens,
-										}));
-										break;
-									case "end":
-										console.log("[client] Generation ended");
-										setGenerationDurationMs(
-											Date.now() - generationStartTimeRef.current,
-										);
-										break;
-									case "heartbeat":
-										console.log("[client] Heartbeat received");
-										break;
-									default:
-										break;
-								}
-							} catch (parseError) {
-								console.error("[client] Failed to parse SSE event:", parseError, jsonStr);
-							}
-						}
+				async onopen(response) {
+					if (!response.ok) {
+						throw new Error("Failed to open SSE connection");
 					}
-				}
-				console.log("[client] Stream iteration completed");
-			} catch (e) {
-				// AbortErrorは無視（ユーザーによるキャンセル）
-				if (e instanceof Error && e.name === "AbortError") {
-					console.log("[client] Request aborted by user");
-					toast.info("生成をキャンセルしました。");
-					return;
-				}
-				console.error("[client] Stream error:", e);
-				toast.error("予期せぬエラーが発生しました。", {
-					description: e instanceof Error ? e.message : "もう一度お試しください。",
-				});
-			} finally {
-				abortControllerRef.current = null;
+				},
+
+				onmessage(msg) {
+					if (msg.event === "heartbeat") {
+						console.log("[client] Heartbeat received");
+						return;
+					}
+
+					const event: Event = {
+						type: msg.event as Event["type"],
+						data: JSON.parse(msg.data),
+					};
+
+					// デバッグ: 受信したイベントをログ出力
+					const eventInfo =
+						event.type === "slide:end" ||
+						event.type === "slide:generating" ||
+						event.type === "slide:start"
+							? `index=${(event).data.index}`
+							: "";
+					console.log(`[client] Event received: ${event.type} ${eventInfo}`);
+
+					switch (event.type) {
+						case "start":
+							console.log("[client] Generation started");
+							break;
+
+						case "plan:start":
+						case "plan:end":
+							setPlan(event);
+							break;
+
+						case "slide:start":
+						case "slide:generating":
+						case "slide:end":
+							setSlidesByPage((prev) => ({
+								...prev,
+								[event.data.index]: event,
+							}));
+							break;
+
+						case "end":
+							console.log("[client] Generation ended");
+							setGenerationDurationMs(
+								Date.now() - generationStartTimeRef.current,
+							);
+							break;
+
+						case "error":
+							toast.error(event.data.message, {
+								icon: <AlertCircle className="h-4 w-4" />,
+							});
+							break;
+
+						case "usage": {
+							const usage = event.data.usage;
+							if (!usage) break;
+							setTotalUsage((prev) => ({
+								inputTokens: prev.inputTokens + (usage.inputTokens ?? 0),
+								inputTokenDetails: {
+									noCacheTokens:
+										prev.inputTokenDetails.noCacheTokens +
+										(usage.inputTokenDetails?.noCacheTokens ?? 0),
+									cacheReadTokens:
+										prev.inputTokenDetails.cacheReadTokens +
+										(usage.inputTokenDetails?.cacheReadTokens ?? 0),
+									cacheWriteTokens:
+										prev.inputTokenDetails.cacheWriteTokens +
+										(usage.inputTokenDetails?.cacheWriteTokens ?? 0),
+								},
+								outputTokens: prev.outputTokens + (usage.outputTokens ?? 0),
+								outputTokenDetails: {
+									textTokens:
+										prev.outputTokenDetails.textTokens +
+										(usage.outputTokenDetails?.textTokens ?? 0),
+									reasoningTokens:
+										prev.outputTokenDetails.reasoningTokens +
+										(usage.outputTokenDetails?.reasoningTokens ?? 0),
+								},
+								totalTokens: prev.totalTokens + (usage.totalTokens ?? 0),
+							}));
+							break;
+						}
+
+						default:
+							break;
+					}
+				},
+
+				onclose() {
+					console.log("[client] SSE connection closed");
+				},
+
+				onerror(err) {
+					console.error("[client] SSE error:", err);
+					toast.error("ストリーム接続中にエラーが発生しました。", {
+						description:
+							err instanceof Error ? err.message : "もう一度お試しください。",
+					});
+				},
+			});
+
+			if (abortControllerRef.current.signal.aborted) {
+				console.log("[client] Generation aborted by user");
+				toast.info("スライド生成をキャンセルしました。");
 			}
 		},
 	});
@@ -262,14 +282,13 @@ export default function ClientPage() {
 		const modelType =
 			(form.state.values.modelType as keyof typeof PRICING) ?? "middle";
 		const pricing = PRICING[modelType];
-		const inputCost = (totalUsage.promptTokens / 1_000_000) * pricing.input;
-		const outputCost =
-			(totalUsage.completionTokens / 1_000_000) * pricing.output;
+		const inputCost = (totalUsage.inputTokens / 1_000_000) * pricing.input;
+		const outputCost = (totalUsage.outputTokens / 1_000_000) * pricing.output;
 		const totalCost = inputCost + outputCost;
 		return { inputCost, outputCost, totalCost, pricing };
 	}, [
-		totalUsage.promptTokens,
-		totalUsage.completionTokens,
+		totalUsage.inputTokens,
+		totalUsage.outputTokens,
 		form.state.values.modelType,
 	]);
 
@@ -363,7 +382,7 @@ export default function ClientPage() {
 
 	const openExportDialog = (target: "pptx" | "pdf") => {
 		setExportTarget(target);
-		setSelectedSlideIndices(orderedSlides.map((s) => s.index));
+		setSelectedSlideIndices(orderedSlides.map((s) => s.data.index));
 		setIsExportDialogOpen(true);
 	};
 
@@ -763,12 +782,19 @@ export default function ClientPage() {
 														if (isPdfFile(file)) {
 															setIsConvertingPdf(true);
 															try {
-																const result = await convertPdfToSingleJpg(file, 1440, 0.85);
+																const result = await convertPdfToSingleJpg(
+																	file,
+																	1440,
+																	0.85,
+																);
 																field.handleChange([result.file]);
 															} catch (error) {
 																console.error("PDF変換エラー:", error);
 																toast.error("PDFの変換に失敗しました", {
-																	description: error instanceof Error ? error.message : "不明なエラー",
+																	description:
+																		error instanceof Error
+																			? error.message
+																			: "不明なエラー",
 																});
 															} finally {
 																setIsConvertingPdf(false);
@@ -790,7 +816,9 @@ export default function ClientPage() {
 													{isConvertingPdf ? (
 														<div className="flex flex-col items-center justify-center">
 															<Loader2 className="h-8 w-8 animate-spin text-primary" />
-															<p className="my-2 font-medium text-sm">PDFを変換中...</p>
+															<p className="my-2 font-medium text-sm">
+																PDFを変換中...
+															</p>
 														</div>
 													) : (
 														<>
@@ -913,10 +941,7 @@ export default function ClientPage() {
 													>
 														構造化出力
 													</ToggleGroupItem>
-													<ToggleGroupItem
-														value="raw"
-														className="text-xs px-3"
-													>
+													<ToggleGroupItem value="raw" className="text-xs px-3">
 														生HTML
 													</ToggleGroupItem>
 												</ToggleGroup>
@@ -928,8 +953,8 @@ export default function ClientPage() {
 											トークン
 										</span>
 										<span className="text-xs font-mono">
-											入力 {totalUsage.promptTokens.toLocaleString()} /
-											出力 {totalUsage.completionTokens.toLocaleString()}
+											入力 {totalUsage.inputTokens.toLocaleString()} / 出力{" "}
+											{totalUsage.outputTokens.toLocaleString()}
 										</span>
 									</div>
 									<div className="flex items-center justify-between">
@@ -938,10 +963,7 @@ export default function ClientPage() {
 										</span>
 										<span className="text-xs font-mono font-semibold text-primary">
 											${costInfo.totalCost.toFixed(4)} (¥
-											{Math.round(
-												costInfo.totalCost * 150,
-											).toLocaleString()}
-											)
+											{Math.round(costInfo.totalCost * 150).toLocaleString()})
 										</span>
 									</div>
 									<div className="flex items-center justify-between">
@@ -1019,14 +1041,14 @@ export default function ClientPage() {
 											<div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
 												{orderedSlides.map((slide) => {
 													const isSelected = selectedSlideIndices.includes(
-														slide.index,
+														slide.data.index,
 													);
 													// Only show completed slides
 													if (slide.type !== "slide:end") return null;
 
 													return (
 														<button
-															key={slide.index}
+															key={slide.data.index}
 															type="button"
 															tabIndex={0}
 															className={cn(
@@ -1036,7 +1058,7 @@ export default function ClientPage() {
 																	: "border-transparent ring-1 ring-border hover:ring-primary/50",
 															)}
 															onClick={() => {
-																const slideIndex = slide.index;
+																const slideIndex = slide.data.index;
 																setSelectedSlideIndices((prev) => {
 																	const currentlySelected =
 																		prev.includes(slideIndex);
@@ -1047,7 +1069,7 @@ export default function ClientPage() {
 															}}
 														>
 															<div className="pointer-events-none aspect-video w-full">
-																<ScaledFrame html={slide.data.slide.html} />
+																<ScaledFrame html={slide.data.html} />
 															</div>
 
 															{/* Index Badge */}
@@ -1060,7 +1082,7 @@ export default function ClientPage() {
 																			: "bg-black/60 text-white backdrop-blur-sm",
 																	)}
 																>
-																	{slide.index}
+																	{slide.data.index}
 																</div>
 															</div>
 
@@ -1075,7 +1097,7 @@ export default function ClientPage() {
 																	)}
 																>
 																	<Checkbox
-																		id={`slide-${slide.index}`}
+																		id={`slide-${slide.data.index}`}
 																		checked={isSelected}
 																		className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
 																		// Let parent handle click
@@ -1087,7 +1109,7 @@ export default function ClientPage() {
 															{/* Title Overlay */}
 															<div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/50 to-transparent p-2 pt-6 opacity-0 transition-opacity group-hover:opacity-100 flex flex-col justify-end">
 																<p className="text-[10px] font-medium text-white line-clamp-2 leading-tight">
-																	{slide.title}
+																	{slide.data.title}
 																</p>
 															</div>
 
@@ -1156,12 +1178,12 @@ export default function ClientPage() {
 												<div className="mt-4 p-4 bg-background/80 backdrop-blur rounded-lg text-left text-sm w-full border shadow-sm max-h-60 overflow-y-auto">
 													<p className="font-medium mb-3 text-foreground flex items-center gap-2">
 														<span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
-															{plan.plan.length}
+															{plan.data.plan.length}
 														</span>
 														生成予定のスライド
 													</p>
 													<ul className="space-y-2">
-														{plan.plan.map((slideDef, i) => (
+														{plan.data.plan.map((slideDef, i) => (
 															<li
 																key={i}
 																className="text-muted-foreground flex gap-2 text-xs"
@@ -1203,16 +1225,16 @@ export default function ClientPage() {
 
 										return (
 											<div
-												key={slide.index}
+												key={slide.data.index}
 												className="flex flex-col gap-3 group"
 											>
 												<div className="flex items-center justify-between px-1">
 													<div className="flex items-center gap-2">
 														<span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-															{slide.index}
+															{slide.data.index}
 														</span>
 														<span className="text-sm font-semibold text-foreground/80 truncate max-w-50">
-															{slide.title}
+															{slide.data.title}
 														</span>
 													</div>
 													<div className="flex items-center gap-2">
@@ -1244,11 +1266,17 @@ export default function ClientPage() {
 													<SlidePreview
 														iframeRef={(el) => {
 															if (el)
-																slideIframeRefs.current.set(slide.index, el);
-															else slideIframeRefs.current.delete(slide.index);
+																slideIframeRefs.current.set(
+																	slide.data.index,
+																	el,
+																);
+															else
+																slideIframeRefs.current.delete(
+																	slide.data.index,
+																);
 														}}
-														html={slide.data.slide.html}
-														title={slide.title}
+														html={slide.data.html}
+														title={slide.data.title}
 														className="shadow-sm ring-1 ring-border group-hover:ring-primary/50 transition-all duration-300"
 													/>
 												) : (

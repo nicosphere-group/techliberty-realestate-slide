@@ -15,6 +15,7 @@
 		"@google/genai": "^1.37.0",
 		"@googlemaps/places": "^2.2.0",
 		"@googlemaps/routing": "^2.1.1",
+		"@microsoft/fetch-event-source": "^2.0.1",
 		"@tanstack/react-form": "^1.27.7",
 		"@types/sharp": "^0.32.0",
 		"ai": "^6.0.14",

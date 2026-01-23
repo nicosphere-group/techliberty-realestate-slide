@@ -1,31 +1,23 @@
-// import * as fs from "node:fs";
-// import * as path from "node:path";
 import { google } from "@ai-sdk/google";
 import {
 	generateText,
+	type LanguageModelUsage,
 	type ModelMessage,
 	Output,
 	type UserContent,
 } from "ai";
 import { AsyncQueue } from "./async-queue";
-import { SLIDE_DEFINITIONS, type FixedSlideDefinition } from "./config";
+import { type FixedSlideDefinition, SLIDE_DEFINITIONS } from "./config";
+import { FlyerDataModel, flyerDataSchema, type PrimaryInput } from "./schemas";
 import {
-	FlyerDataModel,
-	flyerDataSchema,
-	type PrimaryInput,
-} from "./schemas";
-import {
-	slideContentSchemas,
 	type SlideContentMap,
+	slideContentSchemas,
 } from "./schemas/slide-content";
 import { renderSlideHtml, wrapInHtmlDocument } from "./templates";
-import {
-	isStaticSlideType,
-	renderStaticSlideBody,
-} from "./templates/slides";
+import { isStaticSlideType, renderStaticSlideBody } from "./templates/slides";
 import { getToolsForSlide } from "./tools";
+import type { Event, Slide } from "./types";
 import type { SlideType } from "./types/slide-types";
-import type { Event, GeneratedSlide, UsageInfo } from "./types";
 
 /**
  * Buffer や循環参照を安全に処理する JSON.stringify
@@ -66,8 +58,6 @@ function safeStringify(obj: unknown, indent = 2): string {
 interface ToolExecutionResult {
 	/** ツール名 → 実行結果のマッピング */
 	results: Record<string, unknown>;
-	/** ツール実行で使用したトークン */
-	usage: UsageInfo;
 }
 
 /**
@@ -93,7 +83,7 @@ interface SlideLogData {
 		stack?: string;
 	};
 	/** 使用トークン */
-	usage?: UsageInfo;
+	usage?: LanguageModelUsage;
 	/** 静的テンプレートかどうか */
 	isStatic: boolean;
 }
@@ -170,43 +160,41 @@ export class SlideGenerator {
 			// Step 1: 固定の12枚スライド構成を使用
 			yield { type: "plan:start" };
 			const plan = SLIDE_DEFINITIONS;
-			yield { type: "plan:end", plan };
+			yield { type: "plan:end", data: { plan } };
 			// 固定構成のため、planのusageは0
 			yield {
 				type: "usage",
-				usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-				step: "plan",
+				data: {
+					step: "plan",
+				},
 			};
 
 			// デザインシステムは固定のため、AI生成をスキップ
 			yield {
 				type: "usage",
-				usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-				step: "design",
+				data: {
+					step: "design",
+				},
 			};
 
 			// Step 2: 1ページずつ並列でスライド生成
-			const generatedSlides: GeneratedSlide[] = [];
+			const generatedSlides: Slide[] = [];
 			const channel = new AsyncQueue<Event>();
-
-			// Heartbeatタイマー: 30秒ごとに送信してストリーム接続を維持
-			const heartbeatInterval = setInterval(() => {
-				channel.push({
-					type: "heartbeat",
-					timestamp: Date.now(),
-				});
-			}, 30000);
 
 			const promises = Promise.all(
 				plan.map(async (slideDef: FixedSlideDefinition) => {
 					channel.push({
 						type: "slide:start",
-						index: slideDef.index,
-						title: slideDef.title,
+						data: {
+							index: slideDef.index,
+							title: slideDef.title,
+							html: "",
+							sources: [],
+						},
 					});
 
-					let slide: GeneratedSlide;
-					const slideType = slideDef.slideType as SlideType;
+					let slide: Slide;
+					const slideType = slideDef.slideType;
 
 					// 静的テンプレート（tax, purchase-flow, flyer）: AI生成をスキップ
 					if (isStaticSlideType(slideType)) {
@@ -214,7 +202,9 @@ export class SlideGenerator {
 
 						if (slideType === "flyer") {
 							// マイソクスライド: アップロード画像をそのまま表示
-							const imageDataUrls = await this.filesToDataUrls(input.flyerFiles);
+							const imageDataUrls = await this.filesToDataUrls(
+								input.flyerFiles,
+							);
 							bodyContent = renderStaticSlideBody("flyer", {
 								imageUrls: imageDataUrls,
 							});
@@ -227,16 +217,12 @@ export class SlideGenerator {
 						const html = wrapInHtmlDocument(bodyContent);
 
 						slide = {
+							index: slideDef.index,
+							title: slideDef.title,
 							html,
 							sources: [],
 						};
 
-						channel.push({
-							type: "slide:generating",
-							index: slideDef.index,
-							title: slideDef.title,
-							data: { ...slide },
-						});
 						// 静的スライドのログデータを作成
 						const logData: SlideLogData = {
 							definition: slideDef,
@@ -254,19 +240,20 @@ export class SlideGenerator {
 							} = this.useStructuredOutput
 								? await this.generateSlideStructured(slideDef, input)
 								: await this.generateSlideRawHtml(slideDef, input);
-							slide = { html, sources: [] };
 
-							channel.push({
-								type: "slide:generating",
+							slide = {
 								index: slideDef.index,
 								title: slideDef.title,
-								data: { ...slide },
-							});
+								html,
+								sources: [],
+							};
 
 							channel.push({
 								type: "usage",
-								usage: slideUsage,
-								step: `slide-${slideDef.index}`,
+								data: {
+									step: `slide-${slideDef.index}`,
+									usage: slideUsage,
+								},
 							});
 
 							// ログ出力
@@ -276,40 +263,41 @@ export class SlideGenerator {
 								`[SLIDE ${slideDef.index}] Error in slide generation:`,
 								error,
 							);
+
 							// エラー時は空のスライドを生成
 							slide = {
+								index: slideDef.index,
+								title: slideDef.title,
 								html: `<div id="slide-container" class="w-[1920px] h-[1080px] flex items-center justify-center bg-red-50">
 									<p class="text-red-500 text-2xl">スライド生成エラー: ${error instanceof Error ? error.message : "Unknown error"}</p>
 								</div>`,
 								sources: [],
 							};
-							channel.push({
-								type: "slide:generating",
-								index: slideDef.index,
-								title: slideDef.title,
-								data: { ...slide },
-							});
 						}
 					}
+
+					channel.push({
+						type: "slide:generating",
+						data: slide,
+					});
 
 					generatedSlides.push(slide);
 
 					channel.push({
 						type: "slide:end",
-						index: slideDef.index,
-						title: slideDef.title,
 						data: {
-							slide: { ...slide },
+							index: slideDef.index,
+							title: slideDef.title,
+							html: slide.html,
+							sources: slide.sources,
 						},
 					});
 				}),
 			);
 			promises.then(() => {
-				clearInterval(heartbeatInterval);
 				channel.close();
 			});
 			promises.catch(() => {
-				clearInterval(heartbeatInterval);
 				channel.close();
 			});
 			for await (const event of channel) {
@@ -318,11 +306,19 @@ export class SlideGenerator {
 			await promises;
 
 			// 全体の完了（各スライドは既にslide:endで送信済みなのでデータは含めない）
-			yield { type: "end", data: [] };
+			yield {
+				type: "end",
+				data: {
+					plan,
+					slides: generatedSlides,
+				},
+			};
 		} catch (error) {
 			yield {
 				type: "error",
-				message: error instanceof Error ? error.message : "Unknown error",
+				data: {
+					message: error instanceof Error ? error.message : "Unknown error",
+				},
 			};
 		}
 	}
@@ -381,7 +377,11 @@ export class SlideGenerator {
 	 */
 	private canSkipLLM(slideType: SlideType): boolean {
 		// Slide 1 (Cover), 5 (Nearby), 6 (Price Analysis) はLLMスキップ可能
-		return slideType === "cover" || slideType === "nearby" || slideType === "price-analysis";
+		return (
+			slideType === "cover" ||
+			slideType === "nearby" ||
+			slideType === "price-analysis"
+		);
 	}
 
 	/**
@@ -395,7 +395,9 @@ export class SlideGenerator {
 		switch (slideType) {
 			case "cover": {
 				// Slide 1: flyerData + input + ツール結果のマージ
-				const imageUrl = toolResults?.results?.extract_property_image as { imageUrl?: string } | undefined;
+				const imageUrl = toolResults?.results?.extract_property_image as
+					| { imageUrl?: string }
+					| undefined;
 				return {
 					propertyName: this.flyerData?.name || "",
 					address: this.flyerData?.address,
@@ -410,11 +412,13 @@ export class SlideGenerator {
 
 			case "nearby": {
 				// Slide 5: ツール結果をそのまま使用
-				const nearbyData = toolResults?.results?.generate_nearby_map as {
-					facilityGroups?: unknown[];
-					address?: string;
-					mapImageUrl?: string;
-				} | undefined;
+				const nearbyData = toolResults?.results?.generate_nearby_map as
+					| {
+							facilityGroups?: unknown[];
+							address?: string;
+							mapImageUrl?: string;
+					  }
+					| undefined;
 
 				if (!nearbyData) {
 					throw new Error("Nearby map tool did not return expected data");
@@ -429,14 +433,16 @@ export class SlideGenerator {
 
 			case "price-analysis": {
 				// Slide 6: ツール結果をそのまま使用
-				const priceData = toolResults?.results?.get_price_points as {
-					targetProperty?: unknown;
-					similarProperties?: unknown[];
-					estimatedPriceMin?: string;
-					estimatedPriceMax?: string;
-					averageUnitPrice?: number;
-					dataCount?: number;
-				} | undefined;
+				const priceData = toolResults?.results?.get_price_points as
+					| {
+							targetProperty?: unknown;
+							similarProperties?: unknown[];
+							estimatedPriceMin?: string;
+							estimatedPriceMax?: string;
+							averageUnitPrice?: number;
+							dataCount?: number;
+					  }
+					| undefined;
 
 				if (!priceData) {
 					throw new Error("Price analysis tool did not return expected data");
@@ -453,7 +459,9 @@ export class SlideGenerator {
 			}
 
 			default:
-				throw new Error(`Cannot build content without LLM for slide type: ${slideType}`);
+				throw new Error(
+					`Cannot build content without LLM for slide type: ${slideType}`,
+				);
 		}
 	}
 
@@ -464,8 +472,12 @@ export class SlideGenerator {
 	private async generateSlideStructured(
 		definition: FixedSlideDefinition,
 		input: PrimaryInput,
-	): Promise<{ html: string; usage: UsageInfo; logData: SlideLogData }> {
-		const slideType = definition.slideType as SlideType;
+	): Promise<{
+		html: string;
+		usage?: LanguageModelUsage;
+		logData: SlideLogData;
+	}> {
+		const slideType = definition.slideType;
 		const schema = slideContentSchemas[slideType];
 
 		// スキーマが存在しないスライドタイプの場合はエラー
@@ -498,24 +510,23 @@ export class SlideGenerator {
 
 		// Phase 2: LLMスキップ可能かチェック
 		let output: SlideContentMap[typeof slideType];
-		let usage: UsageInfo;
+		let usage: LanguageModelUsage | undefined;
 
 		if (this.canSkipLLM(slideType)) {
-			console.log(`[SLIDE ${definition.index}] Skipping LLM - building content directly from tool results`);
+			console.log(
+				`[SLIDE ${definition.index}] Skipping LLM - building content directly from tool results`,
+			);
 
 			// ツール結果から直接コンテンツを生成
-			const rawOutput = this.buildSlideContentWithoutLLM(slideType, toolResults, input);
+			const rawOutput = this.buildSlideContentWithoutLLM(
+				slideType,
+				toolResults,
+				input,
+			);
 
 			// Zodでバリデーション
 			// biome-ignore lint/suspicious/noExplicitAny: 動的スキーマ選択
 			output = schema.parse(rawOutput) as any;
-
-			// ツール使用量のみ計上（LLMトークンはゼロ）
-			usage = toolResults?.usage || {
-				promptTokens: 0,
-				completionTokens: 0,
-				totalTokens: 0,
-			};
 
 			console.log(
 				`[SLIDE ${definition.index}] Content built without LLM:`,
@@ -582,16 +593,7 @@ ${toolResultsPrompt}
 			output = result.output as SlideContentMap[typeof slideType];
 
 			// ツール使用量を加算
-			usage = {
-				promptTokens:
-					(result.usage.inputTokens ?? 0) + (toolResults?.usage.promptTokens ?? 0),
-				completionTokens:
-					(result.usage.outputTokens ?? 0) + (toolResults?.usage.completionTokens ?? 0),
-				totalTokens:
-					(result.usage.inputTokens ?? 0) +
-					(result.usage.outputTokens ?? 0) +
-					(toolResults?.usage.totalTokens ?? 0),
-			};
+			usage = result.usage;
 
 			console.log(
 				`[SLIDE ${definition.index}] Structured output received:`,
@@ -653,12 +655,6 @@ ${toolResultsPrompt}
 		tools: Record<string, unknown>,
 	): Promise<ToolExecutionResult> {
 		const results: Record<string, unknown> = {};
-		let totalUsage: UsageInfo = {
-			promptTokens: 0,
-			completionTokens: 0,
-			totalTokens: 0,
-		};
-
 		// スライドごとに適切なツール呼び出しを行う
 		for (const [toolName, toolInstance] of Object.entries(tools)) {
 			try {
@@ -683,46 +679,46 @@ ${toolResultsPrompt}
 						});
 						break;
 
-				case "search_nearby_facilities":
-				case "generate_nearby_map":
-					// 住所ベースのツール（addressパラメータ）
-					if (!this.flyerData?.address) {
-						throw new Error("物件住所が設定されていません");
-					}
-					result = await tool.execute({
-						address: this.flyerData.address,
-					});
-					break;
+					case "search_nearby_facilities":
+					case "generate_nearby_map":
+						// 住所ベースのツール（addressパラメータ）
+						if (!this.flyerData?.address) {
+							throw new Error("物件住所が設定されていません");
+						}
+						result = await tool.execute({
+							address: this.flyerData.address,
+						});
+						break;
 
-				case "get_price_points":
-					// 価格分析ツール（addressパラメータ + targetPropertyInput）
-					if (!this.flyerData?.address) {
-						throw new Error("物件住所が設定されていません");
-					}
-					result = await tool.execute({
-						address: this.flyerData.address,
-						zoom: 13, // 検索範囲を広げる（14→13で範囲が2倍に）
-						yearsBack: 5,
-						maxResults: 6,
-						targetPropertyInput: {
-							name: this.flyerData.name,
-							price: this.flyerData.price,
-							area: this.flyerData.area,
-							constructionYear: this.flyerData.constructionYear,
-						},
-					});
-					break;
+					case "get_price_points":
+						// 価格分析ツール（addressパラメータ + targetPropertyInput）
+						if (!this.flyerData?.address) {
+							throw new Error("物件住所が設定されていません");
+						}
+						result = await tool.execute({
+							address: this.flyerData.address,
+							zoom: 13, // 検索範囲を広げる（14→13で範囲が2倍に）
+							yearsBack: 5,
+							maxResults: 6,
+							targetPropertyInput: {
+								name: this.flyerData.name,
+								price: this.flyerData.price,
+								area: this.flyerData.area,
+								constructionYear: this.flyerData.constructionYear,
+							},
+						});
+						break;
 
-				case "get_hazard_map_url":
-				case "generate_shelter_map":
-					// 座標/住所ベースのツール（centerパラメータ）
-					if (!this.flyerData?.address) {
-						throw new Error("物件住所が設定されていません");
-					}
-					result = await tool.execute({
-						center: this.flyerData.address,
-					});
-					break;
+					case "get_hazard_map_url":
+					case "generate_shelter_map":
+						// 座標/住所ベースのツール（centerパラメータ）
+						if (!this.flyerData?.address) {
+							throw new Error("物件住所が設定されていません");
+						}
+						result = await tool.execute({
+							center: this.flyerData.address,
+						});
+						break;
 
 					case "get_price_info":
 					case "get_municipalities":
@@ -745,10 +741,7 @@ ${toolResultsPrompt}
 					safeStringify(result).substring(0, 300),
 				);
 			} catch (error) {
-				console.error(
-					`[SLIDE ${slideIndex}] Tool ${toolName} failed:`,
-					error,
-				);
+				console.error(`[SLIDE ${slideIndex}] Tool ${toolName} failed:`, error);
 				// エラーでも続行（他のツールは実行する）
 				results[toolName] = {
 					error: error instanceof Error ? error.message : "Unknown error",
@@ -756,7 +749,7 @@ ${toolResultsPrompt}
 			}
 		}
 
-		return { results, usage: totalUsage };
+		return { results };
 	}
 
 	/**
@@ -766,7 +759,11 @@ ${toolResultsPrompt}
 	private async generateSlideRawHtml(
 		definition: FixedSlideDefinition,
 		input: PrimaryInput,
-	): Promise<{ html: string; usage: UsageInfo; logData: SlideLogData }> {
+	): Promise<{
+		html: string;
+		usage: LanguageModelUsage;
+		logData: SlideLogData;
+	}> {
 		console.log(
 			`[SLIDE ${definition.index}] Starting raw HTML generation for slideType: ${definition.slideType}`,
 		);
@@ -837,12 +834,6 @@ ${input.storeEmailAddress ? `- メールアドレス: ${input.storeEmailAddress}
 
 		console.log(`[SLIDE ${definition.index}] Raw HTML generated successfully`);
 
-		const totalUsage: UsageInfo = {
-			promptTokens: usage.inputTokens ?? 0,
-			completionTokens: usage.outputTokens ?? 0,
-			totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
-		};
-
 		const logData: SlideLogData = {
 			definition,
 			inputPrompt: {
@@ -851,11 +842,11 @@ ${input.storeEmailAddress ? `- メールアドレス: ${input.storeEmailAddress}
 			},
 			output: text,
 			html,
-			usage: totalUsage,
+			usage,
 			isStatic: false,
 		};
 
-		return { html, usage: totalUsage, logData };
+		return { html, usage, logData };
 	}
 
 	/**

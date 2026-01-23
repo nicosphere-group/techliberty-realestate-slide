@@ -13,10 +13,7 @@ export const primaryInputSchema = z.object({
 	storePhoneNumber: z.string().optional().describe("店舗電話番号"),
 	storeEmailAddress: z.string().optional().describe("店舗メールアドレス"),
 
-	flyerFiles: z
-		.instanceof(File)
-		.array()
-		.min(1, "少なくとも1つのマイソクが必要です"),
+	flyerFiles: z.file().array().min(1, "少なくとも1つのマイソクが必要です"),
 
 	// 資金計画シミュレーション用（オプション）
 	annualIncome: z.number().optional().describe("年収（万円）"),
@@ -82,7 +79,9 @@ export type DataSource = z.infer<typeof dataSourceSchema>;
 
 export const slideDefinitionSchema = z.object({
 	index: z.number().describe("スライドのページ番号（1から開始）"),
-	slideType: slideTypeSchema.describe("このスライドのタイプ（固定テンプレート）"),
+	slideType: slideTypeSchema.describe(
+		"このスライドのタイプ（固定テンプレート）",
+	),
 	title: z.string().describe("スライドのタイトル"),
 	description: z.string().describe("スライドの内容の概要"),
 	contentHints: z

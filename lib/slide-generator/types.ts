@@ -2,18 +2,14 @@
 // Types
 // ========================================
 
+import type { LanguageModelUsage } from "ai";
 import type { SlideDefinition } from "./schemas";
-
-/** 生成されたスライド */
-export interface GeneratedSlide {
-	html: string;
-	sources?: string[];
-}
 
 /** SlideGenerator Event Types */
 
 interface BaseEvent {
 	type: string;
+	data?: unknown;
 }
 
 export type StartEvent = BaseEvent & {
@@ -26,65 +22,65 @@ export type PlanStartEvent = BaseEvent & {
 
 export type PlanEndEvent = BaseEvent & {
 	type: "plan:end";
-	plan: SlideDefinition[];
+	data: {
+		plan: SlideDefinition[];
+	};
 };
 
 export type PlanEvent = PlanStartEvent | PlanEndEvent;
 
-type SlideBaseEvent = BaseEvent & {
+export interface Slide {
 	index: number;
 	title: string;
-};
+	html: string;
+	sources?: string[];
+}
 
-export type SlideStartEvent = SlideBaseEvent & {
+export type SlideStartEvent = {
 	type: "slide:start";
-	title: string;
+	data: Slide;
 };
 
-export type SlideGeneratingEvent = SlideBaseEvent & {
+export type SlideGeneratingEvent = {
 	type: "slide:generating";
-	data: GeneratedSlide;
+	data: Slide;
 };
 
-export type SlideEndEvent = SlideBaseEvent & {
+export type SlideEndEvent = {
 	type: "slide:end";
-	data: {
-		slide: GeneratedSlide;
-	};
+	data: Slide;
 };
 
-export type SlideEvent =
-	| SlideStartEvent
-	| SlideGeneratingEvent
-	| SlideEndEvent;
+export type SlideEvent = SlideStartEvent | SlideGeneratingEvent | SlideEndEvent;
 
 export type EndEvent = BaseEvent & {
 	type: "end";
-	data: GeneratedSlide[];
+	data: {
+		plan: SlideDefinition[];
+		slides: {
+			index: number;
+			title: string;
+			html: string;
+			sources?: string[];
+		}[];
+	};
 };
 
 export type ErrorEvent = BaseEvent & {
 	type: "error";
-	message: string;
+	data: {
+		message: string;
+	};
 };
 
-/** トークン使用量 */
-export interface UsageInfo {
-	promptTokens: number;
-	completionTokens: number;
-	totalTokens: number;
-}
+/** Extra Event Types */
 
 export type UsageEvent = BaseEvent & {
 	type: "usage";
-	usage: UsageInfo;
-	step: string;
-};
-
-/** ストリーム接続維持用のheartbeatイベント */
-export type HeartbeatEvent = BaseEvent & {
-	type: "heartbeat";
-	timestamp: number;
+	data: {
+		step: string;
+		usage?: LanguageModelUsage;
+	};
 };
 
 export type Event =
@@ -93,5 +89,4 @@ export type Event =
 	| SlideEvent
 	| EndEvent
 	| ErrorEvent
-	| UsageEvent
-	| HeartbeatEvent;
+	| UsageEvent;
