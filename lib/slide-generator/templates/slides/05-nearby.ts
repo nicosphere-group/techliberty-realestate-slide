@@ -117,9 +117,9 @@ export function renderNearbySlide(content: NearbyContent): string {
         ${facilityGroupsHtml}
       </div>
 
-      <div class="mt-3 pt-3 border-t border-[#E2E8F0] flex items-center gap-4 opacity-60">
-        <span class="text-[14px] font-sans text-[#A0AEC0] tracking-wider">DISTANCE INFO</span>
-        <p class="text-[14px] font-sans text-[#718096]">
+      <div class="mt-3 pt-3 border-t border-[#E2E8F0] flex items-center gap-4 opacity-80">
+        <span class="text-[14px] font-sans text-[#64748B] tracking-wider">DISTANCE INFO</span>
+        <p class="text-[14px] font-sans text-[#475569]">
           ※徒歩分数は80mを1分として算出。番号は物件からの近さ順。
         </p>
       </div>
