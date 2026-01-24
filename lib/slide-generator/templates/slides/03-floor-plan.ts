@@ -108,16 +108,8 @@ export function renderFloorPlanSlide(content: FloorPlanContent): string {
 				}
       </div>
 
-      <div class="flex-1 min-h-0 overflow-y-auto pr-3 space-y-8 custom-scrollbar">
+      <div class="flex-1 min-h-0 overflow-y-auto pr-3 space-y-8 custom-scrollbar pb-4">
         ${pointsHtml}
-      </div>
-
-      <div class="mt-auto pt-8 flex justify-end opacity-20">
-        <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="text-[#1A202C]">
-          <path d="M12 2L14.5 9H9.5L12 2Z" fill="currentColor"/>
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 12L12 22" />
-        </svg>
       </div>
 
     </div>
