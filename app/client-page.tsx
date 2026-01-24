@@ -76,6 +76,9 @@ export default function ClientPage() {
 	const [slidesByPage, setSlidesByPage] = useState<Record<number, SlideState>>(
 		{},
 	);
+	const [editedHtmlByIndex, setEditedHtmlByIndex] = useState<
+		Record<number, string>
+	>({});
 	const [totalUsage, setTotalUsage] = useState(INITIAL_TOTAL_USAGE);
 	const [generationDurationMs, setGenerationDurationMs] = useState<number>(0);
 	const generationStartTimeRef = useRef<number>(0);
@@ -97,6 +100,11 @@ export default function ClientPage() {
 			(a, b) => a.data.index - b.data.index,
 		);
 	}, [slidesByPage]);
+
+	const getSlideHtml = useMemo(() => {
+		return (index: number, originalHtml: string) =>
+			editedHtmlByIndex[index] ?? originalHtml;
+	}, [editedHtmlByIndex]);
 
 	const form = useForm({
 		defaultValues: {
@@ -121,6 +129,7 @@ export default function ClientPage() {
 		onSubmit: async ({ value }) => {
 			setPlan(undefined);
 			setSlidesByPage({});
+			setEditedHtmlByIndex({});
 			setTotalUsage(INITIAL_TOTAL_USAGE);
 			setGenerationDurationMs(0);
 			generationStartTimeRef.current = Date.now();
@@ -1045,6 +1054,10 @@ export default function ClientPage() {
 													);
 													// Only show completed slides
 													if (slide.type !== "slide:end") return null;
+													const slideHtml = getSlideHtml(
+														slide.data.index,
+														slide.data.html,
+													);
 
 													return (
 														<button
@@ -1069,7 +1082,7 @@ export default function ClientPage() {
 															}}
 														>
 															<div className="pointer-events-none aspect-video w-full">
-																<ScaledFrame html={slide.data.html} />
+																<ScaledFrame html={slideHtml} />
 															</div>
 
 															{/* Index Badge */}
@@ -1222,6 +1235,10 @@ export default function ClientPage() {
 										const isCompleted = slide.type === "slide:end";
 										const isGenerating = slide.type === "slide:generating";
 										const isPending = slide.type === "slide:start";
+										const slideHtml = getSlideHtml(
+											slide.data.index,
+											slide.data.html,
+										);
 
 										return (
 											<div
@@ -1275,8 +1292,23 @@ export default function ClientPage() {
 																	slide.data.index,
 																);
 														}}
-														html={slide.data.html}
+														html={slideHtml}
+														originalHtml={slide.data.html}
 														title={slide.data.title}
+														enableEditor
+														onHtmlChange={(nextHtml) => {
+															setEditedHtmlByIndex((prev) => ({
+																...prev,
+																[slide.data.index]: nextHtml,
+															}));
+														}}
+														onHtmlReset={() => {
+															setEditedHtmlByIndex((prev) => {
+																const next = { ...prev };
+																delete next[slide.data.index];
+																return next;
+															});
+														}}
 														className="shadow-sm ring-1 ring-border group-hover:ring-primary/50 transition-all duration-300"
 													/>
 												) : (
