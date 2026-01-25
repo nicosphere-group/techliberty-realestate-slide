@@ -5,8 +5,11 @@
 
 import { PlacesClient } from "@googlemaps/places";
 import { tool } from "ai";
-import ky from "ky";
 import { z } from "zod";
+import {
+	createStaticMapUrlBuilder,
+	type StaticMapMarker,
+} from "@/lib/google-maps-static-api";
 import { uploadToS3 } from "../utils/upload";
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
@@ -159,43 +162,31 @@ export const getStaticMapUrlTool = tool({
 			throw new Error("GOOGLE_MAPS_API_KEY is not set");
 		}
 
-		const url = new URL("https://maps.googleapis.com/maps/api/staticmap");
-		url.searchParams.append("center", params.center);
-		url.searchParams.append("zoom", (params.zoom ?? 14).toString());
-		url.searchParams.append("size", params.size ?? "640x480");
-		url.searchParams.append("scale", (params.scale ?? 1).toString());
-		url.searchParams.append("format", params.format ?? "png");
-		url.searchParams.append("maptype", params.maptype ?? "roadmap");
+		const builder = createStaticMapUrlBuilder({
+			center: params.center,
+			zoom: params.zoom ?? 14,
+			size: params.size ?? "640x480",
+			scale: params.scale ?? 1,
+			format: params.format ?? "png",
+			maptype: params.maptype ?? "roadmap",
+			language: params.language,
+			region: params.region,
+			key,
+		});
 
-		if (params.language) {
-			url.searchParams.append("language", params.language);
-		}
-		if (params.region) {
-			url.searchParams.append("region", params.region);
-		}
-
-		// マーカー追加
 		if (params.markers && params.markers.length > 0) {
 			for (const marker of params.markers) {
-				const parts: string[] = [];
-				if (marker.color) {
-					parts.push(`color:${marker.color}`);
-				}
-				if (marker.size) {
-					parts.push(`size:${marker.size}`);
-				}
-				if (marker.label) {
-					parts.push(`label:${marker.label}`);
-				}
-				parts.push(marker.location);
-				url.searchParams.append("markers", parts.join("|"));
+				const staticMarker: StaticMapMarker = {
+					location: marker.location,
+					color: marker.color,
+					label: marker.label,
+					size: marker.size,
+				};
+				builder.addMarker(staticMarker);
 			}
 		}
 
-		url.searchParams.append("key", key);
-
-		// 画像を取得してS3にアップロード
-		const blob = await ky.get(url).blob();
+		const blob = await builder.toBlob();
 
 		const publicUrl = await uploadToS3(blob, "static-maps");
 
@@ -480,20 +471,23 @@ export const generateNearbyMapTool = tool({
 		}).filter((group) => group.facilities.length > 0); // 施設がないカテゴリーは除外
 
 		// 5. マーカー付き地図を生成
-		const url = new URL("https://maps.googleapis.com/maps/api/staticmap");
-		url.searchParams.append("center", `${centerLat},${centerLng}`);
-		url.searchParams.append("zoom", "15");
-		url.searchParams.append("size", "800x600");
-		url.searchParams.append("scale", "2");
-		url.searchParams.append("format", "png");
-		url.searchParams.append("maptype", "roadmap");
-		url.searchParams.append("language", "ja");
+		const builder = createStaticMapUrlBuilder({
+			center: { lat: centerLat, lng: centerLng },
+			zoom: 15,
+			size: "800x600",
+			scale: 2,
+			format: "png",
+			maptype: "roadmap",
+			language: "ja",
+			key: GOOGLE_MAPS_API_KEY,
+		});
 
 		// 物件位置のマーカー（赤）
-		url.searchParams.append(
-			"markers",
-			`color:red|label:P|${centerLat},${centerLng}`,
-		);
+		builder.addMarker({
+			location: { lat: centerLat, lng: centerLng },
+			color: "red",
+			label: "P",
+		});
 
 		// 施設マーカーを追加（連番ラベル）
 		for (const facility of numberedFacilities) {
@@ -502,16 +496,14 @@ export const generateNearbyMapTool = tool({
 				facility.number <= 9
 					? String(facility.number)
 					: String.fromCharCode(65 + facility.number - 10); // 10以上はA, B, C...
-			url.searchParams.append(
-				"markers",
-				`color:${facility.color}|label:${label}|${facility.lat},${facility.lng}`,
-			);
+			builder.addMarker({
+				location: { lat: facility.lat, lng: facility.lng },
+				color: facility.color,
+				label,
+			});
 		}
 
-		url.searchParams.append("key", GOOGLE_MAPS_API_KEY);
-
-		// 画像を取得してS3にアップロード
-		const blob = await ky.get(url).blob();
+		const blob = await builder.toBlob();
 
 		const mapImageUrl = await uploadToS3(blob, "nearby-maps");
 
