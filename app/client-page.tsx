@@ -491,7 +491,7 @@ export default function ClientPage() {
 				document.body.removeChild(a);
 				URL.revokeObjectURL(url);
 
-				toast.success("PDFのエクスポートが完了しました（マイソク付き）");
+				toast.success("PDFのエクスポートが完了しました");
 			} else {
 				// 通常のPDFダウンロード
 				doc.save(`presentation_${Date.now()}.pdf`);
