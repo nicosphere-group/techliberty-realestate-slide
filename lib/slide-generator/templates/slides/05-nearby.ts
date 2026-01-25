@@ -87,7 +87,7 @@ export function renderNearbySlide(content: NearbyContent): string {
         ${
           content.mapImageUrl
             ? `<img src="${escapeHtml(content.mapImageUrl)}" class="w-full h-full object-cover" alt="Area Map">`
-            : `<div class="absolute inset-0 flex items-center justify-center text-[#A0AEC0] font-sans tracking-widest text-xl">MAP IMAGE</div>`
+            : `<div class="absolute inset-0 flex items-center justify-center text-[#A0AEC0] font-sans tracking-widest text-xl">地図</div>`
         }
       </div>
       
@@ -105,7 +105,7 @@ export function renderNearbySlide(content: NearbyContent): string {
           </div>`).join("")}
         </div>
         <div class="flex items-center justify-between text-[#4A5568]">
-          <span class="text-[12px] font-sans font-medium tracking-wider uppercase opacity-60">Location</span>
+          <span class="text-[12px] font-sans font-medium tracking-wider uppercase opacity-60">所在地</span>
           <span class="text-[16px] font-sans font-medium">${escapeHtml(content.address)}</span>
         </div>
       </div>
@@ -118,7 +118,7 @@ export function renderNearbySlide(content: NearbyContent): string {
       </div>
 
       <div class="mt-3 pt-3 border-t border-[#E2E8F0] flex items-center gap-4 opacity-80">
-        <span class="text-[14px] font-sans text-[#64748B] tracking-wider">DISTANCE INFO</span>
+        <span class="text-[14px] font-sans text-[#64748B] tracking-wider">距離情報</span>
         <p class="text-[14px] font-sans text-[#475569]">
           ※徒歩分数は80mを1分として算出。番号は物件からの近さ順。
         </p>

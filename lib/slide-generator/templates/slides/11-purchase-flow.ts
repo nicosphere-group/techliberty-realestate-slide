@@ -59,7 +59,7 @@ export function renderPurchaseFlowSlide(): string {
         </div>
 
         <div class="relative z-10 mb-5">
-          <span class="text-[14px] font-sans font-bold tracking-[0.2em] text-[#C5A059] uppercase block mb-2">Step ${index + 1}</span>
+          <span class="text-[14px] font-sans font-bold tracking-[0.2em] text-[#C5A059] uppercase block mb-2">ステップ ${index + 1}</span>
           <h3 class="text-[28px] font-serif font-bold text-[#1A202C] leading-tight">
             ${step.title}
           </h3>
@@ -97,7 +97,7 @@ export function renderPurchaseFlowSlide(): string {
       </div>
 
       <div class="text-right">
-        <div class="text-[14px] font-sans font-bold tracking-[0.1em] text-[#A0AEC0] uppercase mb-2">Estimated Duration</div>
+        <div class="text-[14px] font-sans font-bold tracking-[0.1em] text-[#A0AEC0] uppercase mb-2">所要期間の目安</div>
         <div class="flex items-baseline justify-end gap-2 text-[#1A202C]">
           <span class="text-[24px] font-serif">約</span>
           <span class="text-[48px] font-serif font-bold text-[#C5A059]">1~2</span>

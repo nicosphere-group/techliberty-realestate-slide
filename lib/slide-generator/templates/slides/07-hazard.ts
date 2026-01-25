@@ -30,10 +30,10 @@ export function renderHazardSlide(content: HazardContent): string {
         ${
           content.hazardMapUrl
             ? `<img src="${escapeHtml(content.hazardMapUrl)}" class="absolute inset-0 w-full h-full object-cover" alt="Hazard Map">`
-            : `<div class="absolute inset-0 flex items-center justify-center text-[#A0AEC0] font-sans tracking-widest text-xl bg-[#EDF2F7]">HAZARD MAP</div>`
+            : `<div class="absolute inset-0 flex items-center justify-center text-[#A0AEC0] font-sans tracking-widest text-xl bg-[#EDF2F7]">ハザードマップ</div>`
         }
         <div class="absolute top-0 left-0 bg-[#1A202C] text-white px-6 py-3 z-20">
-          <span class="text-[13px] font-sans font-bold tracking-[0.2em] uppercase">Hazard Map</span>
+          <span class="text-[13px] font-sans font-bold tracking-[0.2em] uppercase">ハザードマップ</span>
         </div>
       </div>
 
@@ -79,10 +79,10 @@ export function renderHazardSlide(content: HazardContent): string {
         ${
           content.shelterMapUrl
             ? `<img src="${escapeHtml(content.shelterMapUrl)}" class="absolute inset-0 w-full h-full object-cover object-center" alt="Shelter Map">`
-            : `<div class="absolute inset-0 flex items-center justify-center text-[#A0AEC0] font-sans tracking-widest text-xl bg-[#EDF2F7]">SHELTER MAP</div>`
+            : `<div class="absolute inset-0 flex items-center justify-center text-[#A0AEC0] font-sans tracking-widest text-xl bg-[#EDF2F7]">避難所マップ</div>`
         }
         <div class="absolute top-0 left-0 bg-[#C5A059] text-white px-6 py-3 z-20">
-          <span class="text-[13px] font-sans font-bold tracking-[0.2em] uppercase">Evacuation</span>
+          <span class="text-[13px] font-sans font-bold tracking-[0.2em] uppercase">避難所マップ</span>
         </div>
       </div>
 

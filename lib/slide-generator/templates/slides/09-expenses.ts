@@ -101,8 +101,8 @@ export function renderExpensesSlide(content: ExpensesContent): string {
 
     <section class="flex-1 bg-white border border-[#E2E8F0] shadow-sm p-10 flex flex-col">
       <div class="flex justify-between items-end mb-5 border-b-2 border-[#1A202C] pb-3">
-        <span class="text-[16px] font-sans font-bold tracking-[0.1em] text-[#1A202C] uppercase">Expense Items</span>
-        <span class="text-[16px] font-sans font-bold tracking-[0.1em] text-[#1A202C] uppercase">Amount (JPY)</span>
+        <span class="text-[16px] font-sans font-bold tracking-[0.1em] text-[#1A202C] uppercase">費用項目</span>
+        <span class="text-[16px] font-sans font-bold tracking-[0.1em] text-[#1A202C] uppercase">金額</span>
       </div>
 
       <div class="flex-1 overflow-y-auto pr-3 custom-scrollbar">

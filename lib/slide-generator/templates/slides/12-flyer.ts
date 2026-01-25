@@ -16,37 +16,32 @@ export function renderFlyerSlide(imageUrls: string[]): string {
     return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] flex items-center justify-center">
       <div class="text-center">
         <div class="text-[100px] text-[#E2E8F0] mb-6">■</div>
-        <p class="text-3xl font-serif text-[#A0AEC0] tracking-widest">NO FLYER IMAGE</p>
+        <p class="text-3xl font-serif text-[#A0AEC0] tracking-widest">マイソク画像なし</p>
       </div>
     </div>`;
   }
 
-  // 画像生成ロジック
-  let imagesHtml = "";
-
+  // 【画像形式の場合】単一画像をスライド全体いっぱいに表示（ヘッダーなし）
   if (imageUrls.length === 1) {
-    // 【単一画像モード】画像を大きく中央表示
-    imagesHtml = `
-      <div class="flex-1 min-h-0 flex items-center justify-center">
-        <img
-          src="${escapeHtml(imageUrls[0])}"
-          alt="マイソク"
-          class="max-w-full max-h-full object-contain shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-[#E2E8F0]"
-        />
-      </div>
-    `;
-  } else {
-    // 【複数画像モード】2枚なら左右分割、3枚以上ならグリッド
-    const gridClass = imageUrls.length === 2 ? "grid-cols-2 gap-8" : "grid-cols-3 gap-6";
-
-    const items = imageUrls.map(url =>
-      `<div class="flex items-center justify-center overflow-hidden bg-white border border-[#E2E8F0] shadow-md p-4">
-         <img src="${escapeHtml(url)}" alt="マイソク" class="max-w-full max-h-full object-contain" />
-       </div>`
-    ).join("\n");
-
-    imagesHtml = `<div class="flex-1 min-h-0 grid ${gridClass}">${items}</div>`;
+    return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-black flex items-center justify-center p-0">
+      <img
+        src="${escapeHtml(imageUrls[0])}"
+        alt="マイソク"
+        class="w-full h-full object-contain"
+      />
+    </div>`;
   }
+
+  // 【複数画像モード】2枚なら左右分割、3枚以上ならグリッド（従来のデザインを維持）
+  const gridClass = imageUrls.length === 2 ? "grid-cols-2 gap-8" : "grid-cols-3 gap-6";
+
+  const items = imageUrls.map(url =>
+    `<div class="flex items-center justify-center overflow-hidden bg-white border border-[#E2E8F0] shadow-md p-4">
+       <img src="${escapeHtml(url)}" alt="マイソク" class="max-w-full max-h-full object-contain" />
+     </div>`
+  ).join("\n");
+
+  const imagesHtml = `<div class="flex-1 min-h-0 grid ${gridClass}">${items}</div>`;
 
   return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
 

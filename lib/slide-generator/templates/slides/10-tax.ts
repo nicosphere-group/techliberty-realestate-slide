@@ -60,7 +60,7 @@ export function renderTaxSlide(): string {
 
     <div class="flex-1 bg-white border border-[#E2E8F0] shadow-lg flex flex-col relative overflow-hidden">
       <div class="bg-[#1A202C] text-white p-8 grid grid-cols-12 items-center">
-        <div class="col-span-4 text-[14px] font-sans font-bold tracking-[0.2em] uppercase opacity-70">Category</div>
+        <div class="col-span-4 text-[14px] font-sans font-bold tracking-[0.2em] uppercase opacity-70">カテゴリ</div>
         <div class="col-span-4 text-center border-r border-white/20">
           <span class="text-[20px] font-serif font-medium text-white/70 block">新築・買取再販</span>
           <span class="text-[11px] font-sans opacity-50 uppercase tracking-widest">New / Renovation</span>
@@ -74,7 +74,7 @@ export function renderTaxSlide(): string {
       <div class="flex-1 flex flex-col justify-center p-3">
         <div class="grid grid-cols-12 py-8 border-b border-[#E2E8F0] items-center">
           <div class="col-span-4 pl-10">
-             <span class="text-[16px] font-bold text-[#4A5568] uppercase tracking-widest block mb-2">Period</span>
+             <span class="text-[16px] font-bold text-[#4A5568] uppercase tracking-widest block mb-2">控除期間</span>
              <span class="text-[22px] font-serif font-bold text-[#1A202C]">控除期間</span>
           </div>
           <div class="col-span-4 text-center border-l border-[#E2E8F0]">
@@ -87,7 +87,7 @@ export function renderTaxSlide(): string {
 
         <div class="grid grid-cols-12 py-7 border-b border-[#E2E8F0] items-center">
           <div class="col-span-4 pl-10">
-             <span class="text-[14px] font-bold text-[#A0AEC0] uppercase tracking-widest block mb-2">Rate</span>
+             <span class="text-[14px] font-bold text-[#A0AEC0] uppercase tracking-widest block mb-2">控除率</span>
              <span class="text-[20px] font-serif font-medium text-[#2D3748]">控除率</span>
           </div>
           <div class="col-span-4 text-center border-l border-[#E2E8F0]">
@@ -100,7 +100,7 @@ export function renderTaxSlide(): string {
 
         <div class="grid grid-cols-12 py-7 border-b border-[#E2E8F0] items-center">
           <div class="col-span-4 pl-10">
-             <span class="text-[14px] font-bold text-[#A0AEC0] uppercase tracking-widest block mb-2">Loan Limit</span>
+             <span class="text-[14px] font-bold text-[#A0AEC0] uppercase tracking-widest block mb-2">借入残高上限</span>
              <span class="text-[20px] font-serif font-medium text-[#2D3748]">借入残高上限</span>
           </div>
           <div class="col-span-4 text-center border-l border-[#E2E8F0] px-3">
@@ -113,7 +113,7 @@ export function renderTaxSlide(): string {
 
          <div class="grid grid-cols-12 py-7 items-center">
           <div class="col-span-4 pl-10">
-             <span class="text-[14px] font-bold text-[#A0AEC0] uppercase tracking-widest block mb-2">Requirement</span>
+             <span class="text-[14px] font-bold text-[#A0AEC0] uppercase tracking-widest block mb-2">要件</span>
              <span class="text-[20px] font-serif font-medium text-[#2D3748]">省エネ基準</span>
           </div>
           <div class="col-span-4 text-center border-l border-[#E2E8F0]">
