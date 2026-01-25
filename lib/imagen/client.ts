@@ -3,17 +3,23 @@
  * Gemini 画像生成API (gemini-3-pro-image-preview) を使用
  */
 
-import { type Content, GoogleGenAI, type Part } from "@google/genai";
+import {
+	type Content,
+	GoogleGenAI,
+	HarmBlockThreshold,
+	HarmCategory,
+	type Part,
+} from "@google/genai";
 import { PlacesClient } from "@googlemaps/places";
 import { RoutesClient } from "@googlemaps/routing";
 import ky from "ky";
 import sharp from "sharp";
 import { ObjectDetection } from "../object-detection/client";
+import { boundingBoxSchema } from "./schemas";
 import type {
+	BoundingBox,
 	ExtractFloorPlanParams,
 	ExtractPropertyImageParams,
-	FloorPlanBoundingBox,
-	GeminiSegmentationResult,
 	GeneratedImage,
 	GenerateRouteMapFromAddressParams,
 	GenerateRouteMapParams,
@@ -23,6 +29,7 @@ import type {
 	RouteDataResult,
 	RouteInfo,
 } from "./types";
+import { blobToBase64, cropBoundingBoxes, fetchAsBlob } from "./utils";
 
 const GEMINI_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
@@ -39,81 +46,6 @@ const DEFAULT_MAJOR_STATIONS: MajorStation[] = [
 
 /** 画像サイズ: 2K固定 */
 const IMAGE_SIZE = "2K" as const;
-
-/** Gemini画像生成APIでサポートされていないMIMEタイプ */
-const UNSUPPORTED_MIME_TYPES = ["image/svg+xml", "image/gif"];
-
-/**
- * URLから画像をダウンロードしてBase64に変換
- */
-async function fetchImageAsBase64(
-	url: string,
-): Promise<{ data: string; mimeType: string } | null> {
-	try {
-		// Data URL（base64）の場合は直接パース
-		if (url.startsWith("data:")) {
-			const matches = url.match(/^data:([^;]+);base64,(.+)$/);
-			if (matches) {
-				const mimeType = matches[1];
-				if (UNSUPPORTED_MIME_TYPES.includes(mimeType)) {
-					console.warn(
-						`Skipping unsupported image format (data URL): ${mimeType}`,
-					);
-					return null;
-				}
-				return {
-					mimeType,
-					data: matches[2],
-				};
-			}
-			console.warn("Invalid data URL format");
-			return null;
-		}
-
-		// HTTPリクエストで画像を取得
-		const response = await fetch(url);
-		if (!response.ok) {
-			console.warn(`Failed to fetch image: ${url}`);
-			return null;
-		}
-
-		let contentType = response.headers.get("content-type") || "image/jpeg";
-
-		// 不明な形式の場合、URLから推測
-		if (
-			contentType === "application/octet-stream" ||
-			!contentType.startsWith("image/")
-		) {
-			const urlPath = url.split("?")[0].toLowerCase();
-			if (urlPath.endsWith(".jpg") || urlPath.endsWith(".jpeg"))
-				contentType = "image/jpeg";
-			else if (urlPath.endsWith(".png")) contentType = "image/png";
-			else if (urlPath.endsWith(".webp")) contentType = "image/webp";
-			else {
-				console.warn(`Skipping unknown content type: ${contentType} (${url})`);
-				return null;
-			}
-		}
-
-		if (UNSUPPORTED_MIME_TYPES.includes(contentType)) {
-			console.warn(
-				`Skipping unsupported image format: ${contentType} (${url})`,
-			);
-			return null;
-		}
-
-		const arrayBuffer = await response.arrayBuffer();
-		const base64 = Buffer.from(arrayBuffer).toString("base64");
-
-		return {
-			data: base64,
-			mimeType: contentType,
-		};
-	} catch (error) {
-		console.error(`Error fetching image: ${url}`, error);
-		return null;
-	}
-}
 
 /**
  * エラーメッセージを日本語に変換
@@ -144,7 +76,7 @@ function extractErrorMessage(error: unknown): string {
 /**
  * 不動産スライド用画像生成クライアント
  */
-export class RealEstateImagenClient {
+export class RealEstateImagen {
 	private ai: GoogleGenAI;
 	private placesClient: PlacesClient | null = null;
 	private routesClient: RoutesClient | null = null;
@@ -176,40 +108,47 @@ export class RealEstateImagenClient {
 
 		try {
 			// マイソク画像を取得
-			const maisokuImage = await fetchImageAsBase64(params.maisokuImageUrl);
-			if (!maisokuImage) {
-				return {
-					image: null,
-					error: "マイソク画像を取得できませんでした。",
-				};
-			}
+			const maisokuBlob = await fetchAsBlob(params.maisokuImageUrl);
 
 			// Step 1: Vision APIで外観写真の領域を検出
 			// console.log("Step 1: 外観写真の領域を検出中...")
-			const boundingBox =
-				await this.detectPropertyImageBoundingBox(maisokuImage);
-			if (!boundingBox) {
+			const boundingBoxes =
+				await this.detectPropertyImageBoundingBoxes(maisokuBlob);
+			if (boundingBoxes.length === 0) {
 				return {
 					image: null,
 					error: "外観写真を検出できませんでした。",
 				};
 			}
-			// console.log("検出されたバウンディングボックス:", boundingBox)
+			// console.log("検出されたバウンディングボックス:", boundingBoxes)
 
 			// Step 2: Sharpでクロップ
 			// console.log("Step 2: 外観写真をクロップ中...")
-			const croppedImage = await this.cropFloorPlan(maisokuImage, boundingBox);
-			if (!croppedImage) {
+			const bestBoundingBox = boundingBoxes.reduce((best, current) => {
+				const bestArea =
+					(best.box_2d[3] - best.box_2d[1]) * (best.box_2d[2] - best.box_2d[0]);
+				const currentArea =
+					(current.box_2d[3] - current.box_2d[1]) *
+					(current.box_2d[2] - current.box_2d[0]);
+				return currentArea > bestArea ? current : best;
+			});
+
+			const croppedBlobs = await cropBoundingBoxes(maisokuBlob, [
+				bestBoundingBox,
+			]);
+			const croppedBlob = croppedBlobs[0];
+			if (!croppedBlob) {
 				return {
 					image: null,
 					error: "外観写真のクロップに失敗しました。",
 				};
 			}
 
+			const croppedImage = croppedBlob;
+
 			// クロップ画像を中間結果として保存
 			const croppedImageData: GeneratedImage = {
-				imageData: Buffer.from(croppedImage.data, "base64"),
-				mimeType: croppedImage.mimeType,
+				blob: croppedImage,
 				prompt: "クロップ済み外観写真",
 			};
 
@@ -237,11 +176,11 @@ export class RealEstateImagenClient {
 	/**
 	 * Vision APIで外観写真のバウンディングボックスを検出
 	 * Gemini公式セグメンテーション形式を使用
+	 * Reference: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/bounding-box-detection
 	 */
-	private async detectPropertyImageBoundingBox(imageData: {
-		data: string;
-		mimeType: string;
-	}): Promise<FloorPlanBoundingBox | null> {
+	private async detectPropertyImageBoundingBoxes(
+		imageBlob: Blob,
+	): Promise<BoundingBox[]> {
 		const prompt = `あなたは不動産チラシ（マイソク）の画像解析エキスパートです。
 この画像から建物の外観写真を正確に検出してください。
 
@@ -278,11 +217,12 @@ Output a JSON list where each entry contains:
 
 Return empty array [] if no exterior photo is found.`;
 
+		const base64 = await blobToBase64(imageBlob);
 		const parts: Part[] = [
 			{
 				inlineData: {
-					data: imageData.data,
-					mimeType: imageData.mimeType,
+					data: base64,
+					mimeType: imageBlob.type,
 				},
 			},
 			{ text: prompt },
@@ -294,91 +234,30 @@ Return empty array [] if no exterior photo is found.`;
 			model: "gemini-3-flash-preview",
 			contents,
 			config: {
-				responseModalities: ["TEXT"],
-				thinkingConfig: {
-					thinkingBudget: 0, // オブジェクト検出に最適化
-				},
+				temperature: 0.5,
+				safetySettings: [
+					{
+						category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+						threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+					},
+				],
+				responseMimeType: "application/json",
+				responseJsonSchema: boundingBoxSchema.array().toJSONSchema(),
 			},
 		});
 
-		const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
-		if (!text) {
-			console.error("No text response from bounding box detection");
-			return null;
-		}
+		const boundingBoxes = await boundingBoxSchema
+			.array()
+			.parseAsync(JSON.parse(response.text ?? ""));
 
-		// console.log("Property image detection response:", text)
-
-		try {
-			// JSONを抽出（マークダウンのコードブロックを考慮）
-			const jsonMatch = text.match(/\[[\s\S]*\]/);
-			if (!jsonMatch) {
-				console.error("No JSON array found in response:", text);
-				return null;
-			}
-
-			const results: GeminiSegmentationResult[] = JSON.parse(jsonMatch[0]);
-			if (results.length === 0) {
-				console.error("No property image found in the maisoku");
-				return null;
-			}
-
-			// 最初の結果を使用（最も大きい外観写真）
-			const result = results[0];
-			const [y0, x0, y1, x1] = result.box_2d;
-
-			// 値のバリデーション（0-1000の範囲）
-			if (
-				y0 < 0 ||
-				y0 > 1000 ||
-				x0 < 0 ||
-				x0 > 1000 ||
-				y1 < 0 ||
-				y1 > 1000 ||
-				x1 < 0 ||
-				x1 > 1000 ||
-				y0 >= y1 ||
-				x0 >= x1
-			) {
-				console.error("Invalid bounding box values:", result.box_2d);
-				return null;
-			}
-
-			// 0-1000座標を0-1座標に変換
-			const x = x0 / 1000;
-			const y = y0 / 1000;
-			const width = (x1 - x0) / 1000;
-			const height = (y1 - y0) / 1000;
-
-			// パディングを追加（3%）して切れを防止
-			const padding = 0.03;
-			const paddedX = Math.max(0, x - padding);
-			const paddedY = Math.max(0, y - padding);
-			const paddedWidth = Math.min(1 - paddedX, width + padding * 2);
-			const paddedHeight = Math.min(1 - paddedY, height + padding * 2);
-
-			// console.log("Detected label:", result.label)
-			// console.log("Original box_2d:", result.box_2d)
-			// console.log("Converted bbox:", { x, y, width, height })
-			// console.log("Padded bbox:", { x: paddedX, y: paddedY, width: paddedWidth, height: paddedHeight })
-
-			return {
-				x: paddedX,
-				y: paddedY,
-				width: paddedWidth,
-				height: paddedHeight,
-			};
-		} catch (error) {
-			console.error("Failed to parse bounding box JSON:", error, text);
-			return null;
-		}
+		return boundingBoxes;
 	}
 
 	/**
 	 * クロップした外観写真を綺麗に再生成
 	 */
 	private async regeneratePropertyImage(
-		croppedImage: { data: string; mimeType: string },
+		croppedImage: Blob,
 		aspectRatio: string,
 	): Promise<ImageGenerationResult> {
 		const prompt = `この画像は不動産チラシ（マイソク）からクロップした建物の外観写真です。
@@ -404,11 +283,12 @@ Return empty array [] if no exterior photo is found.`;
 【出力】
 3:4の縦長画像で、建物の外観のみを出力してください。`;
 
+		const base64 = await blobToBase64(croppedImage);
 		const parts: Part[] = [
 			{
 				inlineData: {
-					data: croppedImage.data,
-					mimeType: croppedImage.mimeType,
+					data: base64,
+					mimeType: croppedImage.type || "image/png",
 				},
 			},
 			{ text: prompt },
@@ -439,15 +319,6 @@ Return empty array [] if no exterior photo is found.`;
 		params: ExtractFloorPlanParams,
 	): Promise<ImageGenerationResult> {
 		try {
-			// マイソク画像を取得
-			const maisokuImage = await fetchImageAsBase64(params.maisokuImageUrl);
-			if (!maisokuImage) {
-				return {
-					image: null,
-					error: "マイソク画像を取得できませんでした。",
-				};
-			}
-
 			// Step 1: SAM-3で間取り図の領域を検出し抽出
 			const { image: croppedImage } = await this.objectDetection.detectObjects({
 				image_url: params.maisokuImageUrl,
@@ -464,28 +335,31 @@ Return empty array [] if no exterior photo is found.`;
 				};
 			}
 
-			const croppedImageArrayBuffer = await ky
-				.get(croppedImage.url)
-				.arrayBuffer();
+			const croppedImageBlob = await ky.get(croppedImage.url).blob();
+
+			const trimmedImageBlob = await sharp(
+				Buffer.from(await croppedImageBlob.arrayBuffer()),
+			)
+				.trim()
+				.toBuffer()
+				.then(
+					(b) => new Blob([new Uint8Array(b)], { type: croppedImageBlob.type }),
+				);
 
 			// クロップ画像を中間結果として保存
-			const croppedImageData: GeneratedImage = {
-				imageData: Buffer.from(croppedImageArrayBuffer),
-				mimeType: croppedImage.content_type || "image/png",
+			const trimmedImageData: GeneratedImage = {
+				blob: trimmedImageBlob,
 				prompt: "クロップ済み間取り図",
 			};
 
 			// Step 3: クロップした間取り図を綺麗に再生成
 			// console.log("Step 3: 間取り図を綺麗に再生成中...")
-			const result = await this.regenerateFloorPlan({
-				data: croppedImageData.imageData.toString("base64"),
-				mimeType: croppedImageData.mimeType,
-			});
+			const result = await this.regenerateFloorPlan(trimmedImageBlob);
 
 			// 中間画像を結果に追加
 			return {
 				...result,
-				intermediateImage: croppedImageData,
+				intermediateImage: trimmedImageData,
 			};
 		} catch (error) {
 			console.error("Failed to extract floor plan image:", error);
@@ -497,55 +371,12 @@ Return empty array [] if no exterior photo is found.`;
 	}
 
 	/**
-	 * Sharpを使って画像をクロップ
-	 */
-	private async cropFloorPlan(
-		imageData: { data: string; mimeType: string },
-		bbox: FloorPlanBoundingBox,
-	): Promise<{ data: string; mimeType: string } | null> {
-		try {
-			const inputBuffer = Buffer.from(imageData.data, "base64");
-
-			// 画像のメタデータを取得
-			const metadata = await sharp(inputBuffer).metadata();
-			const imageWidth = metadata.width || 0;
-			const imageHeight = metadata.height || 0;
-
-			if (imageWidth === 0 || imageHeight === 0) {
-				console.error("Invalid image dimensions");
-				return null;
-			}
-
-			// 正規化座標からピクセル座標に変換
-			const left = Math.round(bbox.x * imageWidth);
-			const top = Math.round(bbox.y * imageHeight);
-			const width = Math.round(bbox.width * imageWidth);
-			const height = Math.round(bbox.height * imageHeight);
-
-			// クロップ実行
-			const croppedBuffer = await sharp(inputBuffer)
-				.extract({ left, top, width, height })
-				.png()
-				.toBuffer();
-
-			return {
-				data: croppedBuffer.toString("base64"),
-				mimeType: "image/png",
-			};
-		} catch (error) {
-			console.error("Failed to crop image:", error);
-			return null;
-		}
-	}
-
-	/**
 	 * クロップした間取り図を綺麗に再生成
 	 * 重要: 間取り情報は正確に保持する必要がある
 	 */
-	private async regenerateFloorPlan(croppedImage: {
-		data: string;
-		mimeType: string;
-	}): Promise<ImageGenerationResult> {
+	private async regenerateFloorPlan(
+		croppedImage: Blob,
+	): Promise<ImageGenerationResult> {
 		const prompt = `この画像は不動産チラシ（マイソク）からクロップした間取り図です。
 
 【最重要: 正確性の厳守】
@@ -582,11 +413,12 @@ Return empty array [] if no exterior photo is found.`;
 間取り図のみを、元のアスペクト比を維持して出力。
 元の情報を絶対に改変しないこと。`;
 
+		const base64 = await blobToBase64(croppedImage);
 		const parts: Part[] = [
 			{
 				inlineData: {
-					data: croppedImage.data,
-					mimeType: croppedImage.mimeType,
+					data: base64,
+					mimeType: croppedImage.type || "image/png",
 				},
 			},
 			{ text: prompt },
@@ -724,8 +556,9 @@ ${routeDetails}
 		const imageData = Buffer.from(imagePart.inlineData.data, "base64");
 
 		const generatedImage: GeneratedImage = {
-			imageData,
-			mimeType: imagePart.inlineData.mimeType || "image/png",
+			blob: new Blob([imageData], {
+				type: imagePart.inlineData.mimeType || "image/png",
+			}),
 			prompt,
 			aspectRatio,
 		};

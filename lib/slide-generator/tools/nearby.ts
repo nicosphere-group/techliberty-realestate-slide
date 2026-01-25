@@ -7,7 +7,7 @@ import { PlacesClient } from "@googlemaps/places";
 import { tool } from "ai";
 import ky from "ky";
 import { z } from "zod";
-import { uploadToS3 } from "./upload";
+import { uploadToS3 } from "../utils/upload";
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
@@ -195,17 +195,9 @@ export const getStaticMapUrlTool = tool({
 		url.searchParams.append("key", key);
 
 		// 画像を取得してS3にアップロード
-		const buffer = await ky
-			.get(url)
-			.arrayBuffer()
-			.then((arrayBuffer) => Buffer.from(arrayBuffer));
+		const blob = await ky.get(url).blob();
 
-		const format = params.format ?? "png";
-		const publicUrl = await uploadToS3(
-			buffer,
-			"static-maps",
-			`image/${format}`,
-		);
+		const publicUrl = await uploadToS3(blob, "static-maps");
 
 		return { url: publicUrl };
 	},
@@ -519,12 +511,9 @@ export const generateNearbyMapTool = tool({
 		url.searchParams.append("key", GOOGLE_MAPS_API_KEY);
 
 		// 画像を取得してS3にアップロード
-		const buffer = await ky
-			.get(url)
-			.arrayBuffer()
-			.then((arrayBuffer) => Buffer.from(arrayBuffer));
+		const blob = await ky.get(url).blob();
 
-		const mapImageUrl = await uploadToS3(buffer, "nearby-maps", "image/png");
+		const mapImageUrl = await uploadToS3(blob, "nearby-maps");
 
 		return {
 			facilityGroups,

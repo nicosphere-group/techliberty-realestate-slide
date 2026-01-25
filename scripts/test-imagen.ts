@@ -35,13 +35,13 @@ if (existsSync(envPath)) {
 	}
 }
 
-import { RealEstateImagenClient } from "../lib/imagen";
+import { RealEstateImagen } from "../lib/imagen";
 
 // テスト用のサンプルマイソク画像URL（公開されているサンプル画像を使用）
 // 実際のテスト時は有効なマイソク画像URLに置き換えてください
 const SAMPLE_MAISOKU_URL = process.env.TEST_MAISOKU_URL || "";
 
-async function testPropertyImage(client: RealEstateImagenClient) {
+async function testPropertyImage(client: RealEstateImagen) {
 	console.log("\n=== 物件画像抽出テスト ===");
 
 	if (!SAMPLE_MAISOKU_URL) {
@@ -68,24 +68,25 @@ async function testPropertyImage(client: RealEstateImagenClient) {
 		// クロップ画像を保存（中間結果）
 		if (result.intermediateImage) {
 			const croppedFilename = `test-property-cropped-${timestamp}.png`;
-			writeFileSync(croppedFilename, result.intermediateImage.imageData);
-			console.log(`クロップ画像を保存しました: ${croppedFilename}`);
-			console.log(
-				`  - サイズ: ${result.intermediateImage.imageData.length} bytes`,
+			writeFileSync(
+				croppedFilename,
+				Buffer.from(await result.intermediateImage.blob.arrayBuffer()),
 			);
+			console.log(`クロップ画像を保存しました: ${croppedFilename}`);
+			console.log(`  - サイズ: ${result.intermediateImage.blob.size} bytes`);
 		}
 
 		// 最終生成画像を保存
 		const filename = `test-property-image-${timestamp}.png`;
-		writeFileSync(filename, result.image.imageData);
+		writeFileSync(filename, Buffer.from(await result.image.blob.arrayBuffer()));
 		console.log(`成功! 最終画像を保存しました: ${filename}`);
 		console.log(`  - アスペクト比: ${result.image.aspectRatio}`);
-		console.log(`  - MIMEタイプ: ${result.image.mimeType}`);
-		console.log(`  - サイズ: ${result.image.imageData.length} bytes`);
+		console.log(`  - MIMEタイプ: ${result.image.blob.type}`);
+		console.log(`  - サイズ: ${result.image.blob.size} bytes`);
 	}
 }
 
-async function testFloorPlanImage(client: RealEstateImagenClient) {
+async function testFloorPlanImage(client: RealEstateImagen) {
 	console.log("\n=== 間取り図抽出テスト ===");
 
 	if (!SAMPLE_MAISOKU_URL) {
@@ -112,24 +113,25 @@ async function testFloorPlanImage(client: RealEstateImagenClient) {
 		// クロップ画像を保存（中間結果）
 		if (result.intermediateImage) {
 			const croppedFilename = `test-floorplan-cropped-${timestamp}.png`;
-			writeFileSync(croppedFilename, result.intermediateImage.imageData);
-			console.log(`クロップ画像を保存しました: ${croppedFilename}`);
-			console.log(
-				`  - サイズ: ${result.intermediateImage.imageData.length} bytes`,
+			writeFileSync(
+				croppedFilename,
+				Buffer.from(await result.intermediateImage.blob.arrayBuffer()),
 			);
+			console.log(`クロップ画像を保存しました: ${croppedFilename}`);
+			console.log(`  - サイズ: ${result.intermediateImage.blob.size} bytes`);
 		}
 
 		// 最終生成画像を保存
 		const filename = `test-floorplan-image-${timestamp}.png`;
-		writeFileSync(filename, result.image.imageData);
+		writeFileSync(filename, Buffer.from(await result.image.blob.arrayBuffer()));
 		console.log(`成功! 最終画像を保存しました: ${filename}`);
 		console.log(`  - アスペクト比: ${result.image.aspectRatio}`);
-		console.log(`  - MIMEタイプ: ${result.image.mimeType}`);
-		console.log(`  - サイズ: ${result.image.imageData.length} bytes`);
+		console.log(`  - MIMEタイプ: ${result.image.blob.type}`);
+		console.log(`  - サイズ: ${result.image.blob.size} bytes`);
 	}
 }
 
-async function testRouteMapImage(client: RealEstateImagenClient) {
+async function testRouteMapImage(client: RealEstateImagen) {
 	console.log("\n=== 路線図生成テスト（手動データ） ===");
 
 	const result = await client.generateRouteMapImage({
@@ -177,15 +179,15 @@ async function testRouteMapImage(client: RealEstateImagenClient) {
 
 	if (result.image) {
 		const filename = `test-routemap-image-${Date.now()}.png`;
-		writeFileSync(filename, result.image.imageData);
+		writeFileSync(filename, Buffer.from(await result.image.blob.arrayBuffer()));
 		console.log(`成功! 画像を保存しました: ${filename}`);
 		console.log(`  - アスペクト比: ${result.image.aspectRatio}`);
-		console.log(`  - MIMEタイプ: ${result.image.mimeType}`);
-		console.log(`  - サイズ: ${result.image.imageData.length} bytes`);
+		console.log(`  - MIMEタイプ: ${result.image.blob.type}`);
+		console.log(`  - サイズ: ${result.image.blob.size} bytes`);
 	}
 }
 
-async function testRouteMapFromAddress(client: RealEstateImagenClient) {
+async function testRouteMapFromAddress(client: RealEstateImagen) {
 	console.log("\n=== 路線図生成テスト（住所から自動取得） ===");
 
 	const address = process.env.TEST_ADDRESS || "東京都渋谷区恵比寿1-1-1";
@@ -224,11 +226,11 @@ async function testRouteMapFromAddress(client: RealEstateImagenClient) {
 
 	if (result.image) {
 		const filename = `test-routemap-from-address-${Date.now()}.png`;
-		writeFileSync(filename, result.image.imageData);
+		writeFileSync(filename, Buffer.from(await result.image.blob.arrayBuffer()));
 		console.log(`成功! 画像を保存しました: ${filename}`);
 		console.log(`  - アスペクト比: ${result.image.aspectRatio}`);
-		console.log(`  - MIMEタイプ: ${result.image.mimeType}`);
-		console.log(`  - サイズ: ${result.image.imageData.length} bytes`);
+		console.log(`  - MIMEタイプ: ${result.image.blob.type}`);
+		console.log(`  - サイズ: ${result.image.blob.size} bytes`);
 	}
 }
 
@@ -238,7 +240,7 @@ async function main() {
 	console.log("=== Imagen Client テスト ===");
 	console.log(`テストタイプ: ${testType}`);
 
-	const client = new RealEstateImagenClient();
+	const client = new RealEstateImagen();
 
 	switch (testType) {
 		case "property":

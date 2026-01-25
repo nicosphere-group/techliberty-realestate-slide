@@ -3,7 +3,7 @@
 // ========================================
 
 import type { LanguageModelUsage } from "ai";
-import type { SlideDefinition } from "./schemas";
+import type { SlideDefinition } from "../schemas";
 
 /** SlideGenerator Event Types */
 

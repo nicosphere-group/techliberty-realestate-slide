@@ -1,13 +1,19 @@
+import type z from "zod";
+import type { boundingBoxSchema } from "./schemas";
+
+/**
+ * スキーマから推論された型定義
+ */
+export type BoundingBox = z.infer<typeof boundingBoxSchema>;
+
 /**
  * 不動産スライド用画像生成の型定義
  */
 
 /** 生成された画像 */
 export interface GeneratedImage {
-	/** 画像データ (Buffer) */
-	imageData: Buffer;
-	/** MIMEタイプ */
-	mimeType: string;
+	/** 画像のBlobデータ */
+	blob: Blob;
 	/** 生成に使用したプロンプト */
 	prompt: string;
 	/** アスペクト比（指定なしの場合はundefined） */
@@ -34,28 +40,6 @@ export interface ExtractPropertyImageParams {
 export interface ExtractFloorPlanParams {
 	/** マイソク画像のURL or Base64 */
 	maisokuImageUrl: string;
-}
-
-/** 間取り図バウンディングボックス（内部形式） */
-export interface FloorPlanBoundingBox {
-	/** 左上X座標（0-1の正規化座標） */
-	x: number;
-	/** 左上Y座標（0-1の正規化座標） */
-	y: number;
-	/** 幅（0-1の正規化座標） */
-	width: number;
-	/** 高さ（0-1の正規化座標） */
-	height: number;
-}
-
-/** Gemini公式セグメンテーション形式のバウンディングボックス */
-export interface GeminiSegmentationResult {
-	/** バウンディングボックス [y0, x0, y1, x1] 形式、0-1000の正規化座標 */
-	box_2d: [number, number, number, number];
-	/** セグメンテーションマスク（base64エンコードされたPNG） */
-	mask?: string;
-	/** ラベル */
-	label: string;
 }
 
 /** 路線図生成パラメータ */

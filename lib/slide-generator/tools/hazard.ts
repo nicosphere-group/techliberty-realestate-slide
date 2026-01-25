@@ -13,7 +13,7 @@ import {
 	type ShelterMapOptions,
 	shelterMapOptionsSchema,
 } from "@/lib/shelter-map";
-import { uploadToS3 } from "./upload";
+import { uploadToS3 } from "../utils/upload";
 
 // シングルトンインスタンス
 const hazardMapGenerator = new HazardMapGenerator();
@@ -30,7 +30,10 @@ export const getHazardMapUrlTool = tool({
 	execute: async (params: HazardMapOptions) => {
 		const buffer = await hazardMapGenerator.generate(params);
 		const format = params.format || "png";
-		const url = await uploadToS3(buffer, "hazard-maps", `image/${format}`);
+		const blob = new Blob([new Uint8Array(buffer)], {
+			type: `image/${format}`,
+		});
+		const url = await uploadToS3(blob, "hazard-maps");
 		return { url };
 	},
 });
@@ -47,7 +50,10 @@ export const generateShelterMapTool = tool({
 		// 地図画像を生成
 		const buffer = await shelterMapGenerator.generate(params);
 		const format = params.format || "png";
-		const url = await uploadToS3(buffer, "shelter-maps", `image/${format}`);
+		const blob = new Blob([new Uint8Array(buffer)], {
+			type: `image/${format}`,
+		});
+		const url = await uploadToS3(blob, "shelter-maps");
 
 		// 避難所データも取得（距離順で最寄りN箇所）
 		const zoom = params.zoom ?? 14;

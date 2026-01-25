@@ -1,5 +1,5 @@
 import z from "zod";
-import { SLIDE_TYPES } from "./types/slide-types";
+import { SLIDE_TYPES } from "./types/slide";
 
 // ========================================
 // Schemas
@@ -64,7 +64,7 @@ export class FlyerDataModel implements FlyerData {
 // スライドタイプスキーマ（新しいスライドタイプベース）
 export const slideTypeSchema = z.enum(SLIDE_TYPES);
 
-export type { SlideType } from "./types/slide-types";
+export type { SlideType } from "./types/slide";
 
 export const dataSourceSchema = z.enum([
 	"primary", // 一次データ（マイソク、入力情報）

@@ -9,7 +9,7 @@
  */
 
 import z from "zod";
-import type { SlideType } from "../types/slide-types";
+import type { SlideType } from "../types/slide";
 
 // ========================================
 // 1. Cover（表紙）

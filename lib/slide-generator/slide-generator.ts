@@ -16,8 +16,7 @@ import {
 import { renderSlideHtml, wrapInHtmlDocument } from "./templates";
 import { isStaticSlideType, renderStaticSlideBody } from "./templates/slides";
 import { getToolsForSlide } from "./tools";
-import type { Event, Slide } from "./types";
-import type { SlideType } from "./types/slide-types";
+import type { Event, Slide, SlideType } from "./types";
 
 /**
  * Buffer や循環参照を安全に処理する JSON.stringify

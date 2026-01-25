@@ -7,7 +7,7 @@
 // スライドコンテンツスキーマの再エクスポート
 export * from "../schemas/slide-content";
 // スライドタイプの再エクスポート
-export * from "../types/slide-types";
+export * from "../types/slide";
 export type {
 	ColorPalette,
 	FixedDesignSystem,
@@ -24,7 +24,7 @@ export {
 export * from "./slides";
 
 import type { SlideContentMap } from "../schemas/slide-content";
-import type { SlideType } from "../types/slide-types";
+import type { SlideType } from "../types/slide";
 import { wrapInHtmlDocument } from "./design-system";
 import {
 	dynamicSlideRenderers,

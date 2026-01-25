@@ -4,18 +4,10 @@
  */
 import { tool } from "ai";
 import { z } from "zod";
-import { RealEstateImagenClient } from "@/lib/imagen/client";
-import { uploadToS3 } from "./upload";
+import { RealEstateImagen } from "@/lib/imagen";
+import { uploadToS3 } from "../utils/upload";
 
-// シングルトンインスタンス
-let imagenClient: RealEstateImagenClient | null = null;
-
-function getImagenClient(): RealEstateImagenClient {
-	if (!imagenClient) {
-		imagenClient = new RealEstateImagenClient();
-	}
-	return imagenClient;
-}
+const realEstateImagen = new RealEstateImagen();
 
 /**
  * 物件画像抽出スキーマ
@@ -35,8 +27,7 @@ export const extractPropertyImageTool = tool({
 		"マイソク画像から物件の外観写真を抽出し、高品質な画像を生成します。表紙スライドで使用するメインビジュアルとして最適化されます。",
 	inputSchema: extractPropertyImageSchema,
 	execute: async (params: ExtractPropertyImageParams) => {
-		const client = getImagenClient();
-		const result = await client.extractPropertyImage({
+		const result = await realEstateImagen.extractPropertyImage({
 			maisokuImageUrl: params.maisokuImageUrl,
 		});
 
@@ -45,15 +36,11 @@ export const extractPropertyImageTool = tool({
 		}
 
 		// S3にアップロード
-		const url = await uploadToS3(
-			result.image.imageData,
-			"property-images",
-			result.image.mimeType,
-		);
+		const url = await uploadToS3(result.image.blob, "property-images");
 
 		return {
 			imageUrl: url,
-			mimeType: result.image.mimeType,
+			mimeType: result.image.blob.type,
 		};
 	},
 });
@@ -76,8 +63,7 @@ export const extractFloorplanImageTool = tool({
 		"マイソク画像から間取り図を抽出し、高品質な画像を生成します。間取り詳細スライドで使用する見やすい間取り図として最適化されます。",
 	inputSchema: extractFloorplanImageSchema,
 	execute: async (params: ExtractFloorplanImageParams) => {
-		const client = getImagenClient();
-		const result = await client.extractFloorPlanImage({
+		const result = await realEstateImagen.extractFloorPlanImage({
 			maisokuImageUrl: params.maisokuImageUrl,
 		});
 
@@ -86,15 +72,11 @@ export const extractFloorplanImageTool = tool({
 		}
 
 		// S3にアップロード
-		const url = await uploadToS3(
-			result.image.imageData,
-			"floorplan-images",
-			result.image.mimeType,
-		);
+		const url = await uploadToS3(result.image.blob, "floorplan-images");
 
 		return {
 			imageUrl: url,
-			mimeType: result.image.mimeType,
+			mimeType: result.image.blob.type,
 		};
 	},
 });

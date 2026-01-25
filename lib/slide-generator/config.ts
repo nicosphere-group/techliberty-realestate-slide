@@ -4,7 +4,7 @@ import {
 	SLIDE_TYPE_TITLES,
 	SLIDE_TYPES,
 	type SlideType,
-} from "./types/slide-types";
+} from "./types/slide";
 
 /**
  * 固定スライド定義（12枚構成）

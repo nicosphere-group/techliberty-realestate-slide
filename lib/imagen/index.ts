@@ -1,5 +1,6 @@
-export { RealEstateImagenClient } from "./client";
+export { RealEstateImagen } from "./client";
 export type {
+	BoundingBox,
 	ExtractFloorPlanParams,
 	ExtractPropertyImageParams,
 	GeneratedImage,
