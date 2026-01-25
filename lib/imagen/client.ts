@@ -313,14 +313,14 @@ Return empty array [] if no exterior photo is found.`;
 
 	/**
 	 * マイソク画像から間取り図を抽出
-	 * 2段階処理: 1) Vision APIで領域検出 → 2) Sharpでクロップ → 3) 綺麗に再生成
+	 * 複数階対応: 1) SAM-3で複数マスク検出 → 2) 縦に合成 → 3) 綺麗に再生成
 	 */
 	async extractFloorPlanImage(
 		params: ExtractFloorPlanParams,
 	): Promise<ImageGenerationResult> {
 		try {
-			// Step 1: SAM-3で間取り図の領域を検出し抽出
-			const { image: croppedImage } = await this.objectDetection.detectObjects({
+			// Step 1: SAM-3で間取り図の領域を検出（複数マスク対応）
+			const result = await this.objectDetection.detectObjects({
 				image_url: params.maisokuImageUrl,
 				prompt: "floor plan",
 				return_multiple_masks: true,
@@ -328,37 +328,93 @@ Return empty array [] if no exterior photo is found.`;
 				include_boxes: true,
 			});
 
-			if (!croppedImage) {
+			const { masks, metadata } = result;
+
+			if (!masks || masks.length === 0) {
 				return {
 					image: null,
 					error: "間取り図を検出できませんでした。",
 				};
 			}
 
-			const croppedImageBlob = await ky.get(croppedImage.url).blob();
+			// Step 2: 各マスクをダウンロードしてトリミング
+			const trimmedImages: {
+				buffer: Buffer;
+				width: number;
+				height: number;
+				yPosition: number;
+			}[] = [];
 
-			const trimmedImageBlob = await sharp(
-				Buffer.from(await croppedImageBlob.arrayBuffer()),
-			)
-				.trim()
-				.toBuffer()
-				.then(
-					(b) => new Blob([new Uint8Array(b)], { type: croppedImageBlob.type }),
-				);
+			for (let i = 0; i < masks.length; i++) {
+				const mask = masks[i];
+				const blob = await ky.get(mask.url).blob();
+				const buffer = Buffer.from(await blob.arrayBuffer());
+
+				// トリミング（余白除去）
+				const trimmed = await sharp(buffer).trim().png().toBuffer();
+				const trimmedMeta = await sharp(trimmed).metadata();
+
+				// Y位置を取得（上から下にソートするため）
+				const yPosition = metadata?.[i]?.box?.[1] ?? i;
+
+				trimmedImages.push({
+					buffer: trimmed,
+					width: trimmedMeta.width!,
+					height: trimmedMeta.height!,
+					yPosition,
+				});
+			}
+
+			// Y位置でソート（上から下の順）
+			trimmedImages.sort((a, b) => a.yPosition - b.yPosition);
+
+			// Step 3: 複数のマスクを縦に合成
+			const padding = 20;
+			const maxWidth = Math.max(...trimmedImages.map((img) => img.width));
+			const totalHeight =
+				trimmedImages.reduce((sum, img) => sum + img.height, 0) +
+				padding * (trimmedImages.length - 1);
+
+			const composites: { input: Buffer; left: number; top: number }[] = [];
+			let currentY = 0;
+
+			for (const img of trimmedImages) {
+				composites.push({
+					input: img.buffer,
+					left: Math.floor((maxWidth - img.width) / 2), // 中央揃え
+					top: currentY,
+				});
+				currentY += img.height + padding;
+			}
+
+			const mergedBuffer = await sharp({
+				create: {
+					width: maxWidth,
+					height: totalHeight,
+					channels: 4,
+					background: { r: 255, g: 255, b: 255, alpha: 1 },
+				},
+			})
+				.composite(composites)
+				.png()
+				.toBuffer();
+
+			const mergedBlob = new Blob([new Uint8Array(mergedBuffer)], {
+				type: "image/png",
+			});
 
 			// クロップ画像を中間結果として保存
 			const trimmedImageData: GeneratedImage = {
-				blob: trimmedImageBlob,
-				prompt: "クロップ済み間取り図",
+				blob: mergedBlob,
+				prompt: `クロップ済み間取り図（${masks.length}階分）`,
 			};
 
-			// Step 3: クロップした間取り図を綺麗に再生成
-			// console.log("Step 3: 間取り図を綺麗に再生成中...")
-			const result = await this.regenerateFloorPlan(trimmedImageBlob);
+			// Step 4: 合成した間取り図を綺麗に再生成
+			const regenerateResult = await this.regenerateFloorPlan(mergedBlob);
 
 			// 中間画像を結果に追加
 			return {
-				...result,
+				...regenerateResult,
 				intermediateImage: trimmedImageData,
 			};
 		} catch (error) {
@@ -377,41 +433,18 @@ Return empty array [] if no exterior photo is found.`;
 	private async regenerateFloorPlan(
 		croppedImage: Blob,
 	): Promise<ImageGenerationResult> {
-		const prompt = `この画像は不動産チラシ（マイソク）からクロップした間取り図です。
+		// アップスケール専用プロンプト：内容変更を最小限に抑える
+		const prompt = `Upscale this floor plan image to higher resolution.
 
-【最重要: 正確性の厳守】
-間取り図は不動産取引において極めて重要な情報です。
-以下の情報は、元の画像から1文字たりとも変更してはいけません：
+CRITICAL RULES - DO NOT MODIFY:
+1. Room labels: "LDK", "洋室", "和室", "DK", "K", "浴室", "トイレ", "洗面", "玄関", "バルコニー", "洋室1", "洋室2", etc.
+2. Area measurements: "約16.6帖", "6.0帖", "12.5㎡" - keep exact numbers and units
+3. Room layouts, positions, shapes, walls, doors, windows
+4. Compass/direction symbols if present
 
-1. 【部屋名】完全に同一の表記を使用
-   - 「LDK」「洋室」「和室」「DK」「K」「浴室」「トイレ」「洗面」「玄関」「バルコニー」等
-   - 「洋室1」「洋室2」などの番号も正確に
-
-2. 【面積表示】数値と単位を完全に一致させる
-   - 「約16.6帖」なら「約16.6帖」のまま（「16.6帖」や「17帖」にしない）
-   - 「6.0帖」なら「6.0帖」のまま（「6帖」にしない）
-   - 「㎡」と「帖」を混同しない
-
-3. 【部屋の配置・形状】
-   - 各部屋の位置関係を正確に維持
-   - 部屋の形状（L字型、長方形など）を変更しない
-   - 壁の位置、ドア・窓の配置を正確に再現
-
-4. 【設備の位置】
-   - キッチン、浴槽、トイレ、洗面台等の配置を正確に
-   - ドア（開き戸・引き戸）、窓の位置と向き
-
-5. 【方位記号】元の画像にある場合のみ、同じ位置に同じ方向で含める
-
-【スタイル】
-- 白背景にクリアな線画
-- 部屋ごとに薄いパステルカラーで色分け（水色、ピンク、クリーム色など）
-- 線は黒またはダークグレー
-- プロフェッショナルな不動産資料品質
-
-【出力】
-間取り図のみを、元のアスペクト比を維持して出力。
-元の情報を絶対に改変しないこと。`;
+ONLY improve image clarity and resolution.
+Preserve the exact same floor plan with clean lines on white background.
+Output the upscaled image maintaining the original aspect ratio.`;
 
 		const base64 = await blobToBase64(croppedImage);
 		const parts: Part[] = [
@@ -431,6 +464,7 @@ Return empty array [] if no exterior photo is found.`;
 			contents,
 			config: {
 				responseModalities: ["TEXT", "IMAGE"],
+				temperature: 0, // 創作を最小限に抑える（効果があるか要検証）
 				imageConfig: {
 					imageSize: IMAGE_SIZE,
 				},
