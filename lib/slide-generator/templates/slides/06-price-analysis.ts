@@ -69,10 +69,9 @@ export function renderPriceAnalysisSlide(
             <span style="${NUMBER_FONT_STYLE}">${escapeHtml(prop.unitPrice.replace(/万円$/, ""))}</span><span class="text-[18px]">万円</span>
           </td>
         </tr>`;
-          },
-        )
-        .join("\n")
-    : `<tr class="border-b border-[#E2E8F0]"><td colspan="5" class="py-8 text-center text-[#A0AEC0] text-xl">比較データがありません</td></tr>`;
+				})
+				.join("\n")
+		: `<tr class="border-b border-[#E2E8F0]"><td colspan="5" class="py-8 text-center text-[#A0AEC0] text-xl">比較データがありません</td></tr>`;
 
 	return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-16 py-10 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
 

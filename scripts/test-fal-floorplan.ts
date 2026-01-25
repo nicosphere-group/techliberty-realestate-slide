@@ -85,12 +85,14 @@ async function main() {
 	const MIN_SCORE = 0.7;
 	const filteredIndices = data.metadata
 		? data.metadata
-			.map((m, i) => ({ index: i, score: m.score }))
-			.filter(m => m.score >= MIN_SCORE)
-			.map(m => m.index)
+				.map((m, i) => ({ index: i, score: m.score }))
+				.filter((m) => m.score >= MIN_SCORE)
+				.map((m) => m.index)
 		: data.masks.map((_, i) => i);
 
-	console.log(`  フィルタ後: ${filteredIndices.length} 個 (score >= ${MIN_SCORE})`);
+	console.log(
+		`  フィルタ後: ${filteredIndices.length} 個 (score >= ${MIN_SCORE})`,
+	);
 
 	if (filteredIndices.length === 0) {
 		console.error("❌ 有効なマスクがありません");
@@ -100,7 +102,12 @@ async function main() {
 	// 各マスクをダウンロードしてトリミング
 	console.log("\n📥 マスク画像をダウンロード＆トリミング...");
 
-	const allImages: { buffer: Buffer; metadata: sharp.Metadata; yPosition: number; index: number }[] = [];
+	const allImages: {
+		buffer: Buffer;
+		metadata: sharp.Metadata;
+		yPosition: number;
+		index: number;
+	}[] = [];
 
 	for (const i of filteredIndices) {
 		const mask = data.masks[i];
@@ -121,15 +128,19 @@ async function main() {
 			index: i,
 		});
 
-		console.log(`  mask[${i}]: ${metadata.width} x ${metadata.height} (y=${(yPosition * 100).toFixed(1)}%)`);
+		console.log(
+			`  mask[${i}]: ${metadata.width} x ${metadata.height} (y=${(yPosition * 100).toFixed(1)}%)`,
+		);
 	}
 
 	// 間取り図は横長（アスペクト比 > 2）のものだけを選択
-	const trimmedImages = allImages.filter(img => {
-		const aspectRatio = img.metadata.width! / img.metadata.height!;
+	const trimmedImages = allImages.filter((img) => {
+		const aspectRatio = img.metadata.width / img.metadata.height;
 		const isFloorPlan = aspectRatio > 2;
 		if (!isFloorPlan) {
-			console.log(`  → mask[${img.index}] を除外 (アスペクト比=${aspectRatio.toFixed(2)})`);
+			console.log(
+				`  → mask[${img.index}] を除外 (アスペクト比=${aspectRatio.toFixed(2)})`,
+			);
 		}
 		return isFloorPlan;
 	});
@@ -146,8 +157,10 @@ async function main() {
 
 	// 合成画像のサイズを計算
 	const padding = 20; // 画像間の余白
-	const maxWidth = Math.max(...trimmedImages.map((img) => img.metadata.width!));
-	const totalHeight = trimmedImages.reduce((sum, img) => sum + img.metadata.height!, 0) + padding * (trimmedImages.length - 1);
+	const maxWidth = Math.max(...trimmedImages.map((img) => img.metadata.width));
+	const totalHeight =
+		trimmedImages.reduce((sum, img) => sum + img.metadata.height, 0) +
+		padding * (trimmedImages.length - 1);
 
 	console.log(`\n🎨 合成中... (${maxWidth} x ${totalHeight})`);
 
@@ -158,10 +171,10 @@ async function main() {
 	for (const img of trimmedImages) {
 		composites.push({
 			input: img.buffer,
-			left: Math.floor((maxWidth - img.metadata.width!) / 2), // 中央揃え
+			left: Math.floor((maxWidth - img.metadata.width) / 2), // 中央揃え
 			top: currentY,
 		});
-		currentY += img.metadata.height! + padding;
+		currentY += img.metadata.height + padding;
 	}
 
 	const mergedBuffer = await sharp({

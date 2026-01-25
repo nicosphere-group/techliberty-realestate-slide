@@ -64,10 +64,10 @@ export function renderFloorPlanSlide(content: FloorPlanContent): string {
       </div>
 
       ${
-        content.imageUrl
-          ? `<img src="${escapeHtml(content.imageUrl)}" alt="間取り図" class="max-w-full max-h-full object-contain filter contrast-[1.05] opacity-90">`
-          : `<div class="text-[#CBD5E0] font-sans font-light text-3xl tracking-widest">画像なし</div>`
-      }
+				content.imageUrl
+					? `<img src="${escapeHtml(content.imageUrl)}" alt="間取り図" class="max-w-full max-h-full object-contain filter contrast-[1.05] opacity-90">`
+					: `<div class="text-[#CBD5E0] font-sans font-light text-3xl tracking-widest">画像なし</div>`
+			}
 
       ${
 				content.imageUrl
@@ -97,8 +97,8 @@ export function renderFloorPlanSlide(content: FloorPlanContent): string {
           </span>
         </div>
         ${
-          showBalcony
-            ? `<div class="col-span-2">
+					showBalcony
+						? `<div class="col-span-2">
                 <span class="text-[14px] font-sans font-bold tracking-[0.2em] text-[#A0AEC0] uppercase block mb-2">バルコニー</span>
                 <span class="text-[32px] font-serif font-medium text-[#4A5568] leading-none">
                   <span style="${NUMBER_FONT_STYLE}">${escapeHtml((content.specs.balcony ?? "").replace(/[㎡m²]/g, ""))}</span><span class="text-[24px]">${content.specs.balcony?.match(/[㎡m²]/)?.[0] || "㎡"}</span>

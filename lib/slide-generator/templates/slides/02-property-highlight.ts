@@ -117,8 +117,8 @@ export function renderPropertyHighlightSlide(
     </div>
     
     ${
-      content.propertyName
-        ? `<div class="text-right hidden md:block border-l-2 border-[#C5A059] pl-5 py-1">
+			content.propertyName
+				? `<div class="text-right hidden md:block border-l-2 border-[#C5A059] pl-5 py-1">
             <div class="text-[13px] font-sans font-bold tracking-[0.2em] text-[#718096] uppercase mb-1">物件名</div>
             <div class="text-[22px] font-serif font-bold text-[#2D3748]">
               ${escapeHtml(content.propertyName)}

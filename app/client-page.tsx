@@ -6,7 +6,6 @@ import type { LanguageModelUsage } from "ai";
 import { exportToPptx } from "dom-to-pptx";
 import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
-import { PDFDocument } from "pdf-lib";
 import {
 	AlertCircle,
 	Download,
@@ -16,6 +15,7 @@ import {
 	Sparkles,
 	Square,
 } from "lucide-react";
+import { PDFDocument } from "pdf-lib";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
@@ -357,9 +357,12 @@ export default function ClientPage() {
 		if (isPdfFlyer) {
 			validIndices = validIndices.filter((index) => index !== 0);
 			// PDF形式のマイソクはPPTXに含められない旨を通知
-			toast.info("マイソクPDFはPPTXに含まれません。PDFエクスポートをご利用ください。", {
-				duration: 5000,
-			});
+			toast.info(
+				"マイソクPDFはPPTXに含まれません。PDFエクスポートをご利用ください。",
+				{
+					duration: 5000,
+				},
+			);
 		}
 
 		if (validIndices.length === 0) {
@@ -384,7 +387,11 @@ export default function ClientPage() {
 	const executeExportPdf = async (indices: number[]) => {
 		// 元のPDFファイルが保存されているかチェック
 		const isPdfFlyer = originalPdfFile !== null;
-		console.log("[PDF Export] Original PDF file:", originalPdfFile?.name, originalPdfFile?.size);
+		console.log(
+			"[PDF Export] Original PDF file:",
+			originalPdfFile?.name,
+			originalPdfFile?.size,
+		);
 		console.log("[PDF Export] Is PDF flyer:", isPdfFlyer);
 
 		// PDF形式の場合、0枚目（プレースホルダー）を除外
@@ -464,14 +471,20 @@ export default function ClientPage() {
 
 				// マイソクPDFを先頭に追加
 				const flyerPdf = await PDFDocument.load(flyerPdfBytes);
-				const flyerPages = await mergedPdf.copyPages(flyerPdf, flyerPdf.getPageIndices());
+				const flyerPages = await mergedPdf.copyPages(
+					flyerPdf,
+					flyerPdf.getPageIndices(),
+				);
 				for (const page of flyerPages) {
 					mergedPdf.addPage(page);
 				}
 
 				// スライドPDFを追加
 				const slidesPdf = await PDFDocument.load(slidesPdfBytes);
-				const slidesPages = await mergedPdf.copyPages(slidesPdf, slidesPdf.getPageIndices());
+				const slidesPages = await mergedPdf.copyPages(
+					slidesPdf,
+					slidesPdf.getPageIndices(),
+				);
 				for (const page of slidesPages) {
 					mergedPdf.addPage(page);
 				}
@@ -479,7 +492,9 @@ export default function ClientPage() {
 				// 結合したPDFをダウンロード
 				const mergedPdfBytes = await mergedPdf.save();
 				console.log("[PDF Export] Merged PDF size:", mergedPdfBytes.byteLength);
-				const blob = new Blob([new Uint8Array(mergedPdfBytes)], { type: "application/pdf" });
+				const blob = new Blob([new Uint8Array(mergedPdfBytes)], {
+					type: "application/pdf",
+				});
 				const url = URL.createObjectURL(blob);
 				const a = document.createElement("a");
 				a.href = url;
@@ -609,16 +624,31 @@ export default function ClientPage() {
 															try {
 																// 元のPDFファイルを保存（PDF結合用）
 																setOriginalPdfFile(file);
-																console.log("[File Upload] Original PDF saved for merging:", file.name, file.size);
+																console.log(
+																	"[File Upload] Original PDF saved for merging:",
+																	file.name,
+																	file.size,
+																);
 
 																// JPGに変換してGeminiに渡す
-																const result = await convertPdfToSingleJpg(file, 1440, 0.85);
+																const result = await convertPdfToSingleJpg(
+																	file,
+																	1440,
+																	0.85,
+																);
 																field.handleChange([result.file]);
-																console.log("[File Upload] PDF converted to JPG for Gemini:", result.file.name, result.file.size);
+																console.log(
+																	"[File Upload] PDF converted to JPG for Gemini:",
+																	result.file.name,
+																	result.file.size,
+																);
 															} catch (error) {
 																console.error("PDF変換エラー:", error);
 																toast.error("PDFの変換に失敗しました", {
-																	description: error instanceof Error ? error.message : "不明なエラー",
+																	description:
+																		error instanceof Error
+																			? error.message
+																			: "不明なエラー",
 																});
 																// エラー時は元のPDFもクリア
 																setOriginalPdfFile(null);
@@ -629,7 +659,12 @@ export default function ClientPage() {
 															// 画像の場合は元のPDFをクリア
 															setOriginalPdfFile(null);
 															field.handleChange(acceptedFiles);
-															console.log("[File Upload] Image file uploaded:", file.name, file.type, file.size);
+															console.log(
+																"[File Upload] Image file uploaded:",
+																file.name,
+																file.type,
+																file.size,
+															);
 														}
 													}}
 													onError={(error) => {
@@ -642,13 +677,15 @@ export default function ClientPage() {
 													}}
 													className={cn(
 														"h-auto min-h-40",
-														flyerPreviewUrl && "p-2"
+														flyerPreviewUrl && "p-2",
 													)}
 												>
 													{isConvertingPdf ? (
 														<div className="flex flex-col items-center justify-center py-8">
 															<Loader2 className="h-8 w-8 animate-spin text-primary" />
-															<p className="my-2 font-medium text-sm">PDFを変換中...</p>
+															<p className="my-2 font-medium text-sm">
+																PDFを変換中...
+															</p>
 														</div>
 													) : flyerPreviewUrl ? (
 														<div className="flex flex-col items-center justify-center w-full">
@@ -660,7 +697,7 @@ export default function ClientPage() {
 																/>
 															</div>
 															<p className="mt-2 text-xs text-muted-foreground truncate max-w-full">
-																{currentFile?.name.replace(/\.[^/.]+$/, '')}
+																{currentFile?.name.replace(/\.[^/.]+$/, "")}
 															</p>
 															<p className="text-xs text-muted-foreground/70">
 																クリックまたはドラッグで置き換え

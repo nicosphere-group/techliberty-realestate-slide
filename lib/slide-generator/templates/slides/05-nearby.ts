@@ -87,10 +87,10 @@ export function renderNearbySlide(content: NearbyContent): string {
     <div class="w-[45%] flex flex-col h-full bg-white border border-[#E2E8F0] p-4 shadow-sm relative">
       <div class="flex-1 relative overflow-hidden bg-[#EDF2F7]">
         ${
-          content.mapImageUrl
-            ? `<img src="${escapeHtml(content.mapImageUrl)}" class="w-full h-full object-cover" alt="Area Map">`
-            : `<div class="absolute inset-0 flex items-center justify-center text-[#A0AEC0] font-sans tracking-widest text-xl">地図</div>`
-        }
+					content.mapImageUrl
+						? `<img src="${escapeHtml(content.mapImageUrl)}" class="w-full h-full object-cover" alt="Area Map">`
+						: `<div class="absolute inset-0 flex items-center justify-center text-[#A0AEC0] font-sans tracking-widest text-xl">地図</div>`
+				}
       </div>
       
       <!-- 凡例 -->

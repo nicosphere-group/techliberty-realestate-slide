@@ -20,29 +20,33 @@ export function renderFlyerSlide(imageUrls: string[]): string {
     </div>`;
 	}
 
-  // 【画像形式の場合】単一画像をスライド全体いっぱいに表示（ヘッダーなし）
-  if (imageUrls.length === 1) {
-    return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-white flex items-center justify-center p-0">
+	// 【画像形式の場合】単一画像をスライド全体いっぱいに表示（ヘッダーなし）
+	if (imageUrls.length === 1) {
+		return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-white flex items-center justify-center p-0">
       <img
         src="${escapeHtml(imageUrls[0])}"
         alt="マイソク"
         class="w-full h-full object-contain"
       />
     </div>`;
-  }
+	}
 
-  // 【複数画像モード】2枚なら左右分割、3枚以上ならグリッド（従来のデザインを維持）
-  const gridClass = imageUrls.length === 2 ? "grid-cols-2 gap-8" : "grid-cols-3 gap-6";
+	// 【複数画像モード】2枚なら左右分割、3枚以上ならグリッド（従来のデザインを維持）
+	const gridClass =
+		imageUrls.length === 2 ? "grid-cols-2 gap-8" : "grid-cols-3 gap-6";
 
-  const items = imageUrls.map(url =>
-    `<div class="flex items-center justify-center overflow-hidden bg-white border border-[#E2E8F0] shadow-md p-4">
+	const items = imageUrls
+		.map(
+			(url) =>
+				`<div class="flex items-center justify-center overflow-hidden bg-white border border-[#E2E8F0] shadow-md p-4">
        <img src="${escapeHtml(url)}" alt="マイソク" class="max-w-full max-h-full object-contain" />
-     </div>`
-  ).join("\n");
+     </div>`,
+		)
+		.join("\n");
 
-  const imagesHtml = `<div class="flex-1 min-h-0 grid ${gridClass}">${items}</div>`;
+	const imagesHtml = `<div class="flex-1 min-h-0 grid ${gridClass}">${items}</div>`;
 
-  return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
+	return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-20 py-14 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
 
   <!-- 水平線デコレーション -->
   <div class="absolute top-[140px] left-0 w-full h-[1px] bg-[#E2E8F0] pointer-events-none"></div>

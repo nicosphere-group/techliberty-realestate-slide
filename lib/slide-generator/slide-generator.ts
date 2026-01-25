@@ -158,7 +158,9 @@ export class SlideGenerator {
 			const isPdf = input.flyerFiles[0].type === "application/pdf";
 			if (isPdf) {
 				this.flyerPdfFile = input.flyerFiles[0];
-				console.log("[SlideGenerator] PDF format detected, will merge at the end");
+				console.log(
+					"[SlideGenerator] PDF format detected, will merge at the end",
+				);
 			}
 
 			// マイソク画像をData URLに変換して保存（ツール呼び出し用）
@@ -214,7 +216,9 @@ export class SlideGenerator {
 
 					// PDF形式の場合、マイソクスライド（0枚目）はプレースホルダーを生成
 					if (isPdf && slideType === "flyer") {
-						console.log(`[SLIDE ${slideDef.index}] Generating placeholder for flyer slide (PDF format)`);
+						console.log(
+							`[SLIDE ${slideDef.index}] Generating placeholder for flyer slide (PDF format)`,
+						);
 
 						// プレースホルダースライド: PDFダウンロード時に結合される旨を表示
 						const placeholderHtml = wrapInHtmlDocument(`
@@ -260,7 +264,9 @@ export class SlideGenerator {
 
 						if (slideType === "flyer") {
 							// 画像形式のマイソクスライド: アップロード画像をそのまま表示（全画面）
-							const imageDataUrls = await this.filesToDataUrls(input.flyerFiles);
+							const imageDataUrls = await this.filesToDataUrls(
+								input.flyerFiles,
+							);
 							bodyContent = renderStaticSlideBody("flyer", {
 								imageUrls: imageDataUrls,
 							});

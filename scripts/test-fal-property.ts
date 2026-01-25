@@ -103,7 +103,9 @@ async function main() {
 		writeFileSync(filename, trimmed);
 
 		const score = data.metadata?.[i]?.score?.toFixed(3) ?? "?";
-		console.log(`  保存: ${filename} (${metadata.width} x ${metadata.height}, score=${score})`);
+		console.log(
+			`  保存: ${filename} (${metadata.width} x ${metadata.height}, score=${score})`,
+		);
 	}
 
 	console.log("\n=== 完了 ===");

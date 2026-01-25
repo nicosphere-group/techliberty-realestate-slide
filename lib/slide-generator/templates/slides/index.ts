@@ -2,6 +2,7 @@
  * スライドテンプレート エクスポート
  */
 
+export { renderFlyerSlide } from "./00-flyer";
 export { renderCoverSlide } from "./01-cover";
 export { renderPropertyHighlightSlide } from "./02-property-highlight";
 export { renderFloorPlanSlide } from "./03-floor-plan";
@@ -13,10 +14,10 @@ export { renderFundingSlide } from "./08-funding";
 export { renderExpensesSlide } from "./09-expenses";
 export { renderTaxSlide } from "./10-tax";
 export { renderPurchaseFlowSlide } from "./11-purchase-flow";
-export { renderFlyerSlide } from "./00-flyer";
 
 import type { SlideContentMap } from "../../schemas/slide-content";
 import type { SlideType } from "../../types/slide";
+import { renderFlyerSlide } from "./00-flyer";
 import { renderCoverSlide } from "./01-cover";
 import { renderPropertyHighlightSlide } from "./02-property-highlight";
 import { renderFloorPlanSlide } from "./03-floor-plan";
@@ -28,7 +29,6 @@ import { renderFundingSlide } from "./08-funding";
 import { renderExpensesSlide } from "./09-expenses";
 import { renderTaxSlide } from "./10-tax";
 import { renderPurchaseFlowSlide } from "./11-purchase-flow";
-import { renderFlyerSlide } from "./00-flyer";
 
 /** 静的テンプレート（LLMによるコンテンツ生成が不要なスライド） */
 export const STATIC_SLIDE_TYPES = ["tax", "purchase-flow", "flyer"] as const;
