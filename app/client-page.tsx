@@ -1206,7 +1206,7 @@ export default function ClientPage() {
 
 													return (
 														<div
-															key={slide.index}
+															key={slide.data.index}
 															role="button"
 															tabIndex={0}
 															className={cn(
@@ -1228,7 +1228,7 @@ export default function ClientPage() {
 															onKeyDown={(e) => {
 																if (e.key === "Enter" || e.key === " ") {
 																	e.preventDefault();
-																	const slideIndex = slide.index;
+																	const slideIndex = slide.data.index;
 																	setSelectedSlideIndices((prev) => {
 																		const currentlySelected =
 																			prev.includes(slideIndex);

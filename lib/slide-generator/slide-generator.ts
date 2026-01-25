@@ -210,7 +210,7 @@ export class SlideGenerator {
 						},
 					});
 
-					let slide: GeneratedSlide;
+					let slide: Slide;
 
 					// PDF形式の場合、マイソクスライド（0枚目）はプレースホルダーを生成
 					if (isPdf && slideType === "flyer") {
@@ -236,15 +236,15 @@ export class SlideGenerator {
 						`);
 
 						slide = {
+							index: slideDef.index,
+							title: slideDef.title,
 							html: placeholderHtml,
 							sources: [],
 						};
 
 						channel.push({
 							type: "slide:generating",
-							index: slideDef.index,
-							title: slideDef.title,
-							data: { ...slide },
+							data: slide,
 						});
 
 						// 静的スライドのログデータを作成
