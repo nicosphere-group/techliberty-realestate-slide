@@ -5,7 +5,7 @@ import { ObjectDetection } from "../lib/object-detection/client";
 async function main() {
 	const args = process.argv.slice(2);
 	const imageUrl = args[0] || "https://i.imgur.com/sAPwEw0.png";
-	const prompt = args[1] || "Detect all the floor plans in this image";
+	const prompt = args[1] || "floor plan";
 	const outputPath =
 		args[2] || path.resolve(process.cwd(), "object-detection-output.png");
 
@@ -17,28 +17,43 @@ async function main() {
 	const detector = new ObjectDetection();
 
 	try {
-		console.log("\nFetching image...");
-		const response = await fetch(imageUrl);
-		if (!response.ok) {
-			throw new Error(`Failed to fetch image: ${response.statusText}`);
-		}
-		const arrayBuffer = await response.arrayBuffer();
-		const imageFile = new File([arrayBuffer], "sample.png", {
-			type: "image/png",
-		});
-
 		console.log("\nDetecting objects...");
-		const result = await detector.detectObjects(imageFile, prompt);
+		const result = await detector.detectObjects({
+			image_url: imageUrl,
+			prompt,
+			return_multiple_masks: true,
+			include_scores: true,
+			include_boxes: true,
+		});
+		console.log("\nDetection result:", result.data);
 
-		console.log("\nBounding boxes:");
-		for (const box of result.boundingBoxes) {
-			console.log(`  - ${JSON.stringify(box)}`);
+		const maskCount = result.data.masks.length ?? 0;
+		console.log(`\nMasks returned: ${maskCount}`);
+
+		if (result.data.boxes?.length) {
+			console.log("\nBounding boxes (cx, cy, w, h):");
+			for (const box of result.data.boxes) {
+				console.log(`  - ${JSON.stringify(box)}`);
+			}
 		}
 
-		await writeFile(outputPath, result.annotatedImageBuffer);
+		const previewUrl = result.data.image?.url ?? result.data.masks[0]?.url;
+		if (!previewUrl) {
+			throw new Error("No preview image URL returned from SAM-3.");
+		}
+
+		console.log(`\nDownloading preview image: ${previewUrl}`);
+		const previewResponse = await fetch(previewUrl);
+		if (!previewResponse.ok) {
+			throw new Error(
+				`Failed to fetch preview image: ${previewResponse.statusText}`,
+			);
+		}
+		const previewBuffer = Buffer.from(await previewResponse.arrayBuffer());
+		await writeFile(outputPath, previewBuffer);
 
 		console.log("\n✅ Detection completed successfully!");
-		console.log(`Saved annotated image to: ${outputPath}`);
+		console.log(`Saved preview image to: ${outputPath}`);
 	} catch (error) {
 		console.error("\n❌ Error detecting objects:", error);
 	}
