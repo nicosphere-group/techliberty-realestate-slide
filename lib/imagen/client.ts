@@ -359,8 +359,8 @@ Return empty array [] if no exterior photo is found.`;
 
 				trimmedImages.push({
 					buffer: trimmed,
-					width: trimmedMeta.width!,
-					height: trimmedMeta.height!,
+					width: trimmedMeta.width,
+					height: trimmedMeta.height,
 					yPosition,
 				});
 			}
