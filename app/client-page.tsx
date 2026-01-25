@@ -4,6 +4,7 @@ import { useForm } from "@tanstack/react-form";
 import { exportToPptx } from "dom-to-pptx";
 import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
+import { PDFDocument } from "pdf-lib";
 import {
 	AlertCircle,
 	Download,
@@ -417,38 +418,41 @@ export default function ClientPage() {
 				doc.addImage(imgData, "JPEG", 0, offsetY, slideWidth, slideHeight);
 			}
 
-			// マイソクがPDF形式の場合、結合処理を実行
+			// マイソクがPDF形式の場合、クライアントサイドで結合処理を実行
 			if (isPdfFlyer && originalPdfFile) {
-				console.log("[PDF Export] PDF flyer detected, merging...");
+				console.log("[PDF Export] PDF flyer detected, merging on client...");
 				toast.loading("マイソクPDFと結合中...", { id: toastId });
 
-				// スライドPDFをBlobとして取得
-				const slidesPdfBlob = doc.output("blob");
-				console.log("[PDF Export] Slides PDF blob size:", slidesPdfBlob.size);
+				// スライドPDFをArrayBufferとして取得
+				const slidesPdfBytes = doc.output("arraybuffer");
+				console.log("[PDF Export] Slides PDF size:", slidesPdfBytes.byteLength);
 
-				// FormDataを作成して/api/merge-pdfに送信
-				const formData = new FormData();
-				formData.append("slidesPdf", slidesPdfBlob, "slides.pdf");
-				formData.append("flyerPdf", originalPdfFile);
-				console.log("[PDF Export] Flyer PDF file:", originalPdfFile.name, originalPdfFile.size);
+				// マイソクPDFをArrayBufferとして読み込み
+				const flyerPdfBytes = await originalPdfFile.arrayBuffer();
+				console.log("[PDF Export] Flyer PDF size:", flyerPdfBytes.byteLength);
 
-				const response = await fetch("/api/merge-pdf", {
-					method: "POST",
-					body: formData,
-				});
+				// pdf-libで結合
+				const mergedPdf = await PDFDocument.create();
 
-				console.log("[PDF Export] Response status:", response.status);
+				// マイソクPDFを先頭に追加
+				const flyerPdf = await PDFDocument.load(flyerPdfBytes);
+				const flyerPages = await mergedPdf.copyPages(flyerPdf, flyerPdf.getPageIndices());
+				for (const page of flyerPages) {
+					mergedPdf.addPage(page);
+				}
 
-				if (!response.ok) {
-					const errorData = await response.json();
-					console.error("[PDF Export] Error response:", errorData);
-					throw new Error(`PDF結合に失敗しました: ${errorData.error || "Unknown error"}`);
+				// スライドPDFを追加
+				const slidesPdf = await PDFDocument.load(slidesPdfBytes);
+				const slidesPages = await mergedPdf.copyPages(slidesPdf, slidesPdf.getPageIndices());
+				for (const page of slidesPages) {
+					mergedPdf.addPage(page);
 				}
 
 				// 結合したPDFをダウンロード
-				const mergedPdfBlob = await response.blob();
-				console.log("[PDF Export] Merged PDF blob size:", mergedPdfBlob.size);
-				const url = URL.createObjectURL(mergedPdfBlob);
+				const mergedPdfBytes = await mergedPdf.save();
+				console.log("[PDF Export] Merged PDF size:", mergedPdfBytes.byteLength);
+				const blob = new Blob([new Uint8Array(mergedPdfBytes)], { type: "application/pdf" });
+				const url = URL.createObjectURL(blob);
 				const a = document.createElement("a");
 				a.href = url;
 				const filename = `presentation_with_flyer_${Date.now()}.pdf`;
