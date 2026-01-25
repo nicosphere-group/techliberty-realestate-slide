@@ -8,6 +8,7 @@ import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
 import {
 	AlertCircle,
+	Check,
 	Download,
 	ImageIcon,
 	LayoutTemplate,
@@ -24,7 +25,6 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { ScaledFrame, SlidePreview } from "@/components/slide-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
 	Dialog,
 	DialogContent,
@@ -1242,10 +1242,9 @@ export default function ClientPage() {
 													);
 
 													return (
-														<div
+														<button
 															key={slide.data.index}
-															role="button"
-															tabIndex={0}
+															type="button"
 															className={cn(
 																"group relative w-full cursor-pointer rounded-lg border-2 overflow-hidden transition-all duration-200 bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
 																isSelected
@@ -1261,19 +1260,6 @@ export default function ClientPage() {
 																		? prev.filter((i) => i !== slideIndex)
 																		: [...prev, slideIndex];
 																});
-															}}
-															onKeyDown={(e) => {
-																if (e.key === "Enter" || e.key === " ") {
-																	e.preventDefault();
-																	const slideIndex = slide.data.index;
-																	setSelectedSlideIndices((prev) => {
-																		const currentlySelected =
-																			prev.includes(slideIndex);
-																		return currentlySelected
-																			? prev.filter((i) => i !== slideIndex)
-																			: [...prev, slideIndex];
-																	});
-																}
 															}}
 														>
 															<div className="pointer-events-none aspect-video w-full">
@@ -1304,13 +1290,19 @@ export default function ClientPage() {
 																			: "opacity-70 group-hover:opacity-100",
 																	)}
 																>
-																	<Checkbox
-																		id={`slide-${slide.data.index}`}
-																		checked={isSelected}
-																		className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
-																		// Let parent handle click
-																		onCheckedChange={() => {}}
-																	/>
+																	<div
+																		aria-hidden="true"
+																		className={cn(
+																			"flex h-4 w-4 items-center justify-center rounded-lg border transition-colors",
+																			isSelected
+																				? "border-primary bg-primary text-primary-foreground"
+																				: "border-input",
+																		)}
+																	>
+																		{isSelected && (
+																			<Check className="h-3 w-3" />
+																		)}
+																	</div>
 																</div>
 															</div>
 
@@ -1325,7 +1317,7 @@ export default function ClientPage() {
 															{isSelected && (
 																<div className="absolute inset-0 bg-primary/10 pointer-events-none" />
 															)}
-														</div>
+														</button>
 													);
 												})}
 											</div>
