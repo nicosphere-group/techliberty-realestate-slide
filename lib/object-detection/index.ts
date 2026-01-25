@@ -1,0 +1,1 @@
+export { ObjectDetection } from "./client";

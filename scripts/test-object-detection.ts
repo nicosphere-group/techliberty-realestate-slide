@@ -25,19 +25,19 @@ async function main() {
 			include_scores: true,
 			include_boxes: true,
 		});
-		console.log("\nDetection result:", result.data);
+		console.log("\nDetection result:", result);
 
-		const maskCount = result.data.masks.length ?? 0;
+		const maskCount = result.masks.length ?? 0;
 		console.log(`\nMasks returned: ${maskCount}`);
 
-		if (result.data.boxes?.length) {
+		if (result.boxes?.length) {
 			console.log("\nBounding boxes (cx, cy, w, h):");
-			for (const box of result.data.boxes) {
+			for (const box of result.boxes) {
 				console.log(`  - ${JSON.stringify(box)}`);
 			}
 		}
 
-		const previewUrl = result.data.image?.url ?? result.data.masks[0]?.url;
+		const previewUrl = result.image?.url ?? result.masks[0]?.url;
 		if (!previewUrl) {
 			throw new Error("No preview image URL returned from SAM-3.");
 		}

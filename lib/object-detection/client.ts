@@ -1,12 +1,14 @@
 import { fal } from "@fal-ai/client";
-import type { Sam3ImageInput } from "@fal-ai/client/endpoints";
+import type { ObjectDetectionInput, ObjectDetectionOutput } from "./types";
 
 export class ObjectDetection {
-	async detectObjects(input: Sam3ImageInput) {
+	async detectObjects(
+		input: ObjectDetectionInput,
+	): Promise<ObjectDetectionOutput> {
 		const result = await fal.subscribe("fal-ai/sam-3/image", {
 			input,
 		});
 
-		return result;
+		return result.data;
 	}
 }

@@ -6,7 +6,9 @@
 import { type Content, GoogleGenAI, type Part } from "@google/genai";
 import { PlacesClient } from "@googlemaps/places";
 import { RoutesClient } from "@googlemaps/routing";
+import ky from "ky";
 import sharp from "sharp";
+import { ObjectDetection } from "../object-detection/client";
 import type {
 	ExtractFloorPlanParams,
 	ExtractPropertyImageParams,
@@ -146,6 +148,7 @@ export class RealEstateImagenClient {
 	private ai: GoogleGenAI;
 	private placesClient: PlacesClient | null = null;
 	private routesClient: RoutesClient | null = null;
+	private objectDetection = new ObjectDetection();
 
 	constructor(apiKey?: string, mapsApiKey?: string) {
 		const key = apiKey || GEMINI_API_KEY;
@@ -445,37 +448,39 @@ Return empty array [] if no exterior photo is found.`;
 				};
 			}
 
-			// Step 1: Vision APIで間取り図の領域を検出
-			// console.log("Step 1: 間取り図の領域を検出中...")
-			const boundingBox = await this.detectFloorPlanBoundingBox(maisokuImage);
-			if (!boundingBox) {
+			// Step 1: SAM-3で間取り図の領域を検出し抽出
+			const { image: croppedImage } = await this.objectDetection.detectObjects({
+				image_url: params.maisokuImageUrl,
+				prompt: "floor plan",
+				return_multiple_masks: true,
+				include_scores: true,
+				include_boxes: true,
+			});
+
+			if (!croppedImage) {
 				return {
 					image: null,
 					error: "間取り図を検出できませんでした。",
 				};
 			}
-			// console.log("検出されたバウンディングボックス:", boundingBox)
 
-			// Step 2: Sharpでクロップ
-			// console.log("Step 2: 間取り図をクロップ中...")
-			const croppedImage = await this.cropFloorPlan(maisokuImage, boundingBox);
-			if (!croppedImage) {
-				return {
-					image: null,
-					error: "間取り図のクロップに失敗しました。",
-				};
-			}
+			const croppedImageArrayBuffer = await ky
+				.get(croppedImage.url)
+				.arrayBuffer();
 
 			// クロップ画像を中間結果として保存
 			const croppedImageData: GeneratedImage = {
-				imageData: Buffer.from(croppedImage.data, "base64"),
-				mimeType: croppedImage.mimeType,
+				imageData: Buffer.from(croppedImageArrayBuffer),
+				mimeType: croppedImage.content_type || "image/png",
 				prompt: "クロップ済み間取り図",
 			};
 
 			// Step 3: クロップした間取り図を綺麗に再生成
 			// console.log("Step 3: 間取り図を綺麗に再生成中...")
-			const result = await this.regenerateFloorPlan(croppedImage);
+			const result = await this.regenerateFloorPlan({
+				data: croppedImageData.imageData.toString("base64"),
+				mimeType: croppedImageData.mimeType,
+			});
 
 			// 中間画像を結果に追加
 			return {
@@ -488,148 +493,6 @@ Return empty array [] if no exterior photo is found.`;
 				image: null,
 				error: extractErrorMessage(error),
 			};
-		}
-	}
-
-	/**
-	 * Vision APIで間取り図のバウンディングボックスを検出
-	 * Gemini公式セグメンテーション形式を使用
-	 */
-	private async detectFloorPlanBoundingBox(imageData: {
-		data: string;
-		mimeType: string;
-	}): Promise<FloorPlanBoundingBox | null> {
-		const prompt = `あなたは不動産チラシ（マイソク）の画像解析エキスパートです。
-この画像から間取り図（フロアプラン）を正確に検出してください。
-
-【間取り図の特徴】
-- 部屋のレイアウトを上から見た図面
-- 各部屋の配置、壁、ドア、窓が線画で描かれている
-- 部屋名（LDK、洋室、和室、浴室、トイレなど）が記載されている
-- 面積（帖数、㎡）が記載されていることが多い
-- 方位記号（N）が含まれていることが多い
-- 「間取り」というラベルが付いていることがある
-
-【除外対象】
-- 建物の外観写真
-- 室内写真（リビング、キッチン、浴室などの実際の写真）
-- 地図・周辺案内図・アクセスマップ
-- 物件概要テキスト・価格表
-- 設備一覧表
-- 小さなサムネイル画像
-
-【選択基準】
-1. メインの大きな間取り図を最優先で選ぶ
-2. 複数の間取り図がある場合は、最も大きいサイズのものを1つだけ選ぶ
-3. 間取り図の図面部分のみを囲む（周囲のテキストや凡例は含めない）
-4. 間取り図が見つからない場合は空の配列を返す
-
-【座標の精度】
-- 間取り図の図面領域を正確に検出する
-- 周囲の物件情報テキスト、価格、その他の情報は含めない
-- 間取り図1つだけをぴったり囲むバウンディングボックスを返す
-- 部屋名・面積表示は間取り図の一部として含めて良い
-
-【出力形式】
-Output a JSON list where each entry contains:
-- "box_2d": [y0, x0, y1, x1] with normalized coordinates from 0 to 1000
-- "label": descriptive label (e.g., "floor_plan", "間取り図", "2LDK")
-
-Return empty array [] if no floor plan is found.`;
-
-		const parts: Part[] = [
-			{
-				inlineData: {
-					data: imageData.data,
-					mimeType: imageData.mimeType,
-				},
-			},
-			{ text: prompt },
-		];
-
-		const contents: Content[] = [{ role: "user", parts }];
-
-		const response = await this.ai.models.generateContent({
-			model: "gemini-3-flash-preview",
-			contents,
-			config: {
-				responseModalities: ["TEXT"],
-				thinkingConfig: {
-					thinkingBudget: 0, // オブジェクト検出に最適化
-				},
-			},
-		});
-
-		const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
-		if (!text) {
-			console.error("No text response from bounding box detection");
-			return null;
-		}
-
-		// console.log("Floor plan detection response:", text)
-
-		try {
-			// JSONを抽出（マークダウンのコードブロックを考慮）
-			const jsonMatch = text.match(/\[[\s\S]*\]/);
-			if (!jsonMatch) {
-				console.error("No JSON array found in response:", text);
-				return null;
-			}
-
-			const results: GeminiSegmentationResult[] = JSON.parse(jsonMatch[0]);
-			if (results.length === 0) {
-				console.error("No floor plan found in the maisoku");
-				return null;
-			}
-
-			// 最初の結果を使用（最も大きい間取り図）
-			const result = results[0];
-			const [y0, x0, y1, x1] = result.box_2d;
-
-			// 値のバリデーション（0-1000の範囲）
-			if (
-				y0 < 0 ||
-				y0 > 1000 ||
-				x0 < 0 ||
-				x0 > 1000 ||
-				y1 < 0 ||
-				y1 > 1000 ||
-				x1 < 0 ||
-				x1 > 1000 ||
-				y0 >= y1 ||
-				x0 >= x1
-			) {
-				console.error("Invalid bounding box values:", result.box_2d);
-				return null;
-			}
-
-			// 0-1000座標を0-1座標に変換
-			const x = x0 / 1000;
-			const y = y0 / 1000;
-			const width = (x1 - x0) / 1000;
-			const height = (y1 - y0) / 1000;
-
-			// パディングを追加（3%）して切れを防止
-			const padding = 0.03;
-			const paddedX = Math.max(0, x - padding);
-			const paddedY = Math.max(0, y - padding);
-			const paddedWidth = Math.min(1 - paddedX, width + padding * 2);
-			const paddedHeight = Math.min(1 - paddedY, height + padding * 2);
-
-			// console.log("Detected label:", result.label)
-			// console.log("Original box_2d:", result.box_2d)
-			// console.log("Converted bbox:", { x, y, width, height })
-			// console.log("Padded bbox:", { x: paddedX, y: paddedY, width: paddedWidth, height: paddedHeight })
-
-			return {
-				x: paddedX,
-				y: paddedY,
-				width: paddedWidth,
-				height: paddedHeight,
-			};
-		} catch (error) {
-			console.error("Failed to parse bounding box JSON:", error, text);
-			return null;
 		}
 	}
 
@@ -684,7 +547,6 @@ Return empty array [] if no floor plan is found.`;
 		mimeType: string;
 	}): Promise<ImageGenerationResult> {
 		const prompt = `この画像は不動産チラシ（マイソク）からクロップした間取り図です。
-クロップの際に周囲の情報（ラベル、物件情報、他の写真など）が含まれている可能性があります。
 
 【最重要: 正確性の厳守】
 間取り図は不動産取引において極めて重要な情報です。
@@ -709,12 +571,6 @@ Return empty array [] if no floor plan is found.`;
    - ドア（開き戸・引き戸）、窓の位置と向き
 
 5. 【方位記号】元の画像にある場合のみ、同じ位置に同じ方向で含める
-
-【除外するもの】
-- 「間取り」「Floor Plan」「PLAN」などのラベル・見出し
-- 物件名、価格、物件概要などの周辺テキスト
-- 間取り図の外側にある凡例や注釈
-- 他の写真や画像
 
 【スタイル】
 - 白背景にクリアな線画
