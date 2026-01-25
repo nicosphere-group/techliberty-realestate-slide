@@ -1175,9 +1175,9 @@ export default function ClientPage() {
 													if (slide.type !== "slide:end") return null;
 
 													return (
-														<button
+														<div
 															key={slide.index}
-															type="button"
+															role="button"
 															tabIndex={0}
 															className={cn(
 																"group relative w-full cursor-pointer rounded-lg border-2 overflow-hidden transition-all duration-200 bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
@@ -1194,6 +1194,19 @@ export default function ClientPage() {
 																		? prev.filter((i) => i !== slideIndex)
 																		: [...prev, slideIndex];
 																});
+															}}
+															onKeyDown={(e) => {
+																if (e.key === "Enter" || e.key === " ") {
+																	e.preventDefault();
+																	const slideIndex = slide.index;
+																	setSelectedSlideIndices((prev) => {
+																		const currentlySelected =
+																			prev.includes(slideIndex);
+																		return currentlySelected
+																			? prev.filter((i) => i !== slideIndex)
+																			: [...prev, slideIndex];
+																	});
+																}
 															}}
 														>
 															<div className="pointer-events-none aspect-video w-full">
@@ -1245,7 +1258,7 @@ export default function ClientPage() {
 															{isSelected && (
 																<div className="absolute inset-0 bg-primary/10 pointer-events-none" />
 															)}
-														</button>
+														</div>
 													);
 												})}
 											</div>
