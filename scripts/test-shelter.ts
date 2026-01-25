@@ -43,8 +43,7 @@ async function main() {
 			center: address,
 			size: "900x675", // ハザードマップと同じサイズ
 			scale: 2, // ハザードマップと同じscale
-			zoom: 17, // より拡大して近くで表示
-			showHazardMap: false, // ハザードマップなし
+			zoom: 15, // より拡大して近くで表示
 			maxShelters: 3, // 最寄り3箇所
 		});
 
