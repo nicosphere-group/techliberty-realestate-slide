@@ -49,7 +49,7 @@ export function renderCoverSlide(content: CoverContent): string {
     </div>
     
     <h1 class="text-[108px] font-serif font-bold leading-[1.3] tracking-tight text-[#1A202C] mb-6 pb-4 break-words">
-      ${escapeHtml(content.propertyName).replace(/(\d+)/g, `<span style="${NUMBER_FONT_STYLE}">$1</span>`)}
+      ${escapeHtml(content.propertyName)}
     </h1>
     
     ${content.address ? `
