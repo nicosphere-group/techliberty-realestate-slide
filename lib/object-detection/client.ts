@@ -6,6 +6,7 @@ import sharp from "sharp";
 import type { z } from "zod";
 import { boundingBoxesSchema } from "./schemas";
 
+
 type BoundingBoxes = z.infer<typeof boundingBoxesSchema>;
 
 const OBJECT_DETECTION_PROMPT = `
