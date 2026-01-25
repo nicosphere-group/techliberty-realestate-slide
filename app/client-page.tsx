@@ -13,14 +13,10 @@ import {
 	Sparkles,
 	Square,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
-import {
-	Dropzone,
-	DropzoneContent,
-	DropzoneEmptyState,
-} from "@/components/dropzone";
+import { Dropzone } from "@/components/dropzone";
 import { ModeToggle } from "@/components/mode-toggle";
 import { ScaledFrame, SlidePreview } from "@/components/slide-preview";
 import { Badge } from "@/components/ui/badge";
@@ -75,6 +71,10 @@ export default function ClientPage() {
 		[],
 	);
 	const [isConvertingPdf, setIsConvertingPdf] = useState(false);
+	// 元のPDFファイルを保持（PDF結合用）
+	const [originalPdfFile, setOriginalPdfFile] = useState<File | null>(null);
+	// マイソクプレビュー用のURL
+	const [flyerPreviewUrl, setFlyerPreviewUrl] = useState<string | null>(null);
 
 	// const isDevelopment = process.env.NODE_ENV === "development";
 	const isDevelopment = true;
@@ -250,6 +250,36 @@ export default function ClientPage() {
 		},
 	});
 
+	// flyerFilesが変更されたときにプレビューURLを更新
+	useEffect(() => {
+		const files = form.state.values.flyerFiles;
+		if (files && files.length > 0) {
+			const newUrl = URL.createObjectURL(files[0]);
+			setFlyerPreviewUrl((prevUrl) => {
+				if (prevUrl) {
+					URL.revokeObjectURL(prevUrl);
+				}
+				return newUrl;
+			});
+		} else {
+			setFlyerPreviewUrl((prevUrl) => {
+				if (prevUrl) {
+					URL.revokeObjectURL(prevUrl);
+				}
+				return null;
+			});
+		}
+	}, [form.state.values.flyerFiles]);
+
+	// コンポーネントアンマウント時にURLを解放
+	useEffect(() => {
+		return () => {
+			if (flyerPreviewUrl) {
+				URL.revokeObjectURL(flyerPreviewUrl);
+			}
+		};
+	}, [flyerPreviewUrl]);
+
 	// キャンセルハンドラー
 	const handleCancel = () => {
 		if (abortControllerRef.current) {
@@ -287,9 +317,21 @@ export default function ClientPage() {
 	};
 
 	const executeExportPptx = async (indices: number[]) => {
-		const validIndices = indices
+		// 元のPDFファイルが保存されているかチェック
+		const isPdfFlyer = originalPdfFile !== null;
+
+		// PDF形式の場合、12枚目（プレースホルダー）を除外
+		let validIndices = indices
 			.filter((index) => slideIframeRefs.current.has(index))
 			.sort((a, b) => a - b);
+
+		if (isPdfFlyer) {
+			validIndices = validIndices.filter((index) => index !== 12);
+			// PDF形式のマイソクはPPTXに含められない旨を通知
+			toast.info("マイソクPDFはPPTXに含まれません。PDFエクスポートをご利用ください。", {
+				duration: 5000,
+			});
+		}
 
 		if (validIndices.length === 0) {
 			toast.error("エクスポートするスライドがありません。");
@@ -311,9 +353,20 @@ export default function ClientPage() {
 	};
 
 	const executeExportPdf = async (indices: number[]) => {
-		const validIndices = indices
+		// 元のPDFファイルが保存されているかチェック
+		const isPdfFlyer = originalPdfFile !== null;
+		console.log("[PDF Export] Original PDF file:", originalPdfFile?.name, originalPdfFile?.size);
+		console.log("[PDF Export] Is PDF flyer:", isPdfFlyer);
+
+		// PDF形式の場合、12枚目（プレースホルダー）を除外
+		let validIndices = indices
 			.filter((index) => slideIframeRefs.current.has(index))
 			.sort((a, b) => a - b);
+
+		if (isPdfFlyer) {
+			console.log("[PDF Export] Filtering out slide 12 (placeholder)");
+			validIndices = validIndices.filter((index) => index !== 12);
+		}
 
 		if (validIndices.length === 0) {
 			toast.error("エクスポートするスライドがありません。");
@@ -323,11 +376,23 @@ export default function ClientPage() {
 		const toastId = toast.loading("PDFを生成中...");
 
 		try {
+			// A4横サイズ（297mm × 210mm）でPDFを作成
 			const doc = new jsPDF({
 				orientation: "landscape",
-				unit: "px",
-				format: [1920, 1080],
+				unit: "mm",
+				format: "a4",
 			});
+
+			// A4横のサイズ
+			const pageWidth = 297; // mm
+			const pageHeight = 210; // mm
+
+			// 16:9のスライドをA4横にフィットさせる
+			// 幅に合わせて高さを計算（上下に余白が入る）
+			const slideAspectRatio = 16 / 9;
+			const slideWidth = pageWidth;
+			const slideHeight = pageWidth / slideAspectRatio; // ≈167mm
+			const offsetY = (pageHeight - slideHeight) / 2; // 上下の余白
 
 			const slideContainers = getSlideContainers(validIndices);
 
@@ -346,13 +411,60 @@ export default function ClientPage() {
 				const imgData = canvas.toDataURL("image/jpeg", 0.95);
 
 				if (i > 0) {
-					doc.addPage([1920, 1080], "landscape");
+					doc.addPage("a4", "landscape");
 				}
-				doc.addImage(imgData, "JPEG", 0, 0, 1920, 1080);
+				// スライドを中央に配置（上下に余白）
+				doc.addImage(imgData, "JPEG", 0, offsetY, slideWidth, slideHeight);
 			}
 
-			doc.save(`presentation_${Date.now()}.pdf`);
-			toast.success("PDFのエクスポートが完了しました");
+			// マイソクがPDF形式の場合、結合処理を実行
+			if (isPdfFlyer && originalPdfFile) {
+				console.log("[PDF Export] PDF flyer detected, merging...");
+				toast.loading("マイソクPDFと結合中...", { id: toastId });
+
+				// スライドPDFをBlobとして取得
+				const slidesPdfBlob = doc.output("blob");
+				console.log("[PDF Export] Slides PDF blob size:", slidesPdfBlob.size);
+
+				// FormDataを作成して/api/merge-pdfに送信
+				const formData = new FormData();
+				formData.append("slidesPdf", slidesPdfBlob, "slides.pdf");
+				formData.append("flyerPdf", originalPdfFile);
+				console.log("[PDF Export] Flyer PDF file:", originalPdfFile.name, originalPdfFile.size);
+
+				const response = await fetch("/api/merge-pdf", {
+					method: "POST",
+					body: formData,
+				});
+
+				console.log("[PDF Export] Response status:", response.status);
+
+				if (!response.ok) {
+					const errorData = await response.json();
+					console.error("[PDF Export] Error response:", errorData);
+					throw new Error(`PDF結合に失敗しました: ${errorData.error || "Unknown error"}`);
+				}
+
+				// 結合したPDFをダウンロード
+				const mergedPdfBlob = await response.blob();
+				console.log("[PDF Export] Merged PDF blob size:", mergedPdfBlob.size);
+				const url = URL.createObjectURL(mergedPdfBlob);
+				const a = document.createElement("a");
+				a.href = url;
+				const filename = `presentation_with_flyer_${Date.now()}.pdf`;
+				a.download = filename;
+				console.log("[PDF Export] Downloading:", filename);
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				URL.revokeObjectURL(url);
+
+				toast.success("PDFのエクスポートが完了しました（マイソク付き）");
+			} else {
+				// 通常のPDFダウンロード
+				doc.save(`presentation_${Date.now()}.pdf`);
+				toast.success("PDFのエクスポートが完了しました");
+			}
 		} catch (e) {
 			console.error(e);
 			toast.error("PDFのエクスポートに失敗しました。");
@@ -426,6 +538,126 @@ export default function ClientPage() {
 									form.handleSubmit();
 								}}
 							>
+								{/* Image Input - マイソク（一番上に配置） */}
+								<form.Field
+									name="flyerFiles"
+									children={(field) => {
+										const isInvalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										const currentFile = field.state.value?.[0];
+										return (
+											<Field data-invalid={isInvalid}>
+												<FieldLabel className="text-base font-medium flex items-center gap-2">
+													<ImageIcon className="h-4 w-4 text-primary" />
+													マイソク
+												</FieldLabel>
+												<Dropzone
+													accept={{
+														"image/*": [
+															".png",
+															".jpg",
+															".jpeg",
+															".gif",
+															".webp",
+														],
+														"application/pdf": [".pdf"],
+													}}
+													maxFiles={1}
+													maxSize={20 * 1024 * 1024}
+													src={field.state.value || []}
+													disabled={isConvertingPdf}
+													onDrop={async (acceptedFiles) => {
+														if (acceptedFiles.length === 0) return;
+
+														const file = acceptedFiles[0];
+
+														// PDFの場合はJPGに変換（Gemini用）+ 元のPDFを保存（結合用）
+														if (isPdfFile(file)) {
+															setIsConvertingPdf(true);
+															try {
+																// 元のPDFファイルを保存（PDF結合用）
+																setOriginalPdfFile(file);
+																console.log("[File Upload] Original PDF saved for merging:", file.name, file.size);
+
+																// JPGに変換してGeminiに渡す
+																const result = await convertPdfToSingleJpg(file, 1440, 0.85);
+																field.handleChange([result.file]);
+																console.log("[File Upload] PDF converted to JPG for Gemini:", result.file.name, result.file.size);
+															} catch (error) {
+																console.error("PDF変換エラー:", error);
+																toast.error("PDFの変換に失敗しました", {
+																	description: error instanceof Error ? error.message : "不明なエラー",
+																});
+																// エラー時は元のPDFもクリア
+																setOriginalPdfFile(null);
+															} finally {
+																setIsConvertingPdf(false);
+															}
+														} else {
+															// 画像の場合は元のPDFをクリア
+															setOriginalPdfFile(null);
+															field.handleChange(acceptedFiles);
+															console.log("[File Upload] Image file uploaded:", file.name, file.type, file.size);
+														}
+													}}
+													onError={(error) => {
+														toast.error(
+															"ファイルのアップロードに失敗しました",
+															{
+																description: error.message,
+															},
+														);
+													}}
+													className={cn(
+														"h-auto min-h-40",
+														flyerPreviewUrl && "p-2"
+													)}
+												>
+													{isConvertingPdf ? (
+														<div className="flex flex-col items-center justify-center py-8">
+															<Loader2 className="h-8 w-8 animate-spin text-primary" />
+															<p className="my-2 font-medium text-sm">PDFを変換中...</p>
+														</div>
+													) : flyerPreviewUrl ? (
+														<div className="flex flex-col items-center justify-center w-full">
+															<div className="relative w-full max-w-xs rounded-lg overflow-hidden border bg-muted/20">
+																<img
+																	src={flyerPreviewUrl}
+																	alt="マイソクプレビュー"
+																	className="w-full h-auto object-contain max-h-48"
+																/>
+															</div>
+															<p className="mt-2 text-xs text-muted-foreground truncate max-w-full">
+																{currentFile?.name.replace(/\.[^/.]+$/, '')}
+															</p>
+															<p className="text-xs text-muted-foreground/70">
+																クリックまたはドラッグで置き換え
+															</p>
+														</div>
+													) : (
+														<div className="flex flex-col items-center justify-center">
+															<div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
+																<ImageIcon size={16} />
+															</div>
+															<p className="my-2 font-medium text-sm">
+																ファイルをアップロード
+															</p>
+															<p className="text-muted-foreground text-xs">
+																ドラッグ＆ドロップまたはクリック
+															</p>
+														</div>
+													)}
+												</Dropzone>
+												{isInvalid && (
+													<FieldError errors={field.state.meta.errors} />
+												)}
+											</Field>
+										);
+									}}
+								/>
+
+								<Separator />
+
 								{/* Company Name */}
 								<form.Field
 									name="companyName"
@@ -724,88 +956,6 @@ export default function ClientPage() {
 										/>
 									</div>
 								</div>
-
-								<Separator />
-
-								{/* Image Input */}
-								<form.Field
-									name="flyerFiles"
-									children={(field) => {
-										const isInvalid =
-											field.state.meta.isTouched && !field.state.meta.isValid;
-										return (
-											<Field data-invalid={isInvalid}>
-												<FieldLabel className="text-base font-medium flex items-center gap-2">
-													<ImageIcon className="h-4 w-4 text-primary" />
-													マイソク
-												</FieldLabel>
-												<Dropzone
-													accept={{
-														"image/*": [
-															".png",
-															".jpg",
-															".jpeg",
-															".gif",
-															".webp",
-														],
-														"application/pdf": [".pdf"],
-													}}
-													maxFiles={1}
-													maxSize={20 * 1024 * 1024}
-													src={field.state.value || []}
-													disabled={isConvertingPdf}
-													onDrop={async (acceptedFiles) => {
-														if (acceptedFiles.length === 0) return;
-
-														const file = acceptedFiles[0];
-
-														// PDFの場合はJPGに変換（全ページを縦に連結）
-														if (isPdfFile(file)) {
-															setIsConvertingPdf(true);
-															try {
-																const result = await convertPdfToSingleJpg(file, 1440, 0.85);
-																field.handleChange([result.file]);
-															} catch (error) {
-																console.error("PDF変換エラー:", error);
-																toast.error("PDFの変換に失敗しました", {
-																	description: error instanceof Error ? error.message : "不明なエラー",
-																});
-															} finally {
-																setIsConvertingPdf(false);
-															}
-														} else {
-															field.handleChange(acceptedFiles);
-														}
-													}}
-													onError={(error) => {
-														toast.error(
-															"ファイルのアップロードに失敗しました",
-															{
-																description: error.message,
-															},
-														);
-													}}
-													className="h-40"
-												>
-													{isConvertingPdf ? (
-														<div className="flex flex-col items-center justify-center">
-															<Loader2 className="h-8 w-8 animate-spin text-primary" />
-															<p className="my-2 font-medium text-sm">PDFを変換中...</p>
-														</div>
-													) : (
-														<>
-															<DropzoneEmptyState />
-															<DropzoneContent />
-														</>
-													)}
-												</Dropzone>
-												{isInvalid && (
-													<FieldError errors={field.state.meta.errors} />
-												)}
-											</Field>
-										);
-									}}
-								/>
 
 								<Separator />
 
