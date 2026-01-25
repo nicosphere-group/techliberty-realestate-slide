@@ -37,6 +37,14 @@ export interface FixedSlideDefinition {
  */
 export const SLIDE_DEFINITIONS: FixedSlideDefinition[] = [
 	{
+		index: 0,
+		slideType: "flyer",
+		title: SLIDE_TYPE_TITLES.flyer,
+		description: SLIDE_TYPE_DESCRIPTIONS.flyer,
+		dataSource: "primary",
+		contentHints: ["マイソク画像"],
+	},
+	{
 		index: 1,
 		slideType: "cover",
 		title: SLIDE_TYPE_TITLES.cover,
@@ -132,14 +140,6 @@ export const SLIDE_DEFINITIONS: FixedSlideDefinition[] = [
 		description: SLIDE_TYPE_DESCRIPTIONS["purchase-flow"],
 		dataSource: "static-template",
 		contentHints: ["申込", "契約", "決済", "引渡し"],
-	},
-	{
-		index: 12,
-		slideType: "flyer",
-		title: SLIDE_TYPE_TITLES.flyer,
-		description: SLIDE_TYPE_DESCRIPTIONS.flyer,
-		dataSource: "primary",
-		contentHints: ["マイソク画像"],
 	},
 ];
 

@@ -1,5 +1,5 @@
 /**
- * 12. Flyer（マイソク）テンプレート - 静的版
+ * 0. Flyer（マイソク）テンプレート - 静的版
  * マイソク画像を大きく表示するシンプルなデザイン
  *
  * このスライドは静的なテンプレートです。
@@ -23,7 +23,7 @@ export function renderFlyerSlide(imageUrls: string[]): string {
 
   // 【画像形式の場合】単一画像をスライド全体いっぱいに表示（ヘッダーなし）
   if (imageUrls.length === 1) {
-    return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-black flex items-center justify-center p-0">
+    return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-white flex items-center justify-center p-0">
       <img
         src="${escapeHtml(imageUrls[0])}"
         alt="マイソク"

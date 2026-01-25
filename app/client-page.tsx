@@ -320,13 +320,13 @@ export default function ClientPage() {
 		// 元のPDFファイルが保存されているかチェック
 		const isPdfFlyer = originalPdfFile !== null;
 
-		// PDF形式の場合、12枚目（プレースホルダー）を除外
+		// PDF形式の場合、0枚目（プレースホルダー）を除外
 		let validIndices = indices
 			.filter((index) => slideIframeRefs.current.has(index))
 			.sort((a, b) => a - b);
 
 		if (isPdfFlyer) {
-			validIndices = validIndices.filter((index) => index !== 12);
+			validIndices = validIndices.filter((index) => index !== 0);
 			// PDF形式のマイソクはPPTXに含められない旨を通知
 			toast.info("マイソクPDFはPPTXに含まれません。PDFエクスポートをご利用ください。", {
 				duration: 5000,
@@ -358,14 +358,14 @@ export default function ClientPage() {
 		console.log("[PDF Export] Original PDF file:", originalPdfFile?.name, originalPdfFile?.size);
 		console.log("[PDF Export] Is PDF flyer:", isPdfFlyer);
 
-		// PDF形式の場合、12枚目（プレースホルダー）を除外
+		// PDF形式の場合、0枚目（プレースホルダー）を除外
 		let validIndices = indices
 			.filter((index) => slideIframeRefs.current.has(index))
 			.sort((a, b) => a - b);
 
 		if (isPdfFlyer) {
-			console.log("[PDF Export] Filtering out slide 12 (placeholder)");
-			validIndices = validIndices.filter((index) => index !== 12);
+			console.log("[PDF Export] Filtering out slide 0 (placeholder)");
+			validIndices = validIndices.filter((index) => index !== 0);
 		}
 
 		if (validIndices.length === 0) {
