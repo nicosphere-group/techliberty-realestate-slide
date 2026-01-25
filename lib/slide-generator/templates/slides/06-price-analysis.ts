@@ -69,9 +69,10 @@ export function renderPriceAnalysisSlide(
             <span style="${NUMBER_FONT_STYLE}">${escapeHtml(prop.unitPrice.replace(/万円$/, ""))}</span><span class="text-[18px]">万円</span>
           </td>
         </tr>`;
-				})
-				.join("\n")
-		: `<tr class="border-b border-[#E2E8F0]"><td colspan="5" class="py-8 text-center text-[#A0AEC0] text-xl">No Comparable Data Available</td></tr>`;
+          },
+        )
+        .join("\n")
+    : `<tr class="border-b border-[#E2E8F0]"><td colspan="5" class="py-8 text-center text-[#A0AEC0] text-xl">比較データがありません</td></tr>`;
 
 	return `<div id="slide-container" class="${SLIDE_CONTAINER_CLASS} bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] text-[#2D3748] px-16 py-10 flex flex-col" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
 
@@ -94,7 +95,7 @@ export function renderPriceAnalysisSlide(
 
       <div class="bg-white border-l-4 border-[#C5A059] shadow-sm py-4 px-8 flex items-center gap-8 mt-1">
         <div class="text-[14px] font-sans font-bold tracking-[0.15em] text-[#A0AEC0] uppercase leading-tight text-right">
-          Estimated<br>Market Price
+          推定<br>相場価格
         </div>
         <div class="w-[1px] h-12 bg-[#E2E8F0]"></div>
         <div class="flex items-baseline gap-3">
@@ -104,7 +105,7 @@ export function renderPriceAnalysisSlide(
           <span class="text-[20px] font-sans font-medium text-[#718096]">万円</span>
         </div>
         <div class="ml-auto bg-[#F7F5F2] px-5 py-2 rounded-full">
-           <span class="text-[12px] font-sans font-bold text-[#C5A059] tracking-widest">MARKET RANGE</span>
+           <span class="text-[12px] font-sans font-bold text-[#C5A059] tracking-widest">市場価格帯</span>
         </div>
       </div>
     </section>

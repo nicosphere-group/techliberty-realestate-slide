@@ -50,7 +50,7 @@ export function renderCoverSlide(content: CoverContent): string {
       <span class="text-[18px] font-sans font-bold uppercase tracking-[0.3em] text-[#C5A059]">Presentation Proposal</span>
     </div>
     
-    <h1 class="text-[108px] font-serif font-bold leading-[1.05] tracking-tight text-[#1A202C] mb-10 break-words line-clamp-3">
+    <h1 class="text-[108px] font-serif font-bold leading-[1.3] tracking-tight text-[#1A202C] mb-6 pb-4 break-words">
       ${escapeHtml(content.propertyName)}
     </h1>
     
@@ -77,7 +77,7 @@ export function renderCoverSlide(content: CoverContent): string {
     <div class="flex justify-between items-end">
 
       <div class="flex flex-col gap-4">
-        <div class="text-[14px] font-sans font-bold tracking-[0.25em] text-[#C5A059] uppercase">Provided By</div>
+        <div class="text-[14px] font-sans font-bold tracking-[0.25em] text-[#C5A059] uppercase">ご提供</div>
         <div class="space-y-2">
           <div class="text-[42px] font-serif font-bold text-[#1A202C] leading-tight">${escapeHtml(content.companyName)}</div>
           ${content.storeName ? `<div class="text-[28px] font-sans text-[#4A5568] font-medium">${escapeHtml(content.storeName)}</div>` : ""}
@@ -104,7 +104,7 @@ export function renderCoverSlide(content: CoverContent): string {
       </div>
 
       <div class="text-right">
-        <div class="text-[14px] font-sans font-bold tracking-[0.25em] text-[#A0AEC0] uppercase mb-2">Issue Date</div>
+        <div class="text-[14px] font-sans font-bold tracking-[0.25em] text-[#A0AEC0] uppercase mb-2">発行日</div>
         <div class="text-[26px] font-sans font-medium text-[#4A5568] tracking-widest" style="${NUMBER_FONT_STYLE}">
           ${getTodayFormatted()}
         </div>

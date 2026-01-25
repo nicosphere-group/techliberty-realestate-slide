@@ -13,7 +13,7 @@ export { renderFundingSlide } from "./08-funding";
 export { renderExpensesSlide } from "./09-expenses";
 export { renderTaxSlide } from "./10-tax";
 export { renderPurchaseFlowSlide } from "./11-purchase-flow";
-export { renderFlyerSlide } from "./12-flyer";
+export { renderFlyerSlide } from "./00-flyer";
 
 import type { SlideContentMap } from "../../schemas/slide-content";
 import type { SlideType } from "../../types/slide";
@@ -28,7 +28,7 @@ import { renderFundingSlide } from "./08-funding";
 import { renderExpensesSlide } from "./09-expenses";
 import { renderTaxSlide } from "./10-tax";
 import { renderPurchaseFlowSlide } from "./11-purchase-flow";
-import { renderFlyerSlide } from "./12-flyer";
+import { renderFlyerSlide } from "./00-flyer";
 
 /** 静的テンプレート（LLMによるコンテンツ生成が不要なスライド） */
 export const STATIC_SLIDE_TYPES = ["tax", "purchase-flow", "flyer"] as const;

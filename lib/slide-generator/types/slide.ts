@@ -17,7 +17,7 @@ export const SLIDE_TYPES = [
 	"expenses", // 9. 諸費用
 	"tax", // 10. 税制情報
 	"purchase-flow", // 11. 購入手続き
-	"flyer", // 12. マイソク
+	"flyer", // 0. マイソク
 ] as const;
 
 export type SlideType = (typeof SLIDE_TYPES)[number];
@@ -62,6 +62,7 @@ export const SLIDE_TYPE_DESCRIPTIONS: Record<SlideType, string> = {
  * スライドタイプごとのインデックス（1始まり）
  */
 export const SLIDE_TYPE_INDEX: Record<SlideType, number> = {
+	flyer: 0,
 	cover: 1,
 	"property-highlight": 2,
 	"floor-plan": 3,
@@ -73,13 +74,13 @@ export const SLIDE_TYPE_INDEX: Record<SlideType, number> = {
 	expenses: 9,
 	tax: 10,
 	"purchase-flow": 11,
-	flyer: 12,
 };
 
 /**
  * インデックスからスライドタイプを取得
  */
 export function getSlideTypeByIndex(index: number): SlideType | undefined {
+	if (index === 0) return "flyer";
 	return SLIDE_TYPES[index - 1];
 }
 

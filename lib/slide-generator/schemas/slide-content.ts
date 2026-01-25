@@ -310,7 +310,7 @@ export const purchaseFlowContentSchema = z.object({});
 export type PurchaseFlowContent = z.infer<typeof purchaseFlowContentSchema>;
 
 // ========================================
-// 12. Flyer（マイソク）- 静的テンプレート
+// 0. Flyer（マイソク）- 静的テンプレート
 // ========================================
 // このスライドはLLMによるコンテンツ生成不要
 // 画像URLのみ外部から渡される

@@ -112,6 +112,8 @@ export class SlideGenerator {
 	private flyerData: FlyerDataModel | null = null;
 	/** マイソク画像のData URL */
 	private maisokuDataUrl: string | null = null;
+	/** マイソクPDFファイル（PDF形式の場合のみ保存） */
+	private flyerPdfFile: File | null = null;
 
 	constructor(options: SlideGeneratorOptions = {}) {
 		this.useStructuredOutput =
@@ -133,6 +135,13 @@ export class SlideGenerator {
 	}
 
 	/**
+	 * マイソクPDFファイルを取得（PDF形式の場合のみ）
+	 */
+	public getFlyerPdfFile(): File | null {
+		return this.flyerPdfFile;
+	}
+
+	/**
 	 * スライド生成を実行
 	 * 各ステップでイベントをyieldするジェネレーター
 	 */
@@ -144,6 +153,13 @@ export class SlideGenerator {
 			// 入力をコンテキストに追加
 			const userContent = await this.buildUserContent(input);
 			this.messages.push({ role: "user", content: userContent });
+
+			// PDF形式かどうかを判定して保存
+			const isPdf = input.flyerFiles[0].type === "application/pdf";
+			if (isPdf) {
+				this.flyerPdfFile = input.flyerFiles[0];
+				console.log("[SlideGenerator] PDF format detected, will merge at the end");
+			}
 
 			// マイソク画像をData URLに変換して保存（ツール呼び出し用）
 			const maisokuDataUrls = await this.filesToDataUrls(input.flyerFiles);
@@ -182,6 +198,8 @@ export class SlideGenerator {
 
 			const promises = Promise.all(
 				plan.map(async (slideDef: FixedSlideDefinition) => {
+					const slideType = slideDef.slideType as SlideType;
+
 					channel.push({
 						type: "slide:start",
 						data: {
@@ -192,18 +210,57 @@ export class SlideGenerator {
 						},
 					});
 
-					let slide: Slide;
-					const slideType = slideDef.slideType;
+					let slide: GeneratedSlide;
 
-					// 静的テンプレート（tax, purchase-flow, flyer）: AI生成をスキップ
-					if (isStaticSlideType(slideType)) {
+					// PDF形式の場合、マイソクスライド（0枚目）はプレースホルダーを生成
+					if (isPdf && slideType === "flyer") {
+						console.log(`[SLIDE ${slideDef.index}] Generating placeholder for flyer slide (PDF format)`);
+
+						// プレースホルダースライド: PDFダウンロード時に結合される旨を表示
+						const placeholderHtml = wrapInHtmlDocument(`
+							<div id="slide-container" class="w-[1920px] h-[1080px] bg-gradient-to-br from-[#FDFCFB] to-[#F7F5F2] flex items-center justify-center text-[#2D3748]" style="font-family: 'Noto Serif JP', 'Playfair Display', serif;">
+								<div class="text-center max-w-3xl px-12">
+									<div class="mb-8">
+										<div class="inline-block p-6 bg-white rounded-full shadow-lg mb-6">
+											<svg class="w-24 h-24 text-[#C5A059]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+											</svg>
+										</div>
+									</div>
+									<h1 class="text-[64px] font-serif font-bold mb-6 text-[#1A202C]">マイソク</h1>
+									<p class="text-[32px] leading-relaxed text-[#4A5568]">
+										マイソクPDFは、PDFダウンロード時に自動的に結合されます
+									</p>
+								</div>
+							</div>
+						`);
+
+						slide = {
+							html: placeholderHtml,
+							sources: [],
+						};
+
+						channel.push({
+							type: "slide:generating",
+							index: slideDef.index,
+							title: slideDef.title,
+							data: { ...slide },
+						});
+
+						// 静的スライドのログデータを作成
+						const logData: SlideLogData = {
+							definition: slideDef,
+							html: placeholderHtml,
+							isStatic: true,
+						};
+						this.logSlideIO(logData);
+					} else if (isStaticSlideType(slideType)) {
+						// 静的テンプレート（tax, purchase-flow, 画像形式のflyer）: AI生成をスキップ
 						let bodyContent: string;
 
 						if (slideType === "flyer") {
-							// マイソクスライド: アップロード画像をそのまま表示
-							const imageDataUrls = await this.filesToDataUrls(
-								input.flyerFiles,
-							);
+							// 画像形式のマイソクスライド: アップロード画像をそのまま表示（全画面）
+							const imageDataUrls = await this.filesToDataUrls(input.flyerFiles);
 							bodyContent = renderStaticSlideBody("flyer", {
 								imageUrls: imageDataUrls,
 							});
@@ -555,6 +612,19 @@ ${safeStringify(toolResults.results)}
 - これまでの会話で得られた情報を最大限活用する
 - ツール実行結果にimageUrl, facilityGroups等、スキーマと一致するフィールドがある場合は、**そのまま対応するフィールドにコピー**すること
 
+# 景品表示法（景表法）遵守 - 必須
+以下の表現は景表法違反となるため、絶対に使用しないこと：
+- 断定表現：「絶対」「必ず」「間違いなく」「完全」「完璧」「万全」等
+- 裏付けのない最上級表現：「日本一」「業界初」「世界一」「地域No.1」「地域最大級」等（エビデンスがない場合）
+- 確約できない表現：「特選」「厳選」「最高」「最高値」等
+- 期日・期間をコミットする表現：「即座に」「即売れ」等
+- 他社への誹謗中傷：「他社より優れた」等
+- おとり系の表現：「購入希望者がいます」等（具体的な事実がない場合）
+- 特別感を過度に示す表現：「今だけ」「期間限定」等
+
+代わりに、事実に基づいた客観的な表現を使用すること。
+例：「最高の立地」→「駅徒歩3分の好立地」、「完璧な間取り」→「3LDK・全室南向き」
+
 # 出力形式
 構造化データのみを出力。余計な説明は不要。`;
 
@@ -781,6 +851,19 @@ ${toolResultsPrompt}
 
 ## タイポグラフィ
 - フォント: 'Noto Serif JP', 'Playfair Display', serif
+
+# 景品表示法（景表法）遵守 - 必須
+以下の表現は景表法違反となるため、絶対に使用しないこと：
+- 断定表現：「絶対」「必ず」「間違いなく」「完全」「完璧」「万全」等
+- 裏付けのない最上級表現：「日本一」「業界初」「世界一」「地域No.1」「地域最大級」等（エビデンスがない場合）
+- 確約できない表現：「特選」「厳選」「最高」「最高値」等
+- 期日・期間をコミットする表現：「即座に」「即売れ」等
+- 他社への誹謗中傷：「他社より優れた」等
+- おとり系の表現：「購入希望者がいます」等（具体的な事実がない場合）
+- 特別感を過度に示す表現：「今だけ」「期間限定」等
+
+代わりに、事実に基づいた客観的な表現を使用すること。
+例：「最高の立地」→「駅徒歩3分の好立地」、「完璧な間取り」→「3LDK・全室南向き」
 
 # 出力ルール
 1. 必ず <div id="slide-container" class="w-[1920px] h-[1080px] ..."> で開始

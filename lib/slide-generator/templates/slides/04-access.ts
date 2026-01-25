@@ -26,11 +26,11 @@ export function renderAccessSlide(content: AccessContent): string {
       </div>
       
       <div class="flex items-baseline gap-3 mb-2">
-        <span class="text-[14px] font-sans font-bold tracking-[0.2em] text-[#A0AEC0] uppercase mr-2">Walk</span>
+        <span class="text-[14px] font-sans font-bold tracking-[0.2em] text-[#A0AEC0] uppercase mr-2">徒歩</span>
         <span class="text-[80px] font-serif font-bold text-[#1A202C] leading-[0.8] tracking-tighter" style="${NUMBER_FONT_STYLE}">
           ${station.walkMinutes}
         </span>
-        <span class="text-[20px] font-sans font-medium text-[#718096]">min</span>
+        <span class="text-[20px] font-sans font-medium text-[#718096]">分</span>
       </div>
     </li>`,
 		)
@@ -72,12 +72,12 @@ export function renderAccessSlide(content: AccessContent): string {
                  <div class="w-40 h-40 border border-[#CBD5E0] rounded-full flex items-center justify-center">
                    <div class="w-3 h-3 bg-[#A0AEC0] rounded-full"></div>
                  </div>
-                 <span class="absolute bottom-6 right-6 text-[14px] font-sans font-bold tracking-widest text-[#718096]">MAP AREA</span>
+                 <span class="absolute bottom-6 right-6 text-[14px] font-sans font-bold tracking-widest text-[#718096]">地図</span>
                </div>`
 				}
         
         <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1A202C] text-white px-6 py-4 shadow-xl">
-          <div class="text-[14px] font-sans font-bold tracking-widest uppercase mb-2 text-[#C5A059]">Subject Property</div>
+          <div class="text-[14px] font-sans font-bold tracking-widest uppercase mb-2 text-[#C5A059]">対象物件</div>
           <div class="text-[20px] font-serif font-medium whitespace-nowrap">${escapeHtml(content.propertyName)}</div>
           <div class="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[10px] border-t-[#1A202C]"></div>
         </div>
@@ -97,7 +97,7 @@ export function renderAccessSlide(content: AccessContent): string {
     <div class="flex-1 flex flex-col justify-center">
       <div class="mb-10">
         <h3 class="text-[24px] font-sans font-light tracking-[0.1em] text-[#4A5568] mb-3">
-          Transportation
+          最寄り駅
         </h3>
         <p class="text-[18px] text-[#A0AEC0] font-sans">
           主要エリアへの快適なアクセス環境

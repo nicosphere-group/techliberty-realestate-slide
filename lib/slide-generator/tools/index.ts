@@ -57,7 +57,7 @@ export type { PriceAnalysisResult, SimilarProperty };
  * | 6 | 価格分析       | get_price_info, get_municipalities                |
  * | 7 | 災害リスク     | get_hazard_map_url, generate_shelter_map          |
  * | 8-11 | 資金計画等  | (なし)                                            |
- * | 12 | マイソク       | (なし - 入力画像をそのまま使用)                   |
+ * | 0 | マイソク       | (なし - 入力画像をそのまま使用)                    |
  */
 const SLIDE_TOOLS: Record<number, Record<string, Tool>> = {
 	1: {
