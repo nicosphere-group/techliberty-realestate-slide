@@ -220,14 +220,14 @@ export type TeamMemberScalarWhereWithAggregatesInput = {
 }
 
 export type TeamMemberCreateInput = {
-  id: string
+  id?: string
   createdAt?: Date | string | null
-  team: Prisma.TeamCreateNestedOneWithoutTeammembersInput
-  user: Prisma.UserCreateNestedOneWithoutTeammembersInput
+  team: Prisma.TeamCreateNestedOneWithoutTeamMembersInput
+  user: Prisma.UserCreateNestedOneWithoutTeamMembersInput
 }
 
 export type TeamMemberUncheckedCreateInput = {
-  id: string
+  id?: string
   teamId: string
   userId: string
   createdAt?: Date | string | null
@@ -236,8 +236,8 @@ export type TeamMemberUncheckedCreateInput = {
 export type TeamMemberUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  team?: Prisma.TeamUpdateOneRequiredWithoutTeammembersNestedInput
-  user?: Prisma.UserUpdateOneRequiredWithoutTeammembersNestedInput
+  team?: Prisma.TeamUpdateOneRequiredWithoutTeamMembersNestedInput
+  user?: Prisma.UserUpdateOneRequiredWithoutTeamMembersNestedInput
 }
 
 export type TeamMemberUncheckedUpdateInput = {
@@ -248,7 +248,7 @@ export type TeamMemberUncheckedUpdateInput = {
 }
 
 export type TeamMemberCreateManyInput = {
-  id: string
+  id?: string
   teamId: string
   userId: string
   createdAt?: Date | string | null
@@ -382,13 +382,13 @@ export type TeamMemberUncheckedUpdateManyWithoutTeamNestedInput = {
 }
 
 export type TeamMemberCreateWithoutUserInput = {
-  id: string
+  id?: string
   createdAt?: Date | string | null
-  team: Prisma.TeamCreateNestedOneWithoutTeammembersInput
+  team: Prisma.TeamCreateNestedOneWithoutTeamMembersInput
 }
 
 export type TeamMemberUncheckedCreateWithoutUserInput = {
-  id: string
+  id?: string
   teamId: string
   createdAt?: Date | string | null
 }
@@ -430,13 +430,13 @@ export type TeamMemberScalarWhereInput = {
 }
 
 export type TeamMemberCreateWithoutTeamInput = {
-  id: string
+  id?: string
   createdAt?: Date | string | null
-  user: Prisma.UserCreateNestedOneWithoutTeammembersInput
+  user: Prisma.UserCreateNestedOneWithoutTeamMembersInput
 }
 
 export type TeamMemberUncheckedCreateWithoutTeamInput = {
-  id: string
+  id?: string
   userId: string
   createdAt?: Date | string | null
 }
@@ -468,7 +468,7 @@ export type TeamMemberUpdateManyWithWhereWithoutTeamInput = {
 }
 
 export type TeamMemberCreateManyUserInput = {
-  id: string
+  id?: string
   teamId: string
   createdAt?: Date | string | null
 }
@@ -476,7 +476,7 @@ export type TeamMemberCreateManyUserInput = {
 export type TeamMemberUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  team?: Prisma.TeamUpdateOneRequiredWithoutTeammembersNestedInput
+  team?: Prisma.TeamUpdateOneRequiredWithoutTeamMembersNestedInput
 }
 
 export type TeamMemberUncheckedUpdateWithoutUserInput = {
@@ -492,7 +492,7 @@ export type TeamMemberUncheckedUpdateManyWithoutUserInput = {
 }
 
 export type TeamMemberCreateManyTeamInput = {
-  id: string
+  id?: string
   userId: string
   createdAt?: Date | string | null
 }
@@ -500,7 +500,7 @@ export type TeamMemberCreateManyTeamInput = {
 export type TeamMemberUpdateWithoutTeamInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  user?: Prisma.UserUpdateOneRequiredWithoutTeammembersNestedInput
+  user?: Prisma.UserUpdateOneRequiredWithoutTeamMembersNestedInput
 }
 
 export type TeamMemberUncheckedUpdateWithoutTeamInput = {

@@ -1,5 +1,6 @@
 import { createAuthClient } from "better-auth/client";
 import {
+	adminClient,
 	organizationClient,
 	twoFactorClient,
 	usernameClient,
@@ -9,6 +10,7 @@ export const authClient = createAuthClient({
 	plugins: [
 		twoFactorClient(),
 		usernameClient(),
+		adminClient(),
 		organizationClient({
 			teams: {
 				enabled: true,

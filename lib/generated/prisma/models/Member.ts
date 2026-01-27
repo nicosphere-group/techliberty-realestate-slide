@@ -232,7 +232,7 @@ export type MemberScalarWhereWithAggregatesInput = {
 }
 
 export type MemberCreateInput = {
-  id: string
+  id?: string
   role?: string
   createdAt: Date | string
   organization: Prisma.OrganizationCreateNestedOneWithoutMembersInput
@@ -240,7 +240,7 @@ export type MemberCreateInput = {
 }
 
 export type MemberUncheckedCreateInput = {
-  id: string
+  id?: string
   organizationId: string
   userId: string
   role?: string
@@ -264,7 +264,7 @@ export type MemberUncheckedUpdateInput = {
 }
 
 export type MemberCreateManyInput = {
-  id: string
+  id?: string
   organizationId: string
   userId: string
   role?: string
@@ -404,14 +404,14 @@ export type MemberUncheckedUpdateManyWithoutOrganizationNestedInput = {
 }
 
 export type MemberCreateWithoutUserInput = {
-  id: string
+  id?: string
   role?: string
   createdAt: Date | string
   organization: Prisma.OrganizationCreateNestedOneWithoutMembersInput
 }
 
 export type MemberUncheckedCreateWithoutUserInput = {
-  id: string
+  id?: string
   organizationId: string
   role?: string
   createdAt: Date | string
@@ -455,14 +455,14 @@ export type MemberScalarWhereInput = {
 }
 
 export type MemberCreateWithoutOrganizationInput = {
-  id: string
+  id?: string
   role?: string
   createdAt: Date | string
   user: Prisma.UserCreateNestedOneWithoutMembersInput
 }
 
 export type MemberUncheckedCreateWithoutOrganizationInput = {
-  id: string
+  id?: string
   userId: string
   role?: string
   createdAt: Date | string
@@ -495,7 +495,7 @@ export type MemberUpdateManyWithWhereWithoutOrganizationInput = {
 }
 
 export type MemberCreateManyUserInput = {
-  id: string
+  id?: string
   organizationId: string
   role?: string
   createdAt: Date | string
@@ -523,7 +523,7 @@ export type MemberUncheckedUpdateManyWithoutUserInput = {
 }
 
 export type MemberCreateManyOrganizationInput = {
-  id: string
+  id?: string
   userId: string
   role?: string
   createdAt: Date | string

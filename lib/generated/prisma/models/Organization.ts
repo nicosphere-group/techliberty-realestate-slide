@@ -247,7 +247,7 @@ export type OrganizationScalarWhereWithAggregatesInput = {
 }
 
 export type OrganizationCreateInput = {
-  id: string
+  id?: string
   name: string
   slug: string
   logo?: string | null
@@ -259,7 +259,7 @@ export type OrganizationCreateInput = {
 }
 
 export type OrganizationUncheckedCreateInput = {
-  id: string
+  id?: string
   name: string
   slug: string
   logo?: string | null
@@ -295,7 +295,7 @@ export type OrganizationUncheckedUpdateInput = {
 }
 
 export type OrganizationCreateManyInput = {
-  id: string
+  id?: string
   name: string
   slug: string
   logo?: string | null
@@ -396,7 +396,7 @@ export type OrganizationUpdateOneRequiredWithoutInvitationsNestedInput = {
 }
 
 export type OrganizationCreateWithoutTeamsInput = {
-  id: string
+  id?: string
   name: string
   slug: string
   logo?: string | null
@@ -407,7 +407,7 @@ export type OrganizationCreateWithoutTeamsInput = {
 }
 
 export type OrganizationUncheckedCreateWithoutTeamsInput = {
-  id: string
+  id?: string
   name: string
   slug: string
   logo?: string | null
@@ -456,7 +456,7 @@ export type OrganizationUncheckedUpdateWithoutTeamsInput = {
 }
 
 export type OrganizationCreateWithoutMembersInput = {
-  id: string
+  id?: string
   name: string
   slug: string
   logo?: string | null
@@ -467,7 +467,7 @@ export type OrganizationCreateWithoutMembersInput = {
 }
 
 export type OrganizationUncheckedCreateWithoutMembersInput = {
-  id: string
+  id?: string
   name: string
   slug: string
   logo?: string | null
@@ -516,7 +516,7 @@ export type OrganizationUncheckedUpdateWithoutMembersInput = {
 }
 
 export type OrganizationCreateWithoutInvitationsInput = {
-  id: string
+  id?: string
   name: string
   slug: string
   logo?: string | null
@@ -527,7 +527,7 @@ export type OrganizationCreateWithoutInvitationsInput = {
 }
 
 export type OrganizationUncheckedCreateWithoutInvitationsInput = {
-  id: string
+  id?: string
   name: string
   slug: string
   logo?: string | null

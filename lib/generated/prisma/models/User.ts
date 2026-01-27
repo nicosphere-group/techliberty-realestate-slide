@@ -35,6 +35,10 @@ export type UserMinAggregateOutputType = {
   twoFactorEnabled: boolean | null
   username: string | null
   displayUsername: string | null
+  role: string | null
+  banned: boolean | null
+  banReason: string | null
+  banExpires: Date | null
 }
 
 export type UserMaxAggregateOutputType = {
@@ -48,6 +52,10 @@ export type UserMaxAggregateOutputType = {
   twoFactorEnabled: boolean | null
   username: string | null
   displayUsername: string | null
+  role: string | null
+  banned: boolean | null
+  banReason: string | null
+  banExpires: Date | null
 }
 
 export type UserCountAggregateOutputType = {
@@ -61,6 +69,10 @@ export type UserCountAggregateOutputType = {
   twoFactorEnabled: number
   username: number
   displayUsername: number
+  role: number
+  banned: number
+  banReason: number
+  banExpires: number
   _all: number
 }
 
@@ -76,6 +88,10 @@ export type UserMinAggregateInputType = {
   twoFactorEnabled?: true
   username?: true
   displayUsername?: true
+  role?: true
+  banned?: true
+  banReason?: true
+  banExpires?: true
 }
 
 export type UserMaxAggregateInputType = {
@@ -89,6 +105,10 @@ export type UserMaxAggregateInputType = {
   twoFactorEnabled?: true
   username?: true
   displayUsername?: true
+  role?: true
+  banned?: true
+  banReason?: true
+  banExpires?: true
 }
 
 export type UserCountAggregateInputType = {
@@ -102,6 +122,10 @@ export type UserCountAggregateInputType = {
   twoFactorEnabled?: true
   username?: true
   displayUsername?: true
+  role?: true
+  banned?: true
+  banReason?: true
+  banExpires?: true
   _all?: true
 }
 
@@ -188,6 +212,10 @@ export type UserGroupByOutputType = {
   twoFactorEnabled: boolean | null
   username: string | null
   displayUsername: string | null
+  role: string | null
+  banned: boolean | null
+  banReason: string | null
+  banExpires: Date | null
   _count: UserCountAggregateOutputType | null
   _min: UserMinAggregateOutputType | null
   _max: UserMaxAggregateOutputType | null
@@ -222,10 +250,14 @@ export type UserWhereInput = {
   twoFactorEnabled?: Prisma.BoolNullableFilter<"User"> | boolean | null
   username?: Prisma.StringNullableFilter<"User"> | string | null
   displayUsername?: Prisma.StringNullableFilter<"User"> | string | null
+  role?: Prisma.StringNullableFilter<"User"> | string | null
+  banned?: Prisma.BoolNullableFilter<"User"> | boolean | null
+  banReason?: Prisma.StringNullableFilter<"User"> | string | null
+  banExpires?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   sessions?: Prisma.SessionListRelationFilter
   accounts?: Prisma.AccountListRelationFilter
-  twofactors?: Prisma.TwoFactorListRelationFilter
-  teammembers?: Prisma.TeamMemberListRelationFilter
+  twoFactors?: Prisma.TwoFactorListRelationFilter
+  teamMembers?: Prisma.TeamMemberListRelationFilter
   members?: Prisma.MemberListRelationFilter
   invitations?: Prisma.InvitationListRelationFilter
 }
@@ -241,10 +273,14 @@ export type UserOrderByWithRelationInput = {
   twoFactorEnabled?: Prisma.SortOrderInput | Prisma.SortOrder
   username?: Prisma.SortOrderInput | Prisma.SortOrder
   displayUsername?: Prisma.SortOrderInput | Prisma.SortOrder
+  role?: Prisma.SortOrderInput | Prisma.SortOrder
+  banned?: Prisma.SortOrderInput | Prisma.SortOrder
+  banReason?: Prisma.SortOrderInput | Prisma.SortOrder
+  banExpires?: Prisma.SortOrderInput | Prisma.SortOrder
   sessions?: Prisma.SessionOrderByRelationAggregateInput
   accounts?: Prisma.AccountOrderByRelationAggregateInput
-  twofactors?: Prisma.TwoFactorOrderByRelationAggregateInput
-  teammembers?: Prisma.TeamMemberOrderByRelationAggregateInput
+  twoFactors?: Prisma.TwoFactorOrderByRelationAggregateInput
+  teamMembers?: Prisma.TeamMemberOrderByRelationAggregateInput
   members?: Prisma.MemberOrderByRelationAggregateInput
   invitations?: Prisma.InvitationOrderByRelationAggregateInput
 }
@@ -263,10 +299,14 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   twoFactorEnabled?: Prisma.BoolNullableFilter<"User"> | boolean | null
   displayUsername?: Prisma.StringNullableFilter<"User"> | string | null
+  role?: Prisma.StringNullableFilter<"User"> | string | null
+  banned?: Prisma.BoolNullableFilter<"User"> | boolean | null
+  banReason?: Prisma.StringNullableFilter<"User"> | string | null
+  banExpires?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   sessions?: Prisma.SessionListRelationFilter
   accounts?: Prisma.AccountListRelationFilter
-  twofactors?: Prisma.TwoFactorListRelationFilter
-  teammembers?: Prisma.TeamMemberListRelationFilter
+  twoFactors?: Prisma.TwoFactorListRelationFilter
+  teamMembers?: Prisma.TeamMemberListRelationFilter
   members?: Prisma.MemberListRelationFilter
   invitations?: Prisma.InvitationListRelationFilter
 }, "id" | "email" | "username">
@@ -282,6 +322,10 @@ export type UserOrderByWithAggregationInput = {
   twoFactorEnabled?: Prisma.SortOrderInput | Prisma.SortOrder
   username?: Prisma.SortOrderInput | Prisma.SortOrder
   displayUsername?: Prisma.SortOrderInput | Prisma.SortOrder
+  role?: Prisma.SortOrderInput | Prisma.SortOrder
+  banned?: Prisma.SortOrderInput | Prisma.SortOrder
+  banReason?: Prisma.SortOrderInput | Prisma.SortOrder
+  banExpires?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
   _max?: Prisma.UserMaxOrderByAggregateInput
   _min?: Prisma.UserMinOrderByAggregateInput
@@ -301,10 +345,14 @@ export type UserScalarWhereWithAggregatesInput = {
   twoFactorEnabled?: Prisma.BoolNullableWithAggregatesFilter<"User"> | boolean | null
   username?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   displayUsername?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  role?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  banned?: Prisma.BoolNullableWithAggregatesFilter<"User"> | boolean | null
+  banReason?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  banExpires?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
 }
 
 export type UserCreateInput = {
-  id: string
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -314,16 +362,20 @@ export type UserCreateInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
-  twofactors?: Prisma.TwoFactorCreateNestedManyWithoutUserInput
-  teammembers?: Prisma.TeamMemberCreateNestedManyWithoutUserInput
+  twoFactors?: Prisma.TwoFactorCreateNestedManyWithoutUserInput
+  teamMembers?: Prisma.TeamMemberCreateNestedManyWithoutUserInput
   members?: Prisma.MemberCreateNestedManyWithoutUserInput
   invitations?: Prisma.InvitationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
-  id: string
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -333,10 +385,14 @@ export type UserUncheckedCreateInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
-  twofactors?: Prisma.TwoFactorUncheckedCreateNestedManyWithoutUserInput
-  teammembers?: Prisma.TeamMemberUncheckedCreateNestedManyWithoutUserInput
+  twoFactors?: Prisma.TwoFactorUncheckedCreateNestedManyWithoutUserInput
+  teamMembers?: Prisma.TeamMemberUncheckedCreateNestedManyWithoutUserInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutUserInput
   invitations?: Prisma.InvitationUncheckedCreateNestedManyWithoutUserInput
 }
@@ -352,10 +408,14 @@ export type UserUpdateInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
-  twofactors?: Prisma.TwoFactorUpdateManyWithoutUserNestedInput
-  teammembers?: Prisma.TeamMemberUpdateManyWithoutUserNestedInput
+  twoFactors?: Prisma.TwoFactorUpdateManyWithoutUserNestedInput
+  teamMembers?: Prisma.TeamMemberUpdateManyWithoutUserNestedInput
   members?: Prisma.MemberUpdateManyWithoutUserNestedInput
   invitations?: Prisma.InvitationUpdateManyWithoutUserNestedInput
 }
@@ -371,16 +431,20 @@ export type UserUncheckedUpdateInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
-  twofactors?: Prisma.TwoFactorUncheckedUpdateManyWithoutUserNestedInput
-  teammembers?: Prisma.TeamMemberUncheckedUpdateManyWithoutUserNestedInput
+  twoFactors?: Prisma.TwoFactorUncheckedUpdateManyWithoutUserNestedInput
+  teamMembers?: Prisma.TeamMemberUncheckedUpdateManyWithoutUserNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutUserNestedInput
   invitations?: Prisma.InvitationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
-  id: string
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -390,6 +454,10 @@ export type UserCreateManyInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
 }
 
 export type UserUpdateManyMutationInput = {
@@ -403,6 +471,10 @@ export type UserUpdateManyMutationInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type UserUncheckedUpdateManyInput = {
@@ -416,6 +488,10 @@ export type UserUncheckedUpdateManyInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type UserCountOrderByAggregateInput = {
@@ -429,6 +505,10 @@ export type UserCountOrderByAggregateInput = {
   twoFactorEnabled?: Prisma.SortOrder
   username?: Prisma.SortOrder
   displayUsername?: Prisma.SortOrder
+  role?: Prisma.SortOrder
+  banned?: Prisma.SortOrder
+  banReason?: Prisma.SortOrder
+  banExpires?: Prisma.SortOrder
 }
 
 export type UserMaxOrderByAggregateInput = {
@@ -442,6 +522,10 @@ export type UserMaxOrderByAggregateInput = {
   twoFactorEnabled?: Prisma.SortOrder
   username?: Prisma.SortOrder
   displayUsername?: Prisma.SortOrder
+  role?: Prisma.SortOrder
+  banned?: Prisma.SortOrder
+  banReason?: Prisma.SortOrder
+  banExpires?: Prisma.SortOrder
 }
 
 export type UserMinOrderByAggregateInput = {
@@ -455,6 +539,10 @@ export type UserMinOrderByAggregateInput = {
   twoFactorEnabled?: Prisma.SortOrder
   username?: Prisma.SortOrder
   displayUsername?: Prisma.SortOrder
+  role?: Prisma.SortOrder
+  banned?: Prisma.SortOrder
+  banReason?: Prisma.SortOrder
+  banExpires?: Prisma.SortOrder
 }
 
 export type UserScalarRelationFilter = {
@@ -480,6 +568,10 @@ export type DateTimeFieldUpdateOperationsInput = {
 
 export type NullableBoolFieldUpdateOperationsInput = {
   set?: boolean | null
+}
+
+export type NullableDateTimeFieldUpdateOperationsInput = {
+  set?: Date | string | null
 }
 
 export type UserCreateNestedOneWithoutSessionsInput = {
@@ -510,32 +602,32 @@ export type UserUpdateOneRequiredWithoutAccountsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutAccountsInput, Prisma.UserUpdateWithoutAccountsInput>, Prisma.UserUncheckedUpdateWithoutAccountsInput>
 }
 
-export type UserCreateNestedOneWithoutTwofactorsInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutTwofactorsInput, Prisma.UserUncheckedCreateWithoutTwofactorsInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutTwofactorsInput
+export type UserCreateNestedOneWithoutTwoFactorsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutTwoFactorsInput, Prisma.UserUncheckedCreateWithoutTwoFactorsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutTwoFactorsInput
   connect?: Prisma.UserWhereUniqueInput
 }
 
-export type UserUpdateOneRequiredWithoutTwofactorsNestedInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutTwofactorsInput, Prisma.UserUncheckedCreateWithoutTwofactorsInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutTwofactorsInput
-  upsert?: Prisma.UserUpsertWithoutTwofactorsInput
+export type UserUpdateOneRequiredWithoutTwoFactorsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutTwoFactorsInput, Prisma.UserUncheckedCreateWithoutTwoFactorsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutTwoFactorsInput
+  upsert?: Prisma.UserUpsertWithoutTwoFactorsInput
   connect?: Prisma.UserWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutTwofactorsInput, Prisma.UserUpdateWithoutTwofactorsInput>, Prisma.UserUncheckedUpdateWithoutTwofactorsInput>
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutTwoFactorsInput, Prisma.UserUpdateWithoutTwoFactorsInput>, Prisma.UserUncheckedUpdateWithoutTwoFactorsInput>
 }
 
-export type UserCreateNestedOneWithoutTeammembersInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutTeammembersInput, Prisma.UserUncheckedCreateWithoutTeammembersInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutTeammembersInput
+export type UserCreateNestedOneWithoutTeamMembersInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutTeamMembersInput, Prisma.UserUncheckedCreateWithoutTeamMembersInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutTeamMembersInput
   connect?: Prisma.UserWhereUniqueInput
 }
 
-export type UserUpdateOneRequiredWithoutTeammembersNestedInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutTeammembersInput, Prisma.UserUncheckedCreateWithoutTeammembersInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutTeammembersInput
-  upsert?: Prisma.UserUpsertWithoutTeammembersInput
+export type UserUpdateOneRequiredWithoutTeamMembersNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutTeamMembersInput, Prisma.UserUncheckedCreateWithoutTeamMembersInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutTeamMembersInput
+  upsert?: Prisma.UserUpsertWithoutTeamMembersInput
   connect?: Prisma.UserWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutTeammembersInput, Prisma.UserUpdateWithoutTeammembersInput>, Prisma.UserUncheckedUpdateWithoutTeammembersInput>
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutTeamMembersInput, Prisma.UserUpdateWithoutTeamMembersInput>, Prisma.UserUncheckedUpdateWithoutTeamMembersInput>
 }
 
 export type UserCreateNestedOneWithoutMembersInput = {
@@ -567,7 +659,7 @@ export type UserUpdateOneRequiredWithoutInvitationsNestedInput = {
 }
 
 export type UserCreateWithoutSessionsInput = {
-  id: string
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -577,15 +669,19 @@ export type UserCreateWithoutSessionsInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
-  twofactors?: Prisma.TwoFactorCreateNestedManyWithoutUserInput
-  teammembers?: Prisma.TeamMemberCreateNestedManyWithoutUserInput
+  twoFactors?: Prisma.TwoFactorCreateNestedManyWithoutUserInput
+  teamMembers?: Prisma.TeamMemberCreateNestedManyWithoutUserInput
   members?: Prisma.MemberCreateNestedManyWithoutUserInput
   invitations?: Prisma.InvitationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSessionsInput = {
-  id: string
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -595,9 +691,13 @@ export type UserUncheckedCreateWithoutSessionsInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
-  twofactors?: Prisma.TwoFactorUncheckedCreateNestedManyWithoutUserInput
-  teammembers?: Prisma.TeamMemberUncheckedCreateNestedManyWithoutUserInput
+  twoFactors?: Prisma.TwoFactorUncheckedCreateNestedManyWithoutUserInput
+  teamMembers?: Prisma.TeamMemberUncheckedCreateNestedManyWithoutUserInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutUserInput
   invitations?: Prisma.InvitationUncheckedCreateNestedManyWithoutUserInput
 }
@@ -629,9 +729,13 @@ export type UserUpdateWithoutSessionsInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
-  twofactors?: Prisma.TwoFactorUpdateManyWithoutUserNestedInput
-  teammembers?: Prisma.TeamMemberUpdateManyWithoutUserNestedInput
+  twoFactors?: Prisma.TwoFactorUpdateManyWithoutUserNestedInput
+  teamMembers?: Prisma.TeamMemberUpdateManyWithoutUserNestedInput
   members?: Prisma.MemberUpdateManyWithoutUserNestedInput
   invitations?: Prisma.InvitationUpdateManyWithoutUserNestedInput
 }
@@ -647,15 +751,19 @@ export type UserUncheckedUpdateWithoutSessionsInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
-  twofactors?: Prisma.TwoFactorUncheckedUpdateManyWithoutUserNestedInput
-  teammembers?: Prisma.TeamMemberUncheckedUpdateManyWithoutUserNestedInput
+  twoFactors?: Prisma.TwoFactorUncheckedUpdateManyWithoutUserNestedInput
+  teamMembers?: Prisma.TeamMemberUncheckedUpdateManyWithoutUserNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutUserNestedInput
   invitations?: Prisma.InvitationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAccountsInput = {
-  id: string
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -665,15 +773,19 @@ export type UserCreateWithoutAccountsInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
-  twofactors?: Prisma.TwoFactorCreateNestedManyWithoutUserInput
-  teammembers?: Prisma.TeamMemberCreateNestedManyWithoutUserInput
+  twoFactors?: Prisma.TwoFactorCreateNestedManyWithoutUserInput
+  teamMembers?: Prisma.TeamMemberCreateNestedManyWithoutUserInput
   members?: Prisma.MemberCreateNestedManyWithoutUserInput
   invitations?: Prisma.InvitationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAccountsInput = {
-  id: string
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -683,9 +795,13 @@ export type UserUncheckedCreateWithoutAccountsInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
-  twofactors?: Prisma.TwoFactorUncheckedCreateNestedManyWithoutUserInput
-  teammembers?: Prisma.TeamMemberUncheckedCreateNestedManyWithoutUserInput
+  twoFactors?: Prisma.TwoFactorUncheckedCreateNestedManyWithoutUserInput
+  teamMembers?: Prisma.TeamMemberUncheckedCreateNestedManyWithoutUserInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutUserInput
   invitations?: Prisma.InvitationUncheckedCreateNestedManyWithoutUserInput
 }
@@ -717,9 +833,13 @@ export type UserUpdateWithoutAccountsInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
-  twofactors?: Prisma.TwoFactorUpdateManyWithoutUserNestedInput
-  teammembers?: Prisma.TeamMemberUpdateManyWithoutUserNestedInput
+  twoFactors?: Prisma.TwoFactorUpdateManyWithoutUserNestedInput
+  teamMembers?: Prisma.TeamMemberUpdateManyWithoutUserNestedInput
   members?: Prisma.MemberUpdateManyWithoutUserNestedInput
   invitations?: Prisma.InvitationUpdateManyWithoutUserNestedInput
 }
@@ -735,15 +855,19 @@ export type UserUncheckedUpdateWithoutAccountsInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
-  twofactors?: Prisma.TwoFactorUncheckedUpdateManyWithoutUserNestedInput
-  teammembers?: Prisma.TeamMemberUncheckedUpdateManyWithoutUserNestedInput
+  twoFactors?: Prisma.TwoFactorUncheckedUpdateManyWithoutUserNestedInput
+  teamMembers?: Prisma.TeamMemberUncheckedUpdateManyWithoutUserNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutUserNestedInput
   invitations?: Prisma.InvitationUncheckedUpdateManyWithoutUserNestedInput
 }
 
-export type UserCreateWithoutTwofactorsInput = {
-  id: string
+export type UserCreateWithoutTwoFactorsInput = {
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -753,15 +877,19 @@ export type UserCreateWithoutTwofactorsInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
-  teammembers?: Prisma.TeamMemberCreateNestedManyWithoutUserInput
+  teamMembers?: Prisma.TeamMemberCreateNestedManyWithoutUserInput
   members?: Prisma.MemberCreateNestedManyWithoutUserInput
   invitations?: Prisma.InvitationCreateNestedManyWithoutUserInput
 }
 
-export type UserUncheckedCreateWithoutTwofactorsInput = {
-  id: string
+export type UserUncheckedCreateWithoutTwoFactorsInput = {
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -771,30 +899,34 @@ export type UserUncheckedCreateWithoutTwofactorsInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
-  teammembers?: Prisma.TeamMemberUncheckedCreateNestedManyWithoutUserInput
+  teamMembers?: Prisma.TeamMemberUncheckedCreateNestedManyWithoutUserInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutUserInput
   invitations?: Prisma.InvitationUncheckedCreateNestedManyWithoutUserInput
 }
 
-export type UserCreateOrConnectWithoutTwofactorsInput = {
+export type UserCreateOrConnectWithoutTwoFactorsInput = {
   where: Prisma.UserWhereUniqueInput
-  create: Prisma.XOR<Prisma.UserCreateWithoutTwofactorsInput, Prisma.UserUncheckedCreateWithoutTwofactorsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutTwoFactorsInput, Prisma.UserUncheckedCreateWithoutTwoFactorsInput>
 }
 
-export type UserUpsertWithoutTwofactorsInput = {
-  update: Prisma.XOR<Prisma.UserUpdateWithoutTwofactorsInput, Prisma.UserUncheckedUpdateWithoutTwofactorsInput>
-  create: Prisma.XOR<Prisma.UserCreateWithoutTwofactorsInput, Prisma.UserUncheckedCreateWithoutTwofactorsInput>
+export type UserUpsertWithoutTwoFactorsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutTwoFactorsInput, Prisma.UserUncheckedUpdateWithoutTwoFactorsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutTwoFactorsInput, Prisma.UserUncheckedCreateWithoutTwoFactorsInput>
   where?: Prisma.UserWhereInput
 }
 
-export type UserUpdateToOneWithWhereWithoutTwofactorsInput = {
+export type UserUpdateToOneWithWhereWithoutTwoFactorsInput = {
   where?: Prisma.UserWhereInput
-  data: Prisma.XOR<Prisma.UserUpdateWithoutTwofactorsInput, Prisma.UserUncheckedUpdateWithoutTwofactorsInput>
+  data: Prisma.XOR<Prisma.UserUpdateWithoutTwoFactorsInput, Prisma.UserUncheckedUpdateWithoutTwoFactorsInput>
 }
 
-export type UserUpdateWithoutTwofactorsInput = {
+export type UserUpdateWithoutTwoFactorsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -805,14 +937,18 @@ export type UserUpdateWithoutTwofactorsInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
-  teammembers?: Prisma.TeamMemberUpdateManyWithoutUserNestedInput
+  teamMembers?: Prisma.TeamMemberUpdateManyWithoutUserNestedInput
   members?: Prisma.MemberUpdateManyWithoutUserNestedInput
   invitations?: Prisma.InvitationUpdateManyWithoutUserNestedInput
 }
 
-export type UserUncheckedUpdateWithoutTwofactorsInput = {
+export type UserUncheckedUpdateWithoutTwoFactorsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -823,15 +959,19 @@ export type UserUncheckedUpdateWithoutTwofactorsInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
-  teammembers?: Prisma.TeamMemberUncheckedUpdateManyWithoutUserNestedInput
+  teamMembers?: Prisma.TeamMemberUncheckedUpdateManyWithoutUserNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutUserNestedInput
   invitations?: Prisma.InvitationUncheckedUpdateManyWithoutUserNestedInput
 }
 
-export type UserCreateWithoutTeammembersInput = {
-  id: string
+export type UserCreateWithoutTeamMembersInput = {
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -841,15 +981,19 @@ export type UserCreateWithoutTeammembersInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
-  twofactors?: Prisma.TwoFactorCreateNestedManyWithoutUserInput
+  twoFactors?: Prisma.TwoFactorCreateNestedManyWithoutUserInput
   members?: Prisma.MemberCreateNestedManyWithoutUserInput
   invitations?: Prisma.InvitationCreateNestedManyWithoutUserInput
 }
 
-export type UserUncheckedCreateWithoutTeammembersInput = {
-  id: string
+export type UserUncheckedCreateWithoutTeamMembersInput = {
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -859,30 +1003,34 @@ export type UserUncheckedCreateWithoutTeammembersInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
-  twofactors?: Prisma.TwoFactorUncheckedCreateNestedManyWithoutUserInput
+  twoFactors?: Prisma.TwoFactorUncheckedCreateNestedManyWithoutUserInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutUserInput
   invitations?: Prisma.InvitationUncheckedCreateNestedManyWithoutUserInput
 }
 
-export type UserCreateOrConnectWithoutTeammembersInput = {
+export type UserCreateOrConnectWithoutTeamMembersInput = {
   where: Prisma.UserWhereUniqueInput
-  create: Prisma.XOR<Prisma.UserCreateWithoutTeammembersInput, Prisma.UserUncheckedCreateWithoutTeammembersInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutTeamMembersInput, Prisma.UserUncheckedCreateWithoutTeamMembersInput>
 }
 
-export type UserUpsertWithoutTeammembersInput = {
-  update: Prisma.XOR<Prisma.UserUpdateWithoutTeammembersInput, Prisma.UserUncheckedUpdateWithoutTeammembersInput>
-  create: Prisma.XOR<Prisma.UserCreateWithoutTeammembersInput, Prisma.UserUncheckedCreateWithoutTeammembersInput>
+export type UserUpsertWithoutTeamMembersInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutTeamMembersInput, Prisma.UserUncheckedUpdateWithoutTeamMembersInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutTeamMembersInput, Prisma.UserUncheckedCreateWithoutTeamMembersInput>
   where?: Prisma.UserWhereInput
 }
 
-export type UserUpdateToOneWithWhereWithoutTeammembersInput = {
+export type UserUpdateToOneWithWhereWithoutTeamMembersInput = {
   where?: Prisma.UserWhereInput
-  data: Prisma.XOR<Prisma.UserUpdateWithoutTeammembersInput, Prisma.UserUncheckedUpdateWithoutTeammembersInput>
+  data: Prisma.XOR<Prisma.UserUpdateWithoutTeamMembersInput, Prisma.UserUncheckedUpdateWithoutTeamMembersInput>
 }
 
-export type UserUpdateWithoutTeammembersInput = {
+export type UserUpdateWithoutTeamMembersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -893,14 +1041,18 @@ export type UserUpdateWithoutTeammembersInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
-  twofactors?: Prisma.TwoFactorUpdateManyWithoutUserNestedInput
+  twoFactors?: Prisma.TwoFactorUpdateManyWithoutUserNestedInput
   members?: Prisma.MemberUpdateManyWithoutUserNestedInput
   invitations?: Prisma.InvitationUpdateManyWithoutUserNestedInput
 }
 
-export type UserUncheckedUpdateWithoutTeammembersInput = {
+export type UserUncheckedUpdateWithoutTeamMembersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -911,15 +1063,19 @@ export type UserUncheckedUpdateWithoutTeammembersInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
-  twofactors?: Prisma.TwoFactorUncheckedUpdateManyWithoutUserNestedInput
+  twoFactors?: Prisma.TwoFactorUncheckedUpdateManyWithoutUserNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutUserNestedInput
   invitations?: Prisma.InvitationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutMembersInput = {
-  id: string
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -929,15 +1085,19 @@ export type UserCreateWithoutMembersInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
-  twofactors?: Prisma.TwoFactorCreateNestedManyWithoutUserInput
-  teammembers?: Prisma.TeamMemberCreateNestedManyWithoutUserInput
+  twoFactors?: Prisma.TwoFactorCreateNestedManyWithoutUserInput
+  teamMembers?: Prisma.TeamMemberCreateNestedManyWithoutUserInput
   invitations?: Prisma.InvitationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutMembersInput = {
-  id: string
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -947,10 +1107,14 @@ export type UserUncheckedCreateWithoutMembersInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
-  twofactors?: Prisma.TwoFactorUncheckedCreateNestedManyWithoutUserInput
-  teammembers?: Prisma.TeamMemberUncheckedCreateNestedManyWithoutUserInput
+  twoFactors?: Prisma.TwoFactorUncheckedCreateNestedManyWithoutUserInput
+  teamMembers?: Prisma.TeamMemberUncheckedCreateNestedManyWithoutUserInput
   invitations?: Prisma.InvitationUncheckedCreateNestedManyWithoutUserInput
 }
 
@@ -981,10 +1145,14 @@ export type UserUpdateWithoutMembersInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
-  twofactors?: Prisma.TwoFactorUpdateManyWithoutUserNestedInput
-  teammembers?: Prisma.TeamMemberUpdateManyWithoutUserNestedInput
+  twoFactors?: Prisma.TwoFactorUpdateManyWithoutUserNestedInput
+  teamMembers?: Prisma.TeamMemberUpdateManyWithoutUserNestedInput
   invitations?: Prisma.InvitationUpdateManyWithoutUserNestedInput
 }
 
@@ -999,15 +1167,19 @@ export type UserUncheckedUpdateWithoutMembersInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
-  twofactors?: Prisma.TwoFactorUncheckedUpdateManyWithoutUserNestedInput
-  teammembers?: Prisma.TeamMemberUncheckedUpdateManyWithoutUserNestedInput
+  twoFactors?: Prisma.TwoFactorUncheckedUpdateManyWithoutUserNestedInput
+  teamMembers?: Prisma.TeamMemberUncheckedUpdateManyWithoutUserNestedInput
   invitations?: Prisma.InvitationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutInvitationsInput = {
-  id: string
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -1017,15 +1189,19 @@ export type UserCreateWithoutInvitationsInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
-  twofactors?: Prisma.TwoFactorCreateNestedManyWithoutUserInput
-  teammembers?: Prisma.TeamMemberCreateNestedManyWithoutUserInput
+  twoFactors?: Prisma.TwoFactorCreateNestedManyWithoutUserInput
+  teamMembers?: Prisma.TeamMemberCreateNestedManyWithoutUserInput
   members?: Prisma.MemberCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutInvitationsInput = {
-  id: string
+  id?: string
   name: string
   email: string
   emailVerified?: boolean
@@ -1035,10 +1211,14 @@ export type UserUncheckedCreateWithoutInvitationsInput = {
   twoFactorEnabled?: boolean | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
+  banned?: boolean | null
+  banReason?: string | null
+  banExpires?: Date | string | null
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
-  twofactors?: Prisma.TwoFactorUncheckedCreateNestedManyWithoutUserInput
-  teammembers?: Prisma.TeamMemberUncheckedCreateNestedManyWithoutUserInput
+  twoFactors?: Prisma.TwoFactorUncheckedCreateNestedManyWithoutUserInput
+  teamMembers?: Prisma.TeamMemberUncheckedCreateNestedManyWithoutUserInput
   members?: Prisma.MemberUncheckedCreateNestedManyWithoutUserInput
 }
 
@@ -1069,10 +1249,14 @@ export type UserUpdateWithoutInvitationsInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
-  twofactors?: Prisma.TwoFactorUpdateManyWithoutUserNestedInput
-  teammembers?: Prisma.TeamMemberUpdateManyWithoutUserNestedInput
+  twoFactors?: Prisma.TwoFactorUpdateManyWithoutUserNestedInput
+  teamMembers?: Prisma.TeamMemberUpdateManyWithoutUserNestedInput
   members?: Prisma.MemberUpdateManyWithoutUserNestedInput
 }
 
@@ -1087,10 +1271,14 @@ export type UserUncheckedUpdateWithoutInvitationsInput = {
   twoFactorEnabled?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   displayUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banned?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  banReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  banExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
-  twofactors?: Prisma.TwoFactorUncheckedUpdateManyWithoutUserNestedInput
-  teammembers?: Prisma.TeamMemberUncheckedUpdateManyWithoutUserNestedInput
+  twoFactors?: Prisma.TwoFactorUncheckedUpdateManyWithoutUserNestedInput
+  teamMembers?: Prisma.TeamMemberUncheckedUpdateManyWithoutUserNestedInput
   members?: Prisma.MemberUncheckedUpdateManyWithoutUserNestedInput
 }
 
@@ -1102,8 +1290,8 @@ export type UserUncheckedUpdateWithoutInvitationsInput = {
 export type UserCountOutputType = {
   sessions: number
   accounts: number
-  twofactors: number
-  teammembers: number
+  twoFactors: number
+  teamMembers: number
   members: number
   invitations: number
 }
@@ -1111,8 +1299,8 @@ export type UserCountOutputType = {
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sessions?: boolean | UserCountOutputTypeCountSessionsArgs
   accounts?: boolean | UserCountOutputTypeCountAccountsArgs
-  twofactors?: boolean | UserCountOutputTypeCountTwofactorsArgs
-  teammembers?: boolean | UserCountOutputTypeCountTeammembersArgs
+  twoFactors?: boolean | UserCountOutputTypeCountTwoFactorsArgs
+  teamMembers?: boolean | UserCountOutputTypeCountTeamMembersArgs
   members?: boolean | UserCountOutputTypeCountMembersArgs
   invitations?: boolean | UserCountOutputTypeCountInvitationsArgs
 }
@@ -1144,14 +1332,14 @@ export type UserCountOutputTypeCountAccountsArgs<ExtArgs extends runtime.Types.E
 /**
  * UserCountOutputType without action
  */
-export type UserCountOutputTypeCountTwofactorsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type UserCountOutputTypeCountTwoFactorsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.TwoFactorWhereInput
 }
 
 /**
  * UserCountOutputType without action
  */
-export type UserCountOutputTypeCountTeammembersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type UserCountOutputTypeCountTeamMembersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.TeamMemberWhereInput
 }
 
@@ -1181,10 +1369,14 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   twoFactorEnabled?: boolean
   username?: boolean
   displayUsername?: boolean
+  role?: boolean
+  banned?: boolean
+  banReason?: boolean
+  banExpires?: boolean
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
   accounts?: boolean | Prisma.User$accountsArgs<ExtArgs>
-  twofactors?: boolean | Prisma.User$twofactorsArgs<ExtArgs>
-  teammembers?: boolean | Prisma.User$teammembersArgs<ExtArgs>
+  twoFactors?: boolean | Prisma.User$twoFactorsArgs<ExtArgs>
+  teamMembers?: boolean | Prisma.User$teamMembersArgs<ExtArgs>
   members?: boolean | Prisma.User$membersArgs<ExtArgs>
   invitations?: boolean | Prisma.User$invitationsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
@@ -1201,6 +1393,10 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   twoFactorEnabled?: boolean
   username?: boolean
   displayUsername?: boolean
+  role?: boolean
+  banned?: boolean
+  banReason?: boolean
+  banExpires?: boolean
 }, ExtArgs["result"]["user"]>
 
 export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1214,6 +1410,10 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   twoFactorEnabled?: boolean
   username?: boolean
   displayUsername?: boolean
+  role?: boolean
+  banned?: boolean
+  banReason?: boolean
+  banExpires?: boolean
 }, ExtArgs["result"]["user"]>
 
 export type UserSelectScalar = {
@@ -1227,14 +1427,18 @@ export type UserSelectScalar = {
   twoFactorEnabled?: boolean
   username?: boolean
   displayUsername?: boolean
+  role?: boolean
+  banned?: boolean
+  banReason?: boolean
+  banExpires?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "username" | "displayUsername", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "email" | "emailVerified" | "image" | "createdAt" | "updatedAt" | "twoFactorEnabled" | "username" | "displayUsername" | "role" | "banned" | "banReason" | "banExpires", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
   accounts?: boolean | Prisma.User$accountsArgs<ExtArgs>
-  twofactors?: boolean | Prisma.User$twofactorsArgs<ExtArgs>
-  teammembers?: boolean | Prisma.User$teammembersArgs<ExtArgs>
+  twoFactors?: boolean | Prisma.User$twoFactorsArgs<ExtArgs>
+  teamMembers?: boolean | Prisma.User$teamMembersArgs<ExtArgs>
   members?: boolean | Prisma.User$membersArgs<ExtArgs>
   invitations?: boolean | Prisma.User$invitationsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
@@ -1247,8 +1451,8 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   objects: {
     sessions: Prisma.$SessionPayload<ExtArgs>[]
     accounts: Prisma.$AccountPayload<ExtArgs>[]
-    twofactors: Prisma.$TwoFactorPayload<ExtArgs>[]
-    teammembers: Prisma.$TeamMemberPayload<ExtArgs>[]
+    twoFactors: Prisma.$TwoFactorPayload<ExtArgs>[]
+    teamMembers: Prisma.$TeamMemberPayload<ExtArgs>[]
     members: Prisma.$MemberPayload<ExtArgs>[]
     invitations: Prisma.$InvitationPayload<ExtArgs>[]
   }
@@ -1263,6 +1467,10 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     twoFactorEnabled: boolean | null
     username: string | null
     displayUsername: string | null
+    role: string | null
+    banned: boolean | null
+    banReason: string | null
+    banExpires: Date | null
   }, ExtArgs["result"]["user"]>
   composites: {}
 }
@@ -1659,8 +1867,8 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   readonly [Symbol.toStringTag]: "PrismaPromise"
   sessions<T extends Prisma.User$sessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$sessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   accounts<T extends Prisma.User$accountsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$accountsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AccountPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  twofactors<T extends Prisma.User$twofactorsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$twofactorsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TwoFactorPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  teammembers<T extends Prisma.User$teammembersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$teammembersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TeamMemberPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  twoFactors<T extends Prisma.User$twoFactorsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$twoFactorsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TwoFactorPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  teamMembers<T extends Prisma.User$teamMembersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$teamMembersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TeamMemberPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   members<T extends Prisma.User$membersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$membersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MemberPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   invitations<T extends Prisma.User$invitationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$invitationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InvitationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
@@ -1702,6 +1910,10 @@ export interface UserFieldRefs {
   readonly twoFactorEnabled: Prisma.FieldRef<"User", 'Boolean'>
   readonly username: Prisma.FieldRef<"User", 'String'>
   readonly displayUsername: Prisma.FieldRef<"User", 'String'>
+  readonly role: Prisma.FieldRef<"User", 'String'>
+  readonly banned: Prisma.FieldRef<"User", 'Boolean'>
+  readonly banReason: Prisma.FieldRef<"User", 'String'>
+  readonly banExpires: Prisma.FieldRef<"User", 'DateTime'>
 }
     
 
@@ -2138,9 +2350,9 @@ export type User$accountsArgs<ExtArgs extends runtime.Types.Extensions.InternalA
 }
 
 /**
- * User.twofactors
+ * User.twoFactors
  */
-export type User$twofactorsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type User$twoFactorsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
    * Select specific fields to fetch from the TwoFactor
    */
@@ -2162,9 +2374,9 @@ export type User$twofactorsArgs<ExtArgs extends runtime.Types.Extensions.Interna
 }
 
 /**
- * User.teammembers
+ * User.teamMembers
  */
-export type User$teammembersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type User$teamMembersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
    * Select specific fields to fetch from the TeamMember
    */

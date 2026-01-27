@@ -1202,7 +1202,11 @@ export const UserScalarFieldEnum = {
   updatedAt: 'updatedAt',
   twoFactorEnabled: 'twoFactorEnabled',
   username: 'username',
-  displayUsername: 'displayUsername'
+  displayUsername: 'displayUsername',
+  role: 'role',
+  banned: 'banned',
+  banReason: 'banReason',
+  banExpires: 'banExpires'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
@@ -1217,6 +1221,7 @@ export const SessionScalarFieldEnum = {
   ipAddress: 'ipAddress',
   userAgent: 'userAgent',
   userId: 'userId',
+  impersonatedBy: 'impersonatedBy',
   activeOrganizationId: 'activeOrganizationId',
   activeTeamId: 'activeTeamId'
 } as const

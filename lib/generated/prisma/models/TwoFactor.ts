@@ -217,14 +217,14 @@ export type TwoFactorScalarWhereWithAggregatesInput = {
 }
 
 export type TwoFactorCreateInput = {
-  id: string
+  id?: string
   secret: string
   backupCodes: string
-  user: Prisma.UserCreateNestedOneWithoutTwofactorsInput
+  user: Prisma.UserCreateNestedOneWithoutTwoFactorsInput
 }
 
 export type TwoFactorUncheckedCreateInput = {
-  id: string
+  id?: string
   secret: string
   backupCodes: string
   userId: string
@@ -234,7 +234,7 @@ export type TwoFactorUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   secret?: Prisma.StringFieldUpdateOperationsInput | string
   backupCodes?: Prisma.StringFieldUpdateOperationsInput | string
-  user?: Prisma.UserUpdateOneRequiredWithoutTwofactorsNestedInput
+  user?: Prisma.UserUpdateOneRequiredWithoutTwoFactorsNestedInput
 }
 
 export type TwoFactorUncheckedUpdateInput = {
@@ -245,7 +245,7 @@ export type TwoFactorUncheckedUpdateInput = {
 }
 
 export type TwoFactorCreateManyInput = {
-  id: string
+  id?: string
   secret: string
   backupCodes: string
   userId: string
@@ -338,13 +338,13 @@ export type TwoFactorUncheckedUpdateManyWithoutUserNestedInput = {
 }
 
 export type TwoFactorCreateWithoutUserInput = {
-  id: string
+  id?: string
   secret: string
   backupCodes: string
 }
 
 export type TwoFactorUncheckedCreateWithoutUserInput = {
-  id: string
+  id?: string
   secret: string
   backupCodes: string
 }
@@ -386,7 +386,7 @@ export type TwoFactorScalarWhereInput = {
 }
 
 export type TwoFactorCreateManyUserInput = {
-  id: string
+  id?: string
   secret: string
   backupCodes: string
 }
