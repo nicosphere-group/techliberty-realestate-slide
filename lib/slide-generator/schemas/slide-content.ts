@@ -91,27 +91,53 @@ export const floorPlanContentSchema = z.object({
 export type FloorPlanContent = z.infer<typeof floorPlanContentSchema>;
 
 // ========================================
-// 4. Access（交通アクセス）
+// 4. Access（交通アクセス）- 放射状路線図マップ対応
 // ========================================
 
-export const stationInfoSchema = z.object({
-	lines: z.string().describe("路線名（例: 東京メトロ南北線・都営三田線）"),
-	stationName: z.string().describe("駅名（例: 「白金台」駅）"),
+/**
+ * 最寄り駅情報スキーマ
+ */
+export const nearestStationSchema = z.object({
+	name: z.string().describe("駅名（例: 白金台）"),
+	lines: z.array(z.string()).describe("利用可能路線（例: ['東京メトロ南北線', '都営三田線']）"),
 	walkMinutes: z.number().describe("徒歩分数"),
 });
 
+/**
+ * 主要駅への経路情報スキーマ
+ */
+export const stationRouteSchema = z.object({
+	destination: z.string().describe("到着駅名（例: 東京、新宿、渋谷）"),
+	totalMinutes: z.number().describe("電車所要時間（分）"),
+	transferCount: z.number().describe("乗換回数"),
+	routeSummary: z.string().describe("経路概要（例: 南北線→丸ノ内線）"),
+});
+
+/**
+ * 空港への経路情報スキーマ
+ */
+export const airportRouteSchema = z.object({
+	destination: z.string().describe("空港名（例: 羽田空港、成田空港）"),
+	totalMinutes: z.number().describe("所要時間（分）"),
+});
+
+/**
+ * 交通アクセススライドコンテンツスキーマ
+ * 放射状路線図マップ + 所要時間テキスト表示
+ */
 export const accessContentSchema = z.object({
 	propertyName: z.string().describe("物件名（30文字以内）"),
 	address: z.string().describe("住所（50文字以内）"),
-	stations: z
-		.array(stationInfoSchema)
-		.max(3)
-		.describe("最寄り駅情報（最大3つ）"),
-	description: z
-		.string()
-		.describe("アクセスの魅力説明文（100文字以内）")
-		.optional(),
-	imageUrl: z.string().describe("アクセス画像URL").optional(),
+	nearestStation: nearestStationSchema.describe("最寄り駅情報"),
+	stationRoutes: z
+		.array(stationRouteSchema)
+		.max(4)
+		.describe("主要ターミナル駅への経路（最大4つ）"),
+	airportRoutes: z
+		.array(airportRouteSchema)
+		.max(2)
+		.describe("空港への経路（最大2つ: 羽田、成田）"),
+	mapImageUrl: z.string().describe("路線図マップ画像URL（Base64 Data URL）").optional(),
 });
 
 export type AccessContent = z.infer<typeof accessContentSchema>;

@@ -33,6 +33,13 @@ export const flyerDataSchema = z.object({
 		.string()
 		.optional()
 		.describe("築年または建築年（例: 2015年、1985）"),
+	nearestStation: z
+		.object({
+			name: z.string().describe("駅名（例: 白金台、渋谷）"),
+			walkMinutes: z.number().optional().describe("徒歩分数"),
+		})
+		.optional()
+		.describe("最寄り駅情報（マイソクに記載がある場合）"),
 });
 
 export type FlyerData = z.infer<typeof flyerDataSchema>;
@@ -43,6 +50,7 @@ export class FlyerDataModel implements FlyerData {
 	price?: string;
 	area?: string;
 	constructionYear?: string;
+	nearestStation?: { name: string; walkMinutes?: number };
 
 	constructor(data: FlyerData) {
 		this.name = data.name;
@@ -50,6 +58,7 @@ export class FlyerDataModel implements FlyerData {
 		this.price = data.price;
 		this.area = data.area;
 		this.constructionYear = data.constructionYear;
+		this.nearestStation = data.nearestStation;
 	}
 
 	toPrompt(): string {
@@ -57,6 +66,12 @@ export class FlyerDataModel implements FlyerData {
 		if (this.price) parts.push(`価格: ${this.price}`);
 		if (this.area) parts.push(`面積: ${this.area}`);
 		if (this.constructionYear) parts.push(`築年: ${this.constructionYear}`);
+		if (this.nearestStation) {
+			const stationInfo = this.nearestStation.walkMinutes
+				? `${this.nearestStation.name}駅 徒歩${this.nearestStation.walkMinutes}分`
+				: `${this.nearestStation.name}駅`;
+			parts.push(`最寄り駅: ${stationInfo}`);
+		}
 		return parts.join("\n");
 	}
 }
