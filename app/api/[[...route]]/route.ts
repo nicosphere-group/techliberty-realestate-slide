@@ -4,8 +4,11 @@ import { validator } from "hono/validator";
 import { handle } from "hono/vercel";
 import { formSchema } from "@/app/schemas";
 import { SlideGenerator } from "@/lib/slide-generator";
+import authRouter from "./auth";
 
 const app = new Hono().basePath("/api");
+
+app.route("/auth", authRouter);
 
 app.post(
 	"/generate",
