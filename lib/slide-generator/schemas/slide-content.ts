@@ -99,7 +99,9 @@ export type FloorPlanContent = z.infer<typeof floorPlanContentSchema>;
  */
 export const nearestStationSchema = z.object({
 	name: z.string().describe("駅名（例: 白金台）"),
-	lines: z.array(z.string()).describe("利用可能路線（例: ['東京メトロ南北線', '都営三田線']）"),
+	lines: z
+		.array(z.string())
+		.describe("利用可能路線（例: ['東京メトロ南北線', '都営三田線']）"),
 	walkMinutes: z.number().describe("徒歩分数"),
 });
 
@@ -137,7 +139,10 @@ export const accessContentSchema = z.object({
 		.array(airportRouteSchema)
 		.max(2)
 		.describe("空港への経路（最大2つ: 羽田、成田）"),
-	mapImageUrl: z.string().describe("路線図マップ画像URL（Base64 Data URL）").optional(),
+	mapImageUrl: z
+		.string()
+		.describe("路線図マップ画像URL（Base64 Data URL）")
+		.optional(),
 });
 
 export type AccessContent = z.infer<typeof accessContentSchema>;

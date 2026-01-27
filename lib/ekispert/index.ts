@@ -7,10 +7,10 @@
 
 export { EkispertClient, ekispertClient } from "./client";
 export type {
-  NearestStation,
-  RouteResult,
-  RouteMapData,
-  EkispertStation,
-  EkispertLine,
+	EkispertLine,
+	EkispertStation,
+	NearestStation,
+	RouteMapData,
+	RouteResult,
 } from "./types";
-export { MAJOR_STATIONS, AIRPORTS } from "./types";
+export { AIRPORTS, MAJOR_STATIONS } from "./types";

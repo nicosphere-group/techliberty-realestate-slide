@@ -563,7 +563,8 @@ export class SlideGenerator {
 
 				return {
 					propertyName: this.flyerData?.name || "",
-					address: routeMapData.propertyAddress || this.flyerData?.address || "",
+					address:
+						routeMapData.propertyAddress || this.flyerData?.address || "",
 					nearestStation: {
 						name: routeMapData.nearestStation?.name || "不明",
 						lines: routeMapData.nearestStation?.lines || [],
