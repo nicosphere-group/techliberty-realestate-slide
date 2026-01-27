@@ -34,7 +34,7 @@ export function renderCoverSlide(content: CoverContent): string {
       />
       <div class="absolute inset-0 bg-gradient-to-r from-[#FDFCFB] via-[#FDFCFB]/40 to-transparent"></div>
       <div class="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded">
-        <span class="text-[11px] font-sans text-white/80">※AIにより生成された画像です</span>
+        <span class="text-[14px] font-sans text-white/80">※AIにより生成された画像です</span>
       </div>
     </div>
   `
