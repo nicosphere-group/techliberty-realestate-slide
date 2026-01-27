@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { SessionProvider } from "@/components/session-provider";
 import { auth } from "@/lib/auth";
 
 export default async function Layout({
@@ -15,5 +16,5 @@ export default async function Layout({
 		redirect("/login");
 	}
 
-	return <>{children}</>;
+	return <SessionProvider initialSession={session}>{children}</SessionProvider>;
 }
