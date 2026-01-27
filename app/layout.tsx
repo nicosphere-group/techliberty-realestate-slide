@@ -3,6 +3,9 @@ import { Figtree, Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { useState } from "react";
 
 const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -35,6 +38,8 @@ export default function RootLayout({
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
+	const [queryClient] = useState(() => new QueryClient());
+
 	return (
 		<html lang="ja" className={figtree.variable} suppressHydrationWarning>
 			<body
@@ -46,7 +51,10 @@ export default function RootLayout({
 					enableSystem
 					disableTransitionOnChange
 				>
-					{children}
+					<QueryClientProvider client={queryClient}>
+						{children}
+						<ReactQueryDevtools initialIsOpen={false} />
+					</QueryClientProvider>
 					<Toaster />
 				</ThemeProvider>
 			</body>
