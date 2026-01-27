@@ -21,6 +21,7 @@ import {
 	type PriceAnalysisResult,
 	type SimilarProperty,
 } from "./reinfo";
+import { generateRouteMapImageTool } from "./route-map-image";
 
 // 個別ツールのエクスポート
 export {
@@ -39,6 +40,8 @@ export {
 	// hazard tools
 	getHazardMapUrlTool,
 	generateShelterMapTool,
+	// route map tools
+	generateRouteMapImageTool,
 };
 
 // 型のエクスポート
@@ -65,6 +68,9 @@ const SLIDE_TOOLS: Record<number, Record<string, Tool>> = {
 	},
 	3: {
 		extract_floorplan_image: extractFloorplanImageTool,
+	},
+	4: {
+		generate_route_map_image: generateRouteMapImageTool,
 	},
 	5: {
 		generate_nearby_map: generateNearbyMapTool,

@@ -398,6 +398,7 @@ export class SlideGenerator {
 - 物件価格（例: 5,800万円）
 - 専有面積（例: 72.5㎡）
 - 築年または建築年（西暦4桁で抽出）
+- 最寄り駅（駅名と徒歩分数）
 
 築年・建築年の抽出ルール:
 - 「築年月: 1998年10月」→ 1998年
@@ -406,6 +407,13 @@ export class SlideGenerator {
 - 「平成10年」→ 1998年（西暦に変換）
 - 新築で建築年が未記載の場合は、完成予定年を使用
 - どうしても見つからない場合のみ省略可能
+
+最寄り駅の抽出ルール:
+- 「○○駅 徒歩5分」→ name: "○○", walkMinutes: 5
+- 「○○線「△△」駅 徒歩3分」→ name: "△△", walkMinutes: 3
+- 複数駅が記載されている場合は、最も近い（徒歩分数が短い）駅を抽出
+- 駅名から「駅」は除く（例: 「白金台駅」→ "白金台"）
+- 徒歩分数が不明な場合はwalkMinutesを省略
 
 注意:
 - 価格、面積が記載されていない場合は省略可能
@@ -438,9 +446,10 @@ export class SlideGenerator {
 	 * LLMをスキップしてツール結果を直接使用できるかを判定
 	 */
 	private canSkipLLM(slideType: SlideType): boolean {
-		// Slide 1 (Cover), 5 (Nearby), 6 (Price Analysis) はLLMスキップ可能
+		// Slide 1 (Cover), 4 (Access), 5 (Nearby), 6 (Price Analysis) はLLMスキップ可能
 		return (
 			slideType === "cover" ||
+			slideType === "access" ||
 			slideType === "nearby" ||
 			slideType === "price-analysis"
 		);
@@ -517,6 +526,63 @@ export class SlideGenerator {
 					estimatedPriceMax: priceData.estimatedPriceMax || "-",
 					averageUnitPrice: priceData.averageUnitPrice,
 					dataCount: priceData.dataCount,
+				};
+			}
+
+			case "access": {
+				// Slide 4: 路線図マップツール結果を使用
+				const routeMapResult = toolResults?.results?.generate_route_map_image as
+					| {
+							mapImageUrl?: string;
+							routeMapData?: {
+								propertyAddress?: string;
+								nearestStation?: {
+									name?: string;
+									lines?: string[];
+									walkMinutes?: number;
+								};
+								stationRoutes?: Array<{
+									destination: string;
+									totalMinutes: number;
+									transferCount: number;
+									routeSummary: string;
+								}>;
+								airportRoutes?: Array<{
+									destination: string;
+									totalMinutes: number;
+								}>;
+							};
+					  }
+					| undefined;
+
+				if (!routeMapResult?.routeMapData) {
+					throw new Error("Route map tool did not return expected data");
+				}
+
+				const { routeMapData, mapImageUrl } = routeMapResult;
+
+				return {
+					propertyName: this.flyerData?.name || "",
+					address: routeMapData.propertyAddress || this.flyerData?.address || "",
+					nearestStation: {
+						name: routeMapData.nearestStation?.name || "不明",
+						lines: routeMapData.nearestStation?.lines || [],
+						walkMinutes: routeMapData.nearestStation?.walkMinutes || 0,
+					},
+					stationRoutes: [...(routeMapData.stationRoutes || [])]
+						.sort((a, b) => a.totalMinutes - b.totalMinutes) // 所要時間順でソート
+						.slice(0, 4) // TOP4駅を表示
+						.map((route) => ({
+							destination: route.destination,
+							totalMinutes: route.totalMinutes,
+							transferCount: route.transferCount,
+							routeSummary: route.routeSummary,
+						})),
+					airportRoutes: (routeMapData.airportRoutes || []).map((route) => ({
+						destination: route.destination,
+						totalMinutes: route.totalMinutes,
+					})),
+					mapImageUrl,
 				};
 			}
 
@@ -762,6 +828,19 @@ ${toolResultsPrompt}
 						}
 						result = await tool.execute({
 							address: this.flyerData.address,
+						});
+						break;
+
+					case "generate_route_map_image":
+						// 路線図マップツール（住所 + 最寄り駅情報）
+						if (!this.flyerData?.address) {
+							throw new Error("物件住所が設定されていません");
+						}
+						result = await tool.execute({
+							address: this.flyerData.address,
+							// マイソクから最寄り駅情報を渡す（ハイブリッド選択用）
+							nearestStationName: this.flyerData.nearestStation?.name,
+							walkMinutes: this.flyerData.nearestStation?.walkMinutes,
 						});
 						break;
 
