@@ -1,4 +1,4 @@
-# Tech Liberty - Real Estate Slide Generator
+# TechLiberty - Real Estate Slide Generator
 
 AIを活用して不動産チラシ情報からプレゼンテーションスライドを自動生成するNext.jsアプリケーションです。
 
