@@ -7,13 +7,88 @@
 
 import { tool } from "ai";
 import chromium from "@sparticuz/chromium-min";
-import puppeteer from "puppeteer-core";
+import puppeteer, { type Browser } from "puppeteer-core";
 import z from "zod";
-
-// Vercel用のChromiumバイナリURL（@sparticuz/chromium-minと同じバージョン、x64アーキテクチャ）
-const CHROMIUM_PACK_URL =
-	"https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar";
 import { EkispertClient } from "../../ekispert/client";
+
+// Vercel用のChromiumバイナリURL
+// 本番環境では自サーバーの/public/chromium-pack.tarを使用（高速）
+// 開発環境ではGitHubからダウンロード
+const CHROMIUM_PACK_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
+	? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/chromium-pack.tar`
+	: "https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar";
+
+// Chromiumパスのキャッシュ（同一インスタンス内で再利用）
+let cachedExecutablePath: string | null = null;
+let executablePathPromise: Promise<string> | null = null;
+
+/**
+ * Chromiumの実行パスを取得（キャッシュ付き）
+ * 同一インスタンス内では再ダウンロードを防ぐ
+ */
+async function getChromiumPath(): Promise<string> {
+	if (cachedExecutablePath) {
+		console.log("[RouteMapImage] Using cached Chromium path");
+		return cachedExecutablePath;
+	}
+
+	if (!executablePathPromise) {
+		console.log("[RouteMapImage] Downloading Chromium from:", CHROMIUM_PACK_URL);
+		executablePathPromise = chromium
+			.executablePath(CHROMIUM_PACK_URL)
+			.then((path) => {
+				cachedExecutablePath = path;
+				console.log("[RouteMapImage] Chromium path resolved:", path);
+				return path;
+			})
+			.catch((error) => {
+				console.error("[RouteMapImage] Failed to get Chromium path:", error);
+				executablePathPromise = null; // リトライを許可
+				throw error;
+			});
+	}
+
+	return executablePathPromise;
+}
+
+// ブラウザインスタンスのキャッシュ（同一インスタンス内で再利用）
+let cachedBrowser: Browser | null = null;
+let browserPromise: Promise<Browser> | null = null;
+
+/**
+ * ブラウザインスタンスを取得（キャッシュ付き）
+ * 同一インスタンス内ではブラウザを再起動せず再利用
+ */
+async function getBrowser(): Promise<Browser> {
+	// 既存のブラウザが有効かチェック
+	if (cachedBrowser && cachedBrowser.connected) {
+		console.log("[RouteMapImage] Reusing cached browser");
+		return cachedBrowser;
+	}
+
+	// 同時リクエストで複数回起動しないようにPromiseをキャッシュ
+	if (!browserPromise) {
+		console.log("[RouteMapImage] Launching new browser...");
+		browserPromise = (async () => {
+			const executablePath = await getChromiumPath();
+			const browser = await puppeteer.launch({
+				args: chromium.args,
+				executablePath,
+				headless: true,
+			});
+			cachedBrowser = browser;
+			console.log("[RouteMapImage] Browser launched successfully");
+			return browser;
+		})();
+
+		browserPromise.catch(() => {
+			browserPromise = null;
+			cachedBrowser = null;
+		});
+	}
+
+	return browserPromise;
+}
 import type { RouteMapData } from "../../ekispert/types";
 import { heartRailsClient } from "../../heartrails/client";
 import { uploadToS3 } from "../utils/upload";
@@ -611,16 +686,11 @@ export const generateRouteMapImageTool = tool({
 		// Step 6: Leaflet地図HTMLを生成
 		const mapHtml = generateMapHtml(homeCoord, top4Stations, airportsData);
 
-		// Step 7: Puppeteerでスクリーンショット取得
-		console.log("[RouteMapImage] Launching Puppeteer...");
-		const browser = await puppeteer.launch({
-			args: chromium.args,
-			executablePath: await chromium.executablePath(CHROMIUM_PACK_URL),
-			headless: true,
-		});
+		// Step 7: Puppeteerでスクリーンショット取得（キャッシュ済みブラウザを使用）
+		const browser = await getBrowser();
+		const page = await browser.newPage();
 
 		try {
-			const page = await browser.newPage();
 			// 高解像度設定（Retina相当）、若干横長
 			await page.setViewport({ width: 500, height: 500, deviceScaleFactor: 3 });
 			await page.setContent(mapHtml, { waitUntil: "networkidle0" });
@@ -649,7 +719,8 @@ export const generateRouteMapImageTool = tool({
 				routeMapData,
 			};
 		} finally {
-			await browser.close();
+			// ブラウザは閉じずにページだけ閉じる（再利用のため）
+			await page.close();
 		}
 	},
 });
