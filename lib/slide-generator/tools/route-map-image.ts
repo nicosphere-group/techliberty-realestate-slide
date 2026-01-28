@@ -6,7 +6,8 @@
  */
 
 import { tool } from "ai";
-import puppeteer from "puppeteer";
+import chromium from "@sparticuz/chromium";
+import puppeteer from "puppeteer-core";
 import z from "zod";
 import { EkispertClient } from "../../ekispert/client";
 import type { RouteMapData } from "../../ekispert/types";
@@ -604,12 +605,22 @@ export const generateRouteMapImageTool = tool({
 		// Step 6: Leaflet地図HTMLを生成
 		const mapHtml = generateMapHtml(homeCoord, top4Stations, airportsData);
 
+<<<<<<< Updated upstream
 		// Step 7: Puppeteerでスクリーンショット取得
 		console.log("[RouteMapImage] Launching Puppeteer...");
 		const browser = await puppeteer.launch({
 			headless: true,
 			args: ["--no-sandbox", "--disable-setuid-sandbox"],
 		});
+=======
+    // Step 7: Puppeteerでスクリーンショット取得
+    console.log("[RouteMapImage] Launching Puppeteer...");
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    });
+>>>>>>> Stashed changes
 
 		try {
 			const page = await browser.newPage();
