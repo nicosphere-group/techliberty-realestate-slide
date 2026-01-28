@@ -367,9 +367,11 @@ function generateMapHtml(
             letter-spacing: 0.05em;
             width: 100%; /* 親要素(divIcon)の幅いっぱいに広げる */
         }
-        .airport-badge::before {
-            content: "✈";
-            font-size: 11px;
+        .airport-badge svg {
+            width: 12px;
+            height: 12px;
+            fill: #fff;
+            flex-shrink: 0;
         }
     </style>
 </head>
@@ -486,8 +488,8 @@ function generateMapHtml(
 
         const badgeIcon = L.divIcon({
             className: '',
-            html: \`<div class="airport-badge">\${airport.name} \${airport.minutes}分</div>\`,
-            iconSize: [110, 26], // 幅を140 -> 110に縮小
+            html: \`<div class="airport-badge"><svg viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>\${airport.name} \${airport.minutes}分</div>\`,
+            iconSize: [110, 26],
             iconAnchor: config.anchor
         });
         L.marker(targetLatLng, { icon: badgeIcon, zIndexOffset: 400 }).addTo(map);
