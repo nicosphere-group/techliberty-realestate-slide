@@ -9,6 +9,7 @@ import { jsPDF } from "jspdf";
 import {
 	AlertCircle,
 	Check,
+	ChevronsUpDown,
 	Download,
 	ImageIcon,
 	LayoutTemplate,
@@ -26,6 +27,14 @@ import { ScaledFrame, SlidePreview } from "@/components/slide-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+	Command,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+} from "@/components/ui/command";
+import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
@@ -35,6 +44,11 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -42,9 +56,16 @@ import type { Event, PlanEvent, SlideEvent } from "@/lib/slide-generator";
 import { cn } from "@/lib/utils";
 import { convertPdfToSingleJpg, isPdfFile } from "@/lib/utils/pdf-converter";
 import { formSchema } from "./schemas";
+import { useQuery } from "@tanstack/react-query";
+import { authClient } from "@/lib/auth-client";
 
 type PlanState = PlanEvent;
 type SlideState = SlideEvent;
+
+type SelectOption = {
+	id: string;
+	name: string;
+};
 
 const INITIAL_TOTAL_USAGE = {
 	inputTokens: 0,
@@ -68,7 +89,31 @@ const PRICING = {
 	high: { input: 2.0, output: 12.0 },
 } as const;
 
-export default function ClientPage() {
+export default function Page() {
+	const { data: organizations, isPending: isOrganizationsPending } = useQuery({
+		queryKey: ["auth", "listOrganizations"],
+		queryFn: async () => authClient.organization.list(),
+	});
+	const [selectedOrganizationId, setSelectedOrganizationId] =
+		useState<string>();
+	const { data: teams, isPending: isTeamsPending } = useQuery({
+		queryKey: ["auth", "listTeams", selectedOrganizationId],
+		queryFn: async () => {
+			if (!selectedOrganizationId) {
+				return [];
+			}
+			return await authClient.organization.listTeams({
+				query: {
+					organizationId: selectedOrganizationId,
+				},
+			});
+		},
+		enabled: !!selectedOrganizationId,
+	});
+	const [selectedTeamId, setSelectedTeamId] = useState<string>();
+	const [isCompanyComboboxOpen, setIsCompanyComboboxOpen] = useState(false);
+	const [isStoreComboboxOpen, setIsStoreComboboxOpen] = useState(false);
+
 	const [plan, setPlan] = useState<PlanState>();
 	const [slidesByPage, setSlidesByPage] = useState<Record<number, SlideState>>(
 		{},
@@ -95,6 +140,48 @@ export default function ClientPage() {
 
 	// const isDevelopment = process.env.NODE_ENV === "development";
 	const isDevelopment = true;
+
+	const normalizeList = (input: unknown): Record<string, unknown>[] => {
+		if (Array.isArray(input)) return input as Record<string, unknown>[];
+		if (input && typeof input === "object") {
+			const candidate = (input as Record<string, unknown>).data
+				?? (input as Record<string, unknown>).organizations
+				?? (input as Record<string, unknown>).teams
+				?? (input as Record<string, unknown>).items;
+			if (Array.isArray(candidate)) {
+				return candidate as Record<string, unknown>[];
+			}
+		}
+		return [];
+	};
+
+	const toOption = (item: Record<string, unknown>): SelectOption | null => {
+		const rawName =
+			item.name ?? item.displayName ?? item.title ?? item.slug ?? item.label;
+		const rawId =
+			item.id ?? item.organizationId ?? item.teamId ?? item.slug ?? item.name;
+		const name = typeof rawName === "string" ? rawName : "";
+		const id =
+			typeof rawId === "string"
+				? rawId
+				: typeof rawId === "number"
+					? String(rawId)
+					: "";
+		if (!name || !id) return null;
+		return { id, name };
+	};
+
+	const organizationOptions = useMemo(() => {
+		return normalizeList(organizations)
+			.map(toOption)
+			.filter((option): option is SelectOption => option !== null);
+	}, [organizations]);
+
+	const teamOptions = useMemo(() => {
+		return normalizeList(teams)
+			.map(toOption)
+			.filter((option): option is SelectOption => option !== null);
+	}, [teams]);
 
 	const orderedSlides = useMemo(() => {
 		return Object.values(slidesByPage).sort(
@@ -162,7 +249,7 @@ export default function ClientPage() {
 			abortControllerRef.current = new AbortController();
 
 			// SSEストリームをフェッチ
-			await fetchEventSource("/api/generate", {
+			await fetchEventSource("/api/slide-generator/generate", {
 				method: "POST",
 				body: formData,
 				signal: abortControllerRef.current.signal,
@@ -300,6 +387,13 @@ export default function ClientPage() {
 			});
 		}
 	}, [form.state.values.flyerFiles]);
+
+	useEffect(() => {
+		if (!selectedOrganizationId) {
+			setSelectedTeamId(undefined);
+			form.setFieldValue("storeName", "");
+		}
+	}, [form, selectedOrganizationId]);
 
 	// コンポーネントアンマウント時にURLを解放
 	useEffect(() => {
@@ -741,16 +835,65 @@ export default function ClientPage() {
 												>
 													会社名
 												</FieldLabel>
-												<Input
-													id={field.name}
-													name={field.name}
-													value={field.state.value}
-													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													aria-invalid={isInvalid}
-													placeholder="例: 株式会社○○不動産"
-													autoComplete="organization"
-												/>
+												<Popover
+													open={isCompanyComboboxOpen}
+													onOpenChange={setIsCompanyComboboxOpen}
+												>
+													<PopoverTrigger asChild>
+														<Button
+															id={field.name}
+															name={field.name}
+															variant="outline"
+															role="combobox"
+															aria-expanded={isCompanyComboboxOpen}
+															aria-invalid={isInvalid}
+															className="w-full justify-between"
+															disabled={isOrganizationsPending}
+														>
+															<span className="truncate">
+																{field.state.value || "会社を選択"}
+															</span>
+															<ChevronsUpDown className="h-4 w-4 opacity-50" />
+														</Button>
+													</PopoverTrigger>
+													<PopoverContent
+														className="p-0 w-[--radix-popover-trigger-width]"
+														align="start"
+													>
+														<Command>
+															<CommandInput placeholder="会社を検索..." />
+															<CommandList>
+																<CommandEmpty>
+																	{isOrganizationsPending
+																		? "読み込み中..."
+																		: "会社が見つかりません"}
+																</CommandEmpty>
+																<CommandGroup>
+																	{organizationOptions.map((org) => {
+																		const isSelected =
+																			field.state.value === org.name;
+																		return (
+																			<CommandItem
+																				key={org.id}
+																				value={org.name}
+																				data-checked={isSelected}
+																				onSelect={() => {
+																					field.handleChange(org.name);
+																					setSelectedOrganizationId(org.id);
+																					setSelectedTeamId(undefined);
+																					form.setFieldValue("storeName", "");
+																					setIsCompanyComboboxOpen(false);
+																				}}
+																			>
+																				{org.name}
+																			</CommandItem>
+																		);
+																	})}
+																</CommandGroup>
+															</CommandList>
+														</Command>
+													</PopoverContent>
+												</Popover>
 												{isInvalid && (
 													<FieldError errors={field.state.meta.errors} />
 												)}
@@ -777,15 +920,64 @@ export default function ClientPage() {
 														任意
 													</Badge>
 												</FieldLabel>
-												<Input
-													id={field.name}
-													name={field.name}
-													value={field.state.value || ""}
-													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="例: 渋谷支店"
-													autoComplete="off"
-												/>
+												<Popover
+													open={isStoreComboboxOpen}
+													onOpenChange={setIsStoreComboboxOpen}
+												>
+													<PopoverTrigger asChild>
+														<Button
+															id={field.name}
+															name={field.name}
+															variant="outline"
+															role="combobox"
+															aria-expanded={isStoreComboboxOpen}
+															className="w-full justify-between"
+															disabled={!selectedOrganizationId || isTeamsPending}
+														>
+															<span className="truncate">
+																{field.state.value || "店舗を選択"}
+															</span>
+															<ChevronsUpDown className="h-4 w-4 opacity-50" />
+														</Button>
+													</PopoverTrigger>
+													<PopoverContent
+														className="p-0 w-[--radix-popover-trigger-width]"
+														align="start"
+													>
+														<Command>
+															<CommandInput placeholder="店舗を検索..." />
+															<CommandList>
+																<CommandEmpty>
+																	{!selectedOrganizationId
+																		? "会社を選択してください"
+																		: isTeamsPending
+																			? "読み込み中..."
+																		: "店舗が見つかりません"}
+																</CommandEmpty>
+																<CommandGroup>
+																	{teamOptions.map((team) => {
+																		const isSelected =
+																			field.state.value === team.name;
+																		return (
+																			<CommandItem
+																				key={team.id}
+																				value={team.name}
+																				data-checked={isSelected}
+																				onSelect={() => {
+																					field.handleChange(team.name);
+																					setSelectedTeamId(team.id);
+																					setIsStoreComboboxOpen(false);
+																				}}
+																			>
+																				{team.name}
+																			</CommandItem>
+																		);
+																	})}
+																</CommandGroup>
+															</CommandList>
+														</Command>
+													</PopoverContent>
+												</Popover>
 											</Field>
 										);
 									}}
