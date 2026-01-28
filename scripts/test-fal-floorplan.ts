@@ -81,8 +81,8 @@ async function main() {
 		}
 	}
 
-	// スコアが0.7以上のマスクだけを使用
-	const MIN_SCORE = 0.7;
+	// スコアが0.69以上のマスクだけを使用
+	const MIN_SCORE = 0.69;
 	const filteredIndices = data.metadata
 		? data.metadata
 				.map((m, i) => ({ index: i, score: m.score }))
@@ -133,19 +133,10 @@ async function main() {
 		);
 	}
 
-	// 間取り図は横長（アスペクト比 > 2）のものだけを選択
-	const trimmedImages = allImages.filter((img) => {
-		const aspectRatio = img.metadata.width / img.metadata.height;
-		const isFloorPlan = aspectRatio > 2;
-		if (!isFloorPlan) {
-			console.log(
-				`  → mask[${img.index}] を除外 (アスペクト比=${aspectRatio.toFixed(2)})`,
-			);
-		}
-		return isFloorPlan;
-	});
+	// scoreでフィルタリング済みなので、そのまま使用
+	const trimmedImages = allImages;
 
-	console.log(`  間取り図: ${trimmedImages.length} 個`);
+	console.log(`  有効な間取り図: ${trimmedImages.length} 個`);
 
 	if (trimmedImages.length === 0) {
 		console.error("❌ 間取り図が見つかりません");
@@ -155,31 +146,66 @@ async function main() {
 	// Y位置でソート（上から下の順）
 	trimmedImages.sort((a, b) => a.yPosition - b.yPosition);
 
-	// 合成画像のサイズを計算
-	const padding = 20; // 画像間の余白
-	const maxWidth = Math.max(...trimmedImages.map((img) => img.metadata.width));
-	const totalHeight =
-		trimmedImages.reduce((sum, img) => sum + img.metadata.height, 0) +
-		padding * (trimmedImages.length - 1);
+	// レイアウト決定
+	// - 1〜2枚: 横長なら縦並び(1列)、縦長なら横並び(2列)
+	// - 3枚以上: 常に2列グリッド
+	const padding = 20;
+	let cols: number;
 
-	console.log(`\n🎨 合成中... (${maxWidth} x ${totalHeight})`);
+	if (trimmedImages.length <= 2) {
+		// 平均アスペクト比で判断
+		const avgAspectRatio =
+			trimmedImages.reduce(
+				(sum, img) => sum + img.metadata.width / img.metadata.height,
+				0,
+			) / trimmedImages.length;
+		// 横長(aspectRatio > 1)なら縦並び(1列)、縦長なら横並び(2列)
+		cols = avgAspectRatio > 1 ? 1 : 2;
+		console.log(
+			`  アスペクト比: ${avgAspectRatio.toFixed(2)} → ${cols === 1 ? "縦並び" : "横並び"}`,
+		);
+	} else {
+		// 3枚以上は常に2列
+		cols = 2;
+	}
 
-	// 白背景に各画像を配置
+	const rows = Math.ceil(trimmedImages.length / cols);
+
+	// 各セルの最大サイズを計算
+	const cellWidth = Math.max(...trimmedImages.map((img) => img.metadata.width));
+	const cellHeight = Math.max(
+		...trimmedImages.map((img) => img.metadata.height),
+	);
+
+	const totalWidth = cellWidth * cols + padding * (cols - 1);
+	const totalHeight = cellHeight * rows + padding * (rows - 1);
+
+	console.log(`\n🎨 合成中... (${totalWidth} x ${totalHeight}) [${cols}列 x ${rows}行]`);
+
+	// 白背景に各画像を配置（グリッドレイアウト）
 	const composites: sharp.OverlayOptions[] = [];
-	let currentY = 0;
 
-	for (const img of trimmedImages) {
+	for (let i = 0; i < trimmedImages.length; i++) {
+		const img = trimmedImages[i];
+		const row = Math.floor(i / cols);
+		const col = i % cols;
+
+		// セル内で中央揃え
+		const cellX = col * (cellWidth + padding);
+		const cellY = row * (cellHeight + padding);
+		const offsetX = Math.floor((cellWidth - img.metadata.width) / 2);
+		const offsetY = Math.floor((cellHeight - img.metadata.height) / 2);
+
 		composites.push({
 			input: img.buffer,
-			left: Math.floor((maxWidth - img.metadata.width) / 2), // 中央揃え
-			top: currentY,
+			left: cellX + offsetX,
+			top: cellY + offsetY,
 		});
-		currentY += img.metadata.height + padding;
 	}
 
 	const mergedBuffer = await sharp({
 		create: {
-			width: maxWidth,
+			width: totalWidth,
 			height: totalHeight,
 			channels: 4,
 			background: { r: 255, g: 255, b: 255, alpha: 1 },
@@ -196,7 +222,7 @@ async function main() {
 	console.log("✅ 完了!");
 	console.log("========================================");
 	console.log(`ファイル: ${filename}`);
-	console.log(`サイズ: ${maxWidth} x ${totalHeight}`);
+	console.log(`サイズ: ${totalWidth} x ${totalHeight}`);
 	console.log(`容量: ${mergedBuffer.length} bytes`);
 	console.log("========================================");
 }

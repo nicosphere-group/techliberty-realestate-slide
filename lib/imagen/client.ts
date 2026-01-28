@@ -313,7 +313,7 @@ Return empty array [] if no exterior photo is found.`;
 
 	/**
 	 * マイソク画像から間取り図を抽出
-	 * 複数階対応: 1) SAM-3で複数マスク検出 → 2) 縦に合成 → 3) 綺麗に再生成
+	 * 複数階対応: 1) SAM-3で複数マスク検出 → 2) 2列グリッドで合成 → 3) 綺麗に再生成
 	 */
 	async extractFloorPlanImage(
 		params: ExtractFloorPlanParams,
@@ -337,7 +337,23 @@ Return empty array [] if no exterior photo is found.`;
 				};
 			}
 
-			// Step 2: 各マスクをダウンロードしてトリミング
+			// Step 2: スコアが0.69以上のマスクだけをフィルタリング
+			const MIN_SCORE = 0.69;
+			const filteredIndices = metadata
+				? metadata
+						.map((m, i) => ({ index: i, score: m.score ?? 0 }))
+						.filter((m) => m.score >= MIN_SCORE)
+						.map((m) => m.index)
+				: masks.map((_, i) => i);
+
+			if (filteredIndices.length === 0) {
+				return {
+					image: null,
+					error: "有効な間取り図を検出できませんでした。",
+				};
+			}
+
+			// Step 3: 各マスクをダウンロードしてトリミング
 			const trimmedImages: {
 				buffer: Buffer;
 				width: number;
@@ -345,7 +361,7 @@ Return empty array [] if no exterior photo is found.`;
 				yPosition: number;
 			}[] = [];
 
-			for (let i = 0; i < masks.length; i++) {
+			for (const i of filteredIndices) {
 				const mask = masks[i];
 				const blob = await ky.get(mask.url).blob();
 				const buffer = Buffer.from(await blob.arrayBuffer());
@@ -359,8 +375,8 @@ Return empty array [] if no exterior photo is found.`;
 
 				trimmedImages.push({
 					buffer: trimmed,
-					width: trimmedMeta.width,
-					height: trimmedMeta.height,
+					width: trimmedMeta.width ?? 0,
+					height: trimmedMeta.height ?? 0,
 					yPosition,
 				});
 			}
@@ -368,28 +384,56 @@ Return empty array [] if no exterior photo is found.`;
 			// Y位置でソート（上から下の順）
 			trimmedImages.sort((a, b) => a.yPosition - b.yPosition);
 
-			// Step 3: 複数のマスクを縦に合成
+			// Step 4: レイアウト決定
+			// - 1〜2枚: 横長なら縦並び(1列)、縦長なら横並び(2列)
+			// - 3枚以上: 常に2列グリッド
 			const padding = 20;
-			const maxWidth = Math.max(...trimmedImages.map((img) => img.width));
-			const totalHeight =
-				trimmedImages.reduce((sum, img) => sum + img.height, 0) +
-				padding * (trimmedImages.length - 1);
+			let cols: number;
+
+			if (trimmedImages.length <= 2) {
+				// 平均アスペクト比で判断
+				const avgAspectRatio =
+					trimmedImages.reduce((sum, img) => sum + img.width / img.height, 0) /
+					trimmedImages.length;
+				// 横長(aspectRatio > 1)なら縦並び(1列)、縦長なら横並び(2列)
+				cols = avgAspectRatio > 1 ? 1 : 2;
+			} else {
+				// 3枚以上は常に2列
+				cols = 2;
+			}
+
+			const rows = Math.ceil(trimmedImages.length / cols);
+
+			// 各セルの最大サイズを計算
+			const cellWidth = Math.max(...trimmedImages.map((img) => img.width));
+			const cellHeight = Math.max(...trimmedImages.map((img) => img.height));
+
+			const totalWidth = cellWidth * cols + padding * (cols - 1);
+			const totalHeight = cellHeight * rows + padding * (rows - 1);
 
 			const composites: { input: Buffer; left: number; top: number }[] = [];
-			let currentY = 0;
 
-			for (const img of trimmedImages) {
+			for (let i = 0; i < trimmedImages.length; i++) {
+				const img = trimmedImages[i];
+				const row = Math.floor(i / cols);
+				const col = i % cols;
+
+				// セル内で中央揃え
+				const cellX = col * (cellWidth + padding);
+				const cellY = row * (cellHeight + padding);
+				const offsetX = Math.floor((cellWidth - img.width) / 2);
+				const offsetY = Math.floor((cellHeight - img.height) / 2);
+
 				composites.push({
 					input: img.buffer,
-					left: Math.floor((maxWidth - img.width) / 2), // 中央揃え
-					top: currentY,
+					left: cellX + offsetX,
+					top: cellY + offsetY,
 				});
-				currentY += img.height + padding;
 			}
 
 			const mergedBuffer = await sharp({
 				create: {
-					width: maxWidth,
+					width: totalWidth,
 					height: totalHeight,
 					channels: 4,
 					background: { r: 255, g: 255, b: 255, alpha: 1 },
