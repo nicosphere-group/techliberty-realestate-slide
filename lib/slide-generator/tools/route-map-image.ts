@@ -10,9 +10,9 @@ import chromium from "@sparticuz/chromium-min";
 import puppeteer from "puppeteer-core";
 import z from "zod";
 
-// Vercel用のChromiumバイナリURL（@sparticuz/chromium-minと同じバージョン）
+// Vercel用のChromiumバイナリURL（@sparticuz/chromium-minと同じバージョン、x64アーキテクチャ）
 const CHROMIUM_PACK_URL =
-	"https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.tar";
+	"https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar";
 import { EkispertClient } from "../../ekispert/client";
 import type { RouteMapData } from "../../ekispert/types";
 import { heartRailsClient } from "../../heartrails/client";
