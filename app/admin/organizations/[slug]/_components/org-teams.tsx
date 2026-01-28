@@ -31,6 +31,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import type { Team } from "@/lib/generated/prisma/client";
+import { TeamActions } from "./team-actions";
 
 const teamSchema = z.object({
 	name: z.string().min(1, "チーム名は必須です"),
@@ -106,10 +107,7 @@ export function OrgTeams({ orgId, teams }: Props) {
 												onBlur={field.handleBlur}
 												onChange={(e) => field.handleChange(e.target.value)}
 											/>
-											{field.state.meta.isTouched &&
-												!field.state.meta.isValid && (
-													<FieldError errors={field.state.meta.errors} />
-												)}
+											<FieldError errors={field.state.meta.errors} />
 										</Field>
 									)}
 								/>
@@ -137,6 +135,7 @@ export function OrgTeams({ orgId, teams }: Props) {
 						<TableRow>
 							<TableHead>名前</TableHead>
 							<TableHead>作成日</TableHead>
+							<TableHead className="w-12"></TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -148,6 +147,9 @@ export function OrgTeams({ orgId, teams }: Props) {
 								</TableCell>
 								<TableCell>
 									{new Date(team.createdAt).toLocaleDateString("ja-JP")}
+								</TableCell>
+								<TableCell>
+									<TeamActions team={team} />
 								</TableCell>
 							</TableRow>
 						))}

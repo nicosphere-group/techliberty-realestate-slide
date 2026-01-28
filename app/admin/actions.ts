@@ -78,3 +78,52 @@ export async function cancelInvitation(invitationId: string) {
 	revalidatePath("/admin/organizations");
 	return { success: true };
 }
+
+export async function updateOrganization(
+	organizationId: string,
+	data: { name: string; slug: string },
+) {
+	await checkAdmin();
+
+	const org = await auth.api.updateOrganization({
+		headers: await headers(),
+		body: {
+			organizationId,
+			data,
+		},
+	});
+
+	revalidatePath("/admin/organizations");
+	return { success: true, organization: org };
+}
+
+export async function updateTeam(teamId: string, name: string) {
+	await checkAdmin();
+
+	const team = await auth.api.updateTeam({
+		headers: await headers(),
+		body: {
+			teamId,
+			data: {
+				name,
+			},
+		},
+	});
+
+	revalidatePath("/admin/organizations");
+	return { success: true, team };
+}
+
+export async function removeTeam(teamId: string) {
+	await checkAdmin();
+
+	await auth.api.removeTeam({
+		headers: await headers(),
+		body: {
+			teamId,
+		},
+	});
+
+	revalidatePath("/admin/organizations");
+	return { success: true };
+}

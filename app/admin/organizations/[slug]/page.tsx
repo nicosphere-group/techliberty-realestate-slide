@@ -10,6 +10,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { prisma } from "@/lib/prisma";
 import { OrgMembers } from "./_components/org-members";
+import { OrgSettings } from "./_components/org-settings";
 import { OrgTeams } from "./_components/org-teams";
 
 export const metadata: Metadata = {
@@ -54,6 +55,7 @@ export default async function OrgDetailsPage({ params }: Props) {
 				<TabsList>
 					<TabsTrigger value="members">メンバー & 招待</TabsTrigger>
 					<TabsTrigger value="teams">チーム</TabsTrigger>
+					<TabsTrigger value="settings">設定</TabsTrigger>
 				</TabsList>
 				<TabsContent value="members" className="space-y-4">
 					<Card>
@@ -84,6 +86,13 @@ export default async function OrgDetailsPage({ params }: Props) {
 							<OrgTeams orgId={org.id} teams={org.teams} />
 						</CardContent>
 					</Card>
+				</TabsContent>
+				<TabsContent value="settings" className="space-y-4">
+					<OrgSettings
+						orgId={org.id}
+						initialName={org.name}
+						initialSlug={org.slug}
+					/>
 				</TabsContent>
 			</Tabs>
 		</div>
