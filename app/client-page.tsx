@@ -166,6 +166,7 @@ export default function ClientPage() {
 				method: "POST",
 				body: formData,
 				signal: abortControllerRef.current.signal,
+				openWhenHidden: true, // タブがバックグラウンドでも接続維持
 
 				async onopen(response) {
 					if (!response.ok) {
