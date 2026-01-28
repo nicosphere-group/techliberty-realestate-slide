@@ -5,8 +5,8 @@
  * PuppeteerでスクリーンショットをS3にアップロードして公開URLを返す
  */
 
-import { tool } from "ai";
 import chromium from "@sparticuz/chromium";
+import { tool } from "ai";
 import puppeteer from "puppeteer-core";
 import z from "zod";
 import { EkispertClient } from "../../ekispert/client";
@@ -620,9 +620,14 @@ export const generateRouteMapImageTool = tool({
 			await page.setContent(mapHtml, { waitUntil: "networkidle0" });
 
 			// 地図タイルの読み込みを待機
-			await page.waitForFunction(() => (window as any).mapRendered === true, {
-				timeout: 10000,
-			});
+			await page.waitForFunction(
+				() => {
+					return (window as { mapRendered?: boolean }).mapRendered === true;
+				},
+				{
+					timeout: 10000,
+				},
+			);
 
 			// 追加の待機（タイル描画完了用）
 			await new Promise((resolve) => setTimeout(resolve, 500));

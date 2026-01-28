@@ -2,6 +2,7 @@
 
 import { fetchEventSource } from "@microsoft/fetch-event-source";
 import { useForm } from "@tanstack/react-form";
+import { useQuery } from "@tanstack/react-query";
 import type { LanguageModelUsage } from "ai";
 import { exportToPptx } from "dom-to-pptx";
 import html2canvas from "html2canvas-pro";
@@ -52,12 +53,11 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { authClient } from "@/lib/auth-client";
 import type { Event, PlanEvent, SlideEvent } from "@/lib/slide-generator";
 import { cn } from "@/lib/utils";
 import { convertPdfToSingleJpg, isPdfFile } from "@/lib/utils/pdf-converter";
 import { formSchema } from "./schemas";
-import { useQuery } from "@tanstack/react-query";
-import { authClient } from "@/lib/auth-client";
 
 type PlanState = PlanEvent;
 type SlideState = SlideEvent;
@@ -65,6 +65,37 @@ type SlideState = SlideEvent;
 type SelectOption = {
 	id: string;
 	name: string;
+};
+
+const normalizeList = (input: unknown): Record<string, unknown>[] => {
+	if (Array.isArray(input)) return input as Record<string, unknown>[];
+	if (input && typeof input === "object") {
+		const candidate =
+			(input as Record<string, unknown>).data ??
+			(input as Record<string, unknown>).organizations ??
+			(input as Record<string, unknown>).teams ??
+			(input as Record<string, unknown>).items;
+		if (Array.isArray(candidate)) {
+			return candidate as Record<string, unknown>[];
+		}
+	}
+	return [];
+};
+
+const toOption = (item: Record<string, unknown>): SelectOption | null => {
+	const rawName =
+		item.name ?? item.displayName ?? item.title ?? item.slug ?? item.label;
+	const rawId =
+		item.id ?? item.organizationId ?? item.teamId ?? item.slug ?? item.name;
+	const name = typeof rawName === "string" ? rawName : "";
+	const id =
+		typeof rawId === "string"
+			? rawId
+			: typeof rawId === "number"
+				? String(rawId)
+				: "";
+	if (!name || !id) return null;
+	return { id, name };
 };
 
 const INITIAL_TOTAL_USAGE = {
@@ -110,7 +141,7 @@ export default function Page() {
 		},
 		enabled: !!selectedOrganizationId,
 	});
-	const [selectedTeamId, setSelectedTeamId] = useState<string>();
+	const [_selectedTeamId, setSelectedTeamId] = useState<string>();
 	const [isCompanyComboboxOpen, setIsCompanyComboboxOpen] = useState(false);
 	const [isStoreComboboxOpen, setIsStoreComboboxOpen] = useState(false);
 
@@ -140,36 +171,6 @@ export default function Page() {
 
 	// const isDevelopment = process.env.NODE_ENV === "development";
 	const isDevelopment = true;
-
-	const normalizeList = (input: unknown): Record<string, unknown>[] => {
-		if (Array.isArray(input)) return input as Record<string, unknown>[];
-		if (input && typeof input === "object") {
-			const candidate = (input as Record<string, unknown>).data
-				?? (input as Record<string, unknown>).organizations
-				?? (input as Record<string, unknown>).teams
-				?? (input as Record<string, unknown>).items;
-			if (Array.isArray(candidate)) {
-				return candidate as Record<string, unknown>[];
-			}
-		}
-		return [];
-	};
-
-	const toOption = (item: Record<string, unknown>): SelectOption | null => {
-		const rawName =
-			item.name ?? item.displayName ?? item.title ?? item.slug ?? item.label;
-		const rawId =
-			item.id ?? item.organizationId ?? item.teamId ?? item.slug ?? item.name;
-		const name = typeof rawName === "string" ? rawName : "";
-		const id =
-			typeof rawId === "string"
-				? rawId
-				: typeof rawId === "number"
-					? String(rawId)
-					: "";
-		if (!name || !id) return null;
-		return { id, name };
-	};
 
 	const organizationOptions = useMemo(() => {
 		return normalizeList(organizations)
@@ -932,7 +933,9 @@ export default function Page() {
 															role="combobox"
 															aria-expanded={isStoreComboboxOpen}
 															className="w-full justify-between"
-															disabled={!selectedOrganizationId || isTeamsPending}
+															disabled={
+																!selectedOrganizationId || isTeamsPending
+															}
 														>
 															<span className="truncate">
 																{field.state.value || "店舗を選択"}
@@ -952,7 +955,7 @@ export default function Page() {
 																		? "会社を選択してください"
 																		: isTeamsPending
 																			? "読み込み中..."
-																		: "店舗が見つかりません"}
+																			: "店舗が見つかりません"}
 																</CommandEmpty>
 																<CommandGroup>
 																	{teamOptions.map((team) => {
