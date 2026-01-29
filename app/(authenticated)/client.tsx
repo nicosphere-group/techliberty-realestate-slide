@@ -13,7 +13,6 @@ import {
 	ChevronsUpDown,
 	Download,
 	ImageIcon,
-	LayoutTemplate,
 	Loader2,
 	Sparkles,
 	Square,
@@ -23,7 +22,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
 import { Dropzone } from "@/components/dropzone";
-import { ModeToggle } from "@/components/mode-toggle";
 import { ScaledFrame, SlidePreview } from "@/components/slide-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -636,1094 +634,1045 @@ export default function Page() {
 	};
 
 	return (
-		<div className="flex h-screen flex-col bg-background text-foreground overflow-hidden">
-			{/* Header */}
-			<header className="flex h-16 shrink-0 items-center justify-between border-b bg-background/95 px-6 backdrop-blur supports-backdrop-filter:bg-background/60 z-30">
-				<div className="flex items-center gap-3">
-					<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-						<LayoutTemplate className="h-5 w-5" />
-					</div>
-					<div>
-						<h1 className="text-lg font-bold leading-tight tracking-tight">
-							SlideGen Real Estate
-						</h1>
-						<p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-							Automated Presentation Builder
-						</p>
-					</div>
-				</div>
-				<div className="flex items-center gap-2">
-					<ModeToggle />
-					{/* Future actions: User profile, settings, etc */}
-				</div>
-			</header>
-
-			<div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
-				{/* Left Sidebar: Input Configuration */}
-				<aside className="w-full shrink-0 border-r bg-muted/10 lg:w-105 xl:w-120 overflow-y-auto">
-					<div className="flex flex-col h-full bg-background">
-						<div className="p-6 space-y-8 flex-1">
-							<div>
-								<h2 className="text-lg font-semibold tracking-tight">
-									生成設定
-								</h2>
-								<p className="text-sm text-muted-foreground mt-1">
-									物件情報を入力して、AIプレゼンテーションを生成します。
-								</p>
-							</div>
-
-							<form
-								id="generate-slides-form"
-								className="space-y-8"
-								onSubmit={(e) => {
-									e.preventDefault();
-									form.handleSubmit();
-								}}
-							>
-								{/* Image Input - マイソク（一番上に配置） */}
-								<form.Field
-									name="flyerFiles"
-									children={(field) => {
-										const isInvalid =
-											field.state.meta.isTouched && !field.state.meta.isValid;
-										const currentFile = field.state.value?.[0];
-										return (
-											<Field data-invalid={isInvalid}>
-												<FieldLabel className="text-base font-medium flex items-center gap-2">
-													<ImageIcon className="h-4 w-4 text-primary" />
-													マイソク
-												</FieldLabel>
-												<Dropzone
-													accept={{
-														"image/*": [
-															".png",
-															".jpg",
-															".jpeg",
-															".gif",
-															".webp",
-														],
-														"application/pdf": [".pdf"],
-													}}
-													maxFiles={1}
-													maxSize={20 * 1024 * 1024}
-													src={field.state.value || []}
-													disabled={isConvertingPdf}
-													onDrop={async (acceptedFiles) => {
-														if (acceptedFiles.length === 0) return;
-
-														const file = acceptedFiles[0];
-
-														// PDFの場合はJPGに変換（Gemini用）+ 元のPDFを保存（結合用）
-														if (isPdfFile(file)) {
-															setIsConvertingPdf(true);
-															try {
-																// 元のPDFファイルを保存（PDF結合用）
-																setOriginalPdfFile(file);
-																console.log(
-																	"[File Upload] Original PDF saved for merging:",
-																	file.name,
-																	file.size,
-																);
-
-																// JPGに変換してGeminiに渡す
-																const result = await convertPdfToSingleJpg(
-																	file,
-																	1440,
-																	0.85,
-																);
-																field.handleChange([result.file]);
-																console.log(
-																	"[File Upload] PDF converted to JPG for Gemini:",
-																	result.file.name,
-																	result.file.size,
-																);
-															} catch (error) {
-																console.error("PDF変換エラー:", error);
-																toast.error("PDFの変換に失敗しました", {
-																	description:
-																		error instanceof Error
-																			? error.message
-																			: "不明なエラー",
-																});
-																// エラー時は元のPDFもクリア
-																setOriginalPdfFile(null);
-															} finally {
-																setIsConvertingPdf(false);
-															}
-														} else {
-															// 画像の場合は元のPDFをクリア
-															setOriginalPdfFile(null);
-															field.handleChange(acceptedFiles);
-															console.log(
-																"[File Upload] Image file uploaded:",
-																file.name,
-																file.type,
-																file.size,
-															);
-														}
-													}}
-													onError={(error) => {
-														toast.error(
-															"ファイルのアップロードに失敗しました",
-															{
-																description: error.message,
-															},
-														);
-													}}
-													className={cn(
-														"h-auto min-h-40",
-														flyerPreviewUrl && "p-2",
-													)}
-												>
-													{isConvertingPdf ? (
-														<div className="flex flex-col items-center justify-center py-8">
-															<Loader2 className="h-8 w-8 animate-spin text-primary" />
-															<p className="my-2 font-medium text-sm">
-																PDFを変換中...
-															</p>
-														</div>
-													) : flyerPreviewUrl ? (
-														<div className="flex flex-col items-center justify-center w-full">
-															<div className="relative w-full max-w-xs rounded-lg overflow-hidden border bg-muted/20">
-																<img
-																	src={flyerPreviewUrl}
-																	alt="マイソクプレビュー"
-																	className="w-full h-auto object-contain max-h-48"
-																/>
-															</div>
-															<p className="mt-2 text-xs text-muted-foreground truncate max-w-full">
-																{currentFile?.name.replace(/\.[^/.]+$/, "")}
-															</p>
-															<p className="text-xs text-muted-foreground/70">
-																クリックまたはドラッグで置き換え
-															</p>
-														</div>
-													) : (
-														<div className="flex flex-col items-center justify-center">
-															<div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
-																<ImageIcon size={16} />
-															</div>
-															<p className="my-2 font-medium text-sm">
-																ファイルをアップロード
-															</p>
-															<p className="text-muted-foreground text-xs">
-																ドラッグ＆ドロップまたはクリック
-															</p>
-														</div>
-													)}
-												</Dropzone>
-												{isInvalid && (
-													<FieldError errors={field.state.meta.errors} />
-												)}
-											</Field>
-										);
-									}}
-								/>
-
-								<Separator />
-
-								{/* Company Name */}
-								<form.Field
-									name="companyName"
-									children={(field) => {
-										const isInvalid =
-											field.state.meta.isTouched && !field.state.meta.isValid;
-										return (
-											<Field data-invalid={isInvalid}>
-												<FieldLabel
-													htmlFor={field.name}
-													className="text-base font-medium"
-												>
-													会社名
-												</FieldLabel>
-												<Popover
-													open={isCompanyComboboxOpen}
-													onOpenChange={setIsCompanyComboboxOpen}
-												>
-													<PopoverTrigger asChild>
-														<Button
-															id={field.name}
-															name={field.name}
-															variant="outline"
-															role="combobox"
-															aria-expanded={isCompanyComboboxOpen}
-															aria-invalid={isInvalid}
-															className="w-full justify-between"
-															disabled={isOrganizationsPending}
-														>
-															<span className="truncate">
-																{field.state.value || "会社を選択"}
-															</span>
-															<ChevronsUpDown className="h-4 w-4 opacity-50" />
-														</Button>
-													</PopoverTrigger>
-													<PopoverContent
-														className="p-0 w-[--radix-popover-trigger-width]"
-														align="start"
-													>
-														<Command>
-															<CommandInput placeholder="会社を検索..." />
-															<CommandList>
-																<CommandEmpty>
-																	{isOrganizationsPending
-																		? "読み込み中..."
-																		: "会社が見つかりません"}
-																</CommandEmpty>
-																<CommandGroup>
-																	{organizationOptions.map((org) => {
-																		const isSelected =
-																			field.state.value === org.name;
-																		return (
-																			<CommandItem
-																				key={org.id}
-																				value={org.name}
-																				data-checked={isSelected}
-																				onSelect={() => {
-																					field.handleChange(org.name);
-																					setSelectedOrganizationId(org.id);
-																					setSelectedTeamId(undefined);
-																					form.setFieldValue("storeName", "");
-																					setIsCompanyComboboxOpen(false);
-																				}}
-																			>
-																				{org.name}
-																			</CommandItem>
-																		);
-																	})}
-																</CommandGroup>
-															</CommandList>
-														</Command>
-													</PopoverContent>
-												</Popover>
-												{isInvalid && (
-													<FieldError errors={field.state.meta.errors} />
-												)}
-											</Field>
-										);
-									}}
-								/>
-
-								{/* Store Name */}
-								<form.Field
-									name="storeName"
-									children={(field) => {
-										return (
-											<Field>
-												<FieldLabel
-													htmlFor={field.name}
-													className="text-base font-medium"
-												>
-													店舗名
-													<Badge
-														variant="secondary"
-														className="ml-2 text-xs font-normal"
-													>
-														任意
-													</Badge>
-												</FieldLabel>
-												<Popover
-													open={isStoreComboboxOpen}
-													onOpenChange={setIsStoreComboboxOpen}
-												>
-													<PopoverTrigger asChild>
-														<Button
-															id={field.name}
-															name={field.name}
-															variant="outline"
-															role="combobox"
-															aria-expanded={isStoreComboboxOpen}
-															className="w-full justify-between"
-															disabled={
-																!selectedOrganizationId || isTeamsPending
-															}
-														>
-															<span className="truncate">
-																{field.state.value || "店舗を選択"}
-															</span>
-															<ChevronsUpDown className="h-4 w-4 opacity-50" />
-														</Button>
-													</PopoverTrigger>
-													<PopoverContent
-														className="p-0 w-[--radix-popover-trigger-width]"
-														align="start"
-													>
-														<Command>
-															<CommandInput placeholder="店舗を検索..." />
-															<CommandList>
-																<CommandEmpty>
-																	{!selectedOrganizationId
-																		? "会社を選択してください"
-																		: isTeamsPending
-																			? "読み込み中..."
-																			: "店舗が見つかりません"}
-																</CommandEmpty>
-																<CommandGroup>
-																	{teamOptions.map((team) => {
-																		const isSelected =
-																			field.state.value === team.name;
-																		return (
-																			<CommandItem
-																				key={team.id}
-																				value={team.name}
-																				data-checked={isSelected}
-																				onSelect={() => {
-																					field.handleChange(team.name);
-																					setSelectedTeamId(team.id);
-																					setIsStoreComboboxOpen(false);
-																				}}
-																			>
-																				{team.name}
-																			</CommandItem>
-																		);
-																	})}
-																</CommandGroup>
-															</CommandList>
-														</Command>
-													</PopoverContent>
-												</Popover>
-											</Field>
-										);
-									}}
-								/>
-
-								{/* Store Address */}
-								<form.Field
-									name="storeAddress"
-									children={(field) => {
-										return (
-											<Field>
-												<FieldLabel
-													htmlFor={field.name}
-													className="text-base font-medium"
-												>
-													店舗住所
-													<Badge
-														variant="secondary"
-														className="ml-2 text-xs font-normal"
-													>
-														任意
-													</Badge>
-												</FieldLabel>
-												<Input
-													id={field.name}
-													name={field.name}
-													value={field.state.value || ""}
-													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="例: 〒150-0001 東京都渋谷区..."
-													autoComplete="street-address"
-												/>
-											</Field>
-										);
-									}}
-								/>
-
-								{/* Store Phone Number */}
-								<form.Field
-									name="storePhoneNumber"
-									children={(field) => {
-										return (
-											<Field>
-												<FieldLabel
-													htmlFor={field.name}
-													className="text-base font-medium"
-												>
-													店舗電話番号
-													<Badge
-														variant="secondary"
-														className="ml-2 text-xs font-normal"
-													>
-														任意
-													</Badge>
-												</FieldLabel>
-												<Input
-													id={field.name}
-													name={field.name}
-													type="tel"
-													value={field.state.value || ""}
-													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="例: 03-1234-5678"
-													autoComplete="tel"
-												/>
-											</Field>
-										);
-									}}
-								/>
-
-								{/* Store Email */}
-								<form.Field
-									name="storeEmailAddress"
-									children={(field) => {
-										return (
-											<Field>
-												<FieldLabel
-													htmlFor={field.name}
-													className="text-base font-medium"
-												>
-													店舗メールアドレス
-													<Badge
-														variant="secondary"
-														className="ml-2 text-xs font-normal"
-													>
-														任意
-													</Badge>
-												</FieldLabel>
-												<Input
-													id={field.name}
-													name={field.name}
-													type="email"
-													value={field.state.value || ""}
-													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="例: info@example.com"
-													autoComplete="email"
-												/>
-											</Field>
-										);
-									}}
-								/>
-
-								<Separator />
-
-								{/* 資金計画シミュレーション セクション */}
-								<div>
-									<h3 className="text-base font-medium mb-1">
-										資金計画シミュレーション
-										<Badge
-											variant="secondary"
-											className="ml-2 text-xs font-normal"
-										>
-											任意
-										</Badge>
-									</h3>
-									<div className="grid grid-cols-2 gap-4">
-										{/* Annual Income */}
-										<form.Field
-											name="annualIncome"
-											children={(field) => (
-												<Field>
-													<FieldLabel
-														htmlFor={field.name}
-														className="text-sm font-medium"
-													>
-														年収（万円）
-													</FieldLabel>
-													<Input
-														id={field.name}
-														name={field.name}
-														type="number"
-														value={field.state.value ?? ""}
-														onBlur={field.handleBlur}
-														onChange={(e) =>
-															field.handleChange(
-																e.target.value
-																	? Number(e.target.value)
-																	: undefined,
-															)
-														}
-														placeholder="例: 600"
-													/>
-												</Field>
-											)}
-										/>
-
-										{/* Down Payment */}
-										<form.Field
-											name="downPayment"
-											children={(field) => (
-												<Field>
-													<FieldLabel
-														htmlFor={field.name}
-														className="text-sm font-medium"
-													>
-														自己資金（万円）
-													</FieldLabel>
-													<Input
-														id={field.name}
-														name={field.name}
-														type="number"
-														value={field.state.value ?? ""}
-														onBlur={field.handleBlur}
-														onChange={(e) =>
-															field.handleChange(
-																e.target.value
-																	? Number(e.target.value)
-																	: undefined,
-															)
-														}
-														placeholder="例: 500"
-													/>
-												</Field>
-											)}
-										/>
-
-										{/* Interest Rate */}
-										<form.Field
-											name="interestRate"
-											children={(field) => (
-												<Field>
-													<FieldLabel
-														htmlFor={field.name}
-														className="text-sm font-medium"
-													>
-														想定金利（%）
-													</FieldLabel>
-													<Input
-														id={field.name}
-														name={field.name}
-														type="number"
-														step="0.1"
-														value={field.state.value ?? ""}
-														onBlur={field.handleBlur}
-														onChange={(e) =>
-															field.handleChange(
-																e.target.value
-																	? Number(e.target.value)
-																	: undefined,
-															)
-														}
-														placeholder="例: 1.5"
-													/>
-												</Field>
-											)}
-										/>
-
-										{/* Loan Term */}
-										<form.Field
-											name="loanTermYears"
-											children={(field) => (
-												<Field>
-													<FieldLabel
-														htmlFor={field.name}
-														className="text-sm font-medium"
-													>
-														返済期間（年）
-													</FieldLabel>
-													<Input
-														id={field.name}
-														name={field.name}
-														type="number"
-														value={field.state.value ?? ""}
-														onBlur={field.handleBlur}
-														onChange={(e) =>
-															field.handleChange(
-																e.target.value
-																	? Number(e.target.value)
-																	: undefined,
-															)
-														}
-														placeholder="例: 35"
-													/>
-												</Field>
-											)}
-										/>
-									</div>
-								</div>
-
-								<Separator />
-
-								{/* Submit / Stop Button */}
-								{form.state.isSubmitting ? (
-									<Button
-										type="button"
-										size="lg"
-										onClick={handleCancel}
-										className="w-full text-base font-medium h-12 bg-neutral-800 hover:bg-neutral-700 text-white opacity-90 hover:opacity-100 transition-all"
-									>
-										<Square className="h-3.5 w-3.5 fill-current" />
-										停止
-									</Button>
-								) : (
-									<Button
-										type="submit"
-										size="lg"
-										className="w-full text-base font-medium shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow h-12"
-									>
-										<Sparkles className="h-5 w-5" />
-										スライドを生成
-									</Button>
-								)}
-							</form>
+		<div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
+			{/* Left Sidebar: Input Configuration */}
+			<aside className="w-full shrink-0 border-r bg-muted/10 lg:w-105 xl:w-120 overflow-y-auto">
+				<div className="flex flex-col h-full bg-background">
+					<div className="p-6 space-y-8 flex-1">
+						<div>
+							<h2 className="text-lg font-semibold tracking-tight">生成設定</h2>
+							<p className="text-sm text-muted-foreground mt-1">
+								物件情報を入力して、AIプレゼンテーションを生成します。
+							</p>
 						</div>
 
-						{/* Dev Settings & Logs - Only in Development */}
-						{isDevelopment && (
-							<div className="border-t bg-muted/20">
-								<div className="px-6 py-3 border-b flex items-center justify-between">
-									<h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-										開発設定
-									</h3>
-									<Badge variant="outline" className="text-[10px] font-mono">
-										DEV MODE
-									</Badge>
-								</div>
-								<div className="px-6 py-3 border-b space-y-3">
-									<form.Field
-										name="modelType"
-										children={(field) => (
-											<>
-												<div className="flex items-center justify-between">
-													<span className="text-xs text-muted-foreground">
-														モデル
-													</span>
-													<ToggleGroup
-														type="single"
-														value={field.state.value}
-														onValueChange={(value) => {
-															if (value)
-																field.handleChange(
-																	z
-																		.enum(["low", "middle", "high"])
-																		.parse(value),
-																);
-														}}
+						<form
+							id="generate-slides-form"
+							className="space-y-8"
+							onSubmit={(e) => {
+								e.preventDefault();
+								form.handleSubmit();
+							}}
+						>
+							{/* Image Input - マイソク（一番上に配置） */}
+							<form.Field
+								name="flyerFiles"
+								children={(field) => {
+									const isInvalid =
+										field.state.meta.isTouched && !field.state.meta.isValid;
+									const currentFile = field.state.value?.[0];
+									return (
+										<Field data-invalid={isInvalid}>
+											<FieldLabel className="text-base font-medium flex items-center gap-2">
+												<ImageIcon className="h-4 w-4 text-primary" />
+												マイソク
+											</FieldLabel>
+											<Dropzone
+												accept={{
+													"image/*": [".png", ".jpg", ".jpeg", ".gif", ".webp"],
+													"application/pdf": [".pdf"],
+												}}
+												maxFiles={1}
+												maxSize={20 * 1024 * 1024}
+												src={field.state.value || []}
+												disabled={isConvertingPdf}
+												onDrop={async (acceptedFiles) => {
+													if (acceptedFiles.length === 0) return;
+
+													const file = acceptedFiles[0];
+
+													// PDFの場合はJPGに変換（Gemini用）+ 元のPDFを保存（結合用）
+													if (isPdfFile(file)) {
+														setIsConvertingPdf(true);
+														try {
+															// 元のPDFファイルを保存（PDF結合用）
+															setOriginalPdfFile(file);
+															console.log(
+																"[File Upload] Original PDF saved for merging:",
+																file.name,
+																file.size,
+															);
+
+															// JPGに変換してGeminiに渡す
+															const result = await convertPdfToSingleJpg(
+																file,
+																1440,
+																0.85,
+															);
+															field.handleChange([result.file]);
+															console.log(
+																"[File Upload] PDF converted to JPG for Gemini:",
+																result.file.name,
+																result.file.size,
+															);
+														} catch (error) {
+															console.error("PDF変換エラー:", error);
+															toast.error("PDFの変換に失敗しました", {
+																description:
+																	error instanceof Error
+																		? error.message
+																		: "不明なエラー",
+															});
+															// エラー時は元のPDFもクリア
+															setOriginalPdfFile(null);
+														} finally {
+															setIsConvertingPdf(false);
+														}
+													} else {
+														// 画像の場合は元のPDFをクリア
+														setOriginalPdfFile(null);
+														field.handleChange(acceptedFiles);
+														console.log(
+															"[File Upload] Image file uploaded:",
+															file.name,
+															file.type,
+															file.size,
+														);
+													}
+												}}
+												onError={(error) => {
+													toast.error("ファイルのアップロードに失敗しました", {
+														description: error.message,
+													});
+												}}
+												className={cn(
+													"h-auto min-h-40",
+													flyerPreviewUrl && "p-2",
+												)}
+											>
+												{isConvertingPdf ? (
+													<div className="flex flex-col items-center justify-center py-8">
+														<Loader2 className="h-8 w-8 animate-spin text-primary" />
+														<p className="my-2 font-medium text-sm">
+															PDFを変換中...
+														</p>
+													</div>
+												) : flyerPreviewUrl ? (
+													<div className="flex flex-col items-center justify-center w-full">
+														<div className="relative w-full max-w-xs rounded-lg overflow-hidden border bg-muted/20">
+															<img
+																src={flyerPreviewUrl}
+																alt="マイソクプレビュー"
+																className="w-full h-auto object-contain max-h-48"
+															/>
+														</div>
+														<p className="mt-2 text-xs text-muted-foreground truncate max-w-full">
+															{currentFile?.name.replace(/\.[^/.]+$/, "")}
+														</p>
+														<p className="text-xs text-muted-foreground/70">
+															クリックまたはドラッグで置き換え
+														</p>
+													</div>
+												) : (
+													<div className="flex flex-col items-center justify-center">
+														<div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
+															<ImageIcon size={16} />
+														</div>
+														<p className="my-2 font-medium text-sm">
+															ファイルをアップロード
+														</p>
+														<p className="text-muted-foreground text-xs">
+															ドラッグ＆ドロップまたはクリック
+														</p>
+													</div>
+												)}
+											</Dropzone>
+											{isInvalid && (
+												<FieldError errors={field.state.meta.errors} />
+											)}
+										</Field>
+									);
+								}}
+							/>
+
+							<Separator />
+
+							{/* Company Name */}
+							<form.Field
+								name="companyName"
+								children={(field) => {
+									const isInvalid =
+										field.state.meta.isTouched && !field.state.meta.isValid;
+									return (
+										<Field data-invalid={isInvalid}>
+											<FieldLabel
+												htmlFor={field.name}
+												className="text-base font-medium"
+											>
+												会社名
+											</FieldLabel>
+											<Popover
+												open={isCompanyComboboxOpen}
+												onOpenChange={setIsCompanyComboboxOpen}
+											>
+												<PopoverTrigger asChild>
+													<Button
+														id={field.name}
+														name={field.name}
 														variant="outline"
-														size="sm"
+														role="combobox"
+														aria-expanded={isCompanyComboboxOpen}
+														aria-invalid={isInvalid}
+														className="w-full justify-between"
+														disabled={isOrganizationsPending}
 													>
-														<ToggleGroupItem
-															value="low"
-															className="text-xs px-3"
-														>
-															2.5 Flash-Lite
-														</ToggleGroupItem>
-														<ToggleGroupItem
-															value="middle"
-															className="text-xs px-3"
-														>
-															3.0 Flash
-														</ToggleGroupItem>
-														<ToggleGroupItem
-															value="high"
-															className="text-xs px-3"
-														>
-															3.0 Pro
-														</ToggleGroupItem>
-													</ToggleGroup>
-												</div>
-											</>
+														<span className="truncate">
+															{field.state.value || "会社を選択"}
+														</span>
+														<ChevronsUpDown className="h-4 w-4 opacity-50" />
+													</Button>
+												</PopoverTrigger>
+												<PopoverContent
+													className="p-0 w-[--radix-popover-trigger-width]"
+													align="start"
+												>
+													<Command>
+														<CommandInput placeholder="会社を検索..." />
+														<CommandList>
+															<CommandEmpty>
+																{isOrganizationsPending
+																	? "読み込み中..."
+																	: "会社が見つかりません"}
+															</CommandEmpty>
+															<CommandGroup>
+																{organizationOptions.map((org) => {
+																	const isSelected =
+																		field.state.value === org.name;
+																	return (
+																		<CommandItem
+																			key={org.id}
+																			value={org.name}
+																			data-checked={isSelected}
+																			onSelect={() => {
+																				field.handleChange(org.name);
+																				setSelectedOrganizationId(org.id);
+																				setSelectedTeamId(undefined);
+																				form.setFieldValue("storeName", "");
+																				setIsCompanyComboboxOpen(false);
+																			}}
+																		>
+																			{org.name}
+																		</CommandItem>
+																	);
+																})}
+															</CommandGroup>
+														</CommandList>
+													</Command>
+												</PopoverContent>
+											</Popover>
+											{isInvalid && (
+												<FieldError errors={field.state.meta.errors} />
+											)}
+										</Field>
+									);
+								}}
+							/>
+
+							{/* Store Name */}
+							<form.Field
+								name="storeName"
+								children={(field) => {
+									return (
+										<Field>
+											<FieldLabel
+												htmlFor={field.name}
+												className="text-base font-medium"
+											>
+												店舗名
+												<Badge
+													variant="secondary"
+													className="ml-2 text-xs font-normal"
+												>
+													任意
+												</Badge>
+											</FieldLabel>
+											<Popover
+												open={isStoreComboboxOpen}
+												onOpenChange={setIsStoreComboboxOpen}
+											>
+												<PopoverTrigger asChild>
+													<Button
+														id={field.name}
+														name={field.name}
+														variant="outline"
+														role="combobox"
+														aria-expanded={isStoreComboboxOpen}
+														className="w-full justify-between"
+														disabled={!selectedOrganizationId || isTeamsPending}
+													>
+														<span className="truncate">
+															{field.state.value || "店舗を選択"}
+														</span>
+														<ChevronsUpDown className="h-4 w-4 opacity-50" />
+													</Button>
+												</PopoverTrigger>
+												<PopoverContent
+													className="p-0 w-[--radix-popover-trigger-width]"
+													align="start"
+												>
+													<Command>
+														<CommandInput placeholder="店舗を検索..." />
+														<CommandList>
+															<CommandEmpty>
+																{!selectedOrganizationId
+																	? "会社を選択してください"
+																	: isTeamsPending
+																		? "読み込み中..."
+																		: "店舗が見つかりません"}
+															</CommandEmpty>
+															<CommandGroup>
+																{teamOptions.map((team) => {
+																	const isSelected =
+																		field.state.value === team.name;
+																	return (
+																		<CommandItem
+																			key={team.id}
+																			value={team.name}
+																			data-checked={isSelected}
+																			onSelect={() => {
+																				field.handleChange(team.name);
+																				setSelectedTeamId(team.id);
+																				setIsStoreComboboxOpen(false);
+																			}}
+																		>
+																			{team.name}
+																		</CommandItem>
+																	);
+																})}
+															</CommandGroup>
+														</CommandList>
+													</Command>
+												</PopoverContent>
+											</Popover>
+										</Field>
+									);
+								}}
+							/>
+
+							{/* Store Address */}
+							<form.Field
+								name="storeAddress"
+								children={(field) => {
+									return (
+										<Field>
+											<FieldLabel
+												htmlFor={field.name}
+												className="text-base font-medium"
+											>
+												店舗住所
+												<Badge
+													variant="secondary"
+													className="ml-2 text-xs font-normal"
+												>
+													任意
+												</Badge>
+											</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												value={field.state.value || ""}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="例: 〒150-0001 東京都渋谷区..."
+												autoComplete="street-address"
+											/>
+										</Field>
+									);
+								}}
+							/>
+
+							{/* Store Phone Number */}
+							<form.Field
+								name="storePhoneNumber"
+								children={(field) => {
+									return (
+										<Field>
+											<FieldLabel
+												htmlFor={field.name}
+												className="text-base font-medium"
+											>
+												店舗電話番号
+												<Badge
+													variant="secondary"
+													className="ml-2 text-xs font-normal"
+												>
+													任意
+												</Badge>
+											</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												type="tel"
+												value={field.state.value || ""}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="例: 03-1234-5678"
+												autoComplete="tel"
+											/>
+										</Field>
+									);
+								}}
+							/>
+
+							{/* Store Email */}
+							<form.Field
+								name="storeEmailAddress"
+								children={(field) => {
+									return (
+										<Field>
+											<FieldLabel
+												htmlFor={field.name}
+												className="text-base font-medium"
+											>
+												店舗メールアドレス
+												<Badge
+													variant="secondary"
+													className="ml-2 text-xs font-normal"
+												>
+													任意
+												</Badge>
+											</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												type="email"
+												value={field.state.value || ""}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="例: info@example.com"
+												autoComplete="email"
+											/>
+										</Field>
+									);
+								}}
+							/>
+
+							<Separator />
+
+							{/* 資金計画シミュレーション セクション */}
+							<div>
+								<h3 className="text-base font-medium mb-1">
+									資金計画シミュレーション
+									<Badge
+										variant="secondary"
+										className="ml-2 text-xs font-normal"
+									>
+										任意
+									</Badge>
+								</h3>
+								<div className="grid grid-cols-2 gap-4">
+									{/* Annual Income */}
+									<form.Field
+										name="annualIncome"
+										children={(field) => (
+											<Field>
+												<FieldLabel
+													htmlFor={field.name}
+													className="text-sm font-medium"
+												>
+													年収（万円）
+												</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													type="number"
+													value={field.state.value ?? ""}
+													onBlur={field.handleBlur}
+													onChange={(e) =>
+														field.handleChange(
+															e.target.value
+																? Number(e.target.value)
+																: undefined,
+														)
+													}
+													placeholder="例: 600"
+												/>
+											</Field>
 										)}
 									/>
+
+									{/* Down Payment */}
 									<form.Field
-										name="useStructuredOutput"
+										name="downPayment"
 										children={(field) => (
+											<Field>
+												<FieldLabel
+													htmlFor={field.name}
+													className="text-sm font-medium"
+												>
+													自己資金（万円）
+												</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													type="number"
+													value={field.state.value ?? ""}
+													onBlur={field.handleBlur}
+													onChange={(e) =>
+														field.handleChange(
+															e.target.value
+																? Number(e.target.value)
+																: undefined,
+														)
+													}
+													placeholder="例: 500"
+												/>
+											</Field>
+										)}
+									/>
+
+									{/* Interest Rate */}
+									<form.Field
+										name="interestRate"
+										children={(field) => (
+											<Field>
+												<FieldLabel
+													htmlFor={field.name}
+													className="text-sm font-medium"
+												>
+													想定金利（%）
+												</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													type="number"
+													step="0.1"
+													value={field.state.value ?? ""}
+													onBlur={field.handleBlur}
+													onChange={(e) =>
+														field.handleChange(
+															e.target.value
+																? Number(e.target.value)
+																: undefined,
+														)
+													}
+													placeholder="例: 1.5"
+												/>
+											</Field>
+										)}
+									/>
+
+									{/* Loan Term */}
+									<form.Field
+										name="loanTermYears"
+										children={(field) => (
+											<Field>
+												<FieldLabel
+													htmlFor={field.name}
+													className="text-sm font-medium"
+												>
+													返済期間（年）
+												</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													type="number"
+													value={field.state.value ?? ""}
+													onBlur={field.handleBlur}
+													onChange={(e) =>
+														field.handleChange(
+															e.target.value
+																? Number(e.target.value)
+																: undefined,
+														)
+													}
+													placeholder="例: 35"
+												/>
+											</Field>
+										)}
+									/>
+								</div>
+							</div>
+
+							<Separator />
+
+							{/* Submit / Stop Button */}
+							{form.state.isSubmitting ? (
+								<Button
+									type="button"
+									size="lg"
+									onClick={handleCancel}
+									className="w-full text-base font-medium h-12 bg-neutral-800 hover:bg-neutral-700 text-white opacity-90 hover:opacity-100 transition-all"
+								>
+									<Square className="h-3.5 w-3.5 fill-current" />
+									停止
+								</Button>
+							) : (
+								<Button
+									type="submit"
+									size="lg"
+									className="w-full text-base font-medium shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow h-12"
+								>
+									<Sparkles className="h-5 w-5" />
+									スライドを生成
+								</Button>
+							)}
+						</form>
+					</div>
+
+					{/* Dev Settings & Logs - Only in Development */}
+					{isDevelopment && (
+						<div className="border-t bg-muted/20">
+							<div className="px-6 py-3 border-b flex items-center justify-between">
+								<h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+									開発設定
+								</h3>
+								<Badge variant="outline" className="text-[10px] font-mono">
+									DEV MODE
+								</Badge>
+							</div>
+							<div className="px-6 py-3 border-b space-y-3">
+								<form.Field
+									name="modelType"
+									children={(field) => (
+										<>
 											<div className="flex items-center justify-between">
 												<span className="text-xs text-muted-foreground">
-													出力形式
+													モデル
 												</span>
 												<ToggleGroup
 													type="single"
-													value={field.state.value ? "structured" : "raw"}
+													value={field.state.value}
 													onValueChange={(value) => {
 														if (value)
-															field.handleChange(value === "structured");
+															field.handleChange(
+																z.enum(["low", "middle", "high"]).parse(value),
+															);
 													}}
 													variant="outline"
 													size="sm"
 												>
+													<ToggleGroupItem value="low" className="text-xs px-3">
+														2.5 Flash-Lite
+													</ToggleGroupItem>
 													<ToggleGroupItem
-														value="structured"
+														value="middle"
 														className="text-xs px-3"
 													>
-														構造化出力
+														3.0 Flash
 													</ToggleGroupItem>
-													<ToggleGroupItem value="raw" className="text-xs px-3">
-														生HTML
+													<ToggleGroupItem
+														value="high"
+														className="text-xs px-3"
+													>
+														3.0 Pro
 													</ToggleGroupItem>
 												</ToggleGroup>
 											</div>
-										)}
-									/>
-									<div className="flex items-center justify-between">
-										<span className="text-xs text-muted-foreground">
-											トークン
-										</span>
-										<span className="text-xs font-mono">
-											入力 {totalUsage.inputTokens.toLocaleString()} / 出力{" "}
-											{totalUsage.outputTokens.toLocaleString()}
-										</span>
-									</div>
-									<div className="flex items-center justify-between">
-										<span className="text-xs text-muted-foreground">
-											推定コスト
-										</span>
-										<span className="text-xs font-mono font-semibold text-primary">
-											${costInfo.totalCost.toFixed(4)} (¥
-											{Math.round(costInfo.totalCost * 150).toLocaleString()})
-										</span>
-									</div>
-									<div className="flex items-center justify-between">
-										<span className="text-xs text-muted-foreground">
-											生成時間
-										</span>
-										<span className="text-xs font-mono">
-											{generationDurationMs > 0
-												? `${(generationDurationMs / 1000).toFixed(1)}秒`
-												: "-"}
-										</span>
-									</div>
-								</div>
-							</div>
-						)}
-					</div>
-				</aside>
-
-				{/* Main Content: Generated Slides */}
-				<main className="flex-1 overflow-y-auto bg-muted/5 dark:bg-background">
-					<div className="p-6 lg:p-10 min-h-full">
-						<div className="max-w-400 mx-auto space-y-8">
-							<div className="flex items-end justify-between border-b pb-6">
-								<div>
-									<h2 className="text-2xl font-bold tracking-tight">
-										プレビュー
-									</h2>
-									<p className="text-muted-foreground mt-1">
-										AIが生成したスライドの構成を確認できます。
-									</p>
-								</div>
-								{orderedSlides.length > 0 && (
-									<div className="flex items-center gap-4">
-										<div className="text-sm text-muted-foreground mr-auto">
-											<span className="font-semibold text-foreground">
-												{orderedSlides.length}
-											</span>{" "}
-											枚のスライド
-										</div>
-										<Button
-											onClick={() => openExportDialog("pptx")}
-											disabled={form.state.isSubmitting}
-											size="default"
-											className="shadow-md hover:shadow-lg transition-shadow hidden"
-										>
-											<Download className="h-4 w-4" />
-											PPTXで出力
-										</Button>
-										<Button
-											onClick={() => openExportDialog("pdf")}
-											disabled={form.state.isSubmitting}
-											size="default"
-											className="shadow-md hover:shadow-lg transition-shadow"
-										>
-											<Download className="h-4 w-4" />
-											PDFで出力
-										</Button>
-									</div>
-								)}
-							</div>
-
-							<Dialog
-								open={isExportDialogOpen}
-								onOpenChange={setIsExportDialogOpen}
-							>
-								<DialogContent className="sm:max-w-5xl h-[80vh] flex flex-col">
-									<DialogHeader>
-										<DialogTitle>出力スライドの選択</DialogTitle>
-										<DialogDescription>
-											出力したいスライドを選択してください。
-										</DialogDescription>
-									</DialogHeader>
-									<div className="flex-1 min-h-0 py-2">
-										<ScrollArea className="h-full w-full rounded-md border bg-muted/20">
-											<div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-												{orderedSlides.map((slide) => {
-													const isSelected = selectedSlideIndices.includes(
-														slide.data.index,
-													);
-													// Only show completed slides
-													if (slide.type !== "slide:end") return null;
-													const slideHtml = getSlideHtml(
-														slide.data.index,
-														slide.data.html,
-													);
-
-													return (
-														<button
-															key={slide.data.index}
-															type="button"
-															className={cn(
-																"group relative w-full cursor-pointer rounded-lg border-2 overflow-hidden transition-all duration-200 bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-																isSelected
-																	? "border-primary ring-2 ring-primary/20"
-																	: "border-transparent ring-1 ring-border hover:ring-primary/50",
-															)}
-															onClick={() => {
-																const slideIndex = slide.data.index;
-																setSelectedSlideIndices((prev) => {
-																	const currentlySelected =
-																		prev.includes(slideIndex);
-																	return currentlySelected
-																		? prev.filter((i) => i !== slideIndex)
-																		: [...prev, slideIndex];
-																});
-															}}
-														>
-															<div className="pointer-events-none aspect-video w-full">
-																<ScaledFrame html={slideHtml} />
-															</div>
-
-															{/* Index Badge */}
-															<div className="absolute top-2 left-2 z-10">
-																<div
-																	className={cn(
-																		"h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md ring-1 ring-white/20",
-																		isSelected
-																			? "bg-primary text-primary-foreground"
-																			: "bg-black/60 text-white backdrop-blur-sm",
-																	)}
-																>
-																	{slide.data.index}
-																</div>
-															</div>
-
-															{/* Checkbox */}
-															<div className="absolute top-2 right-2 z-10">
-																<div
-																	className={cn(
-																		"rounded-sm bg-background/90 shadow-sm transition-all",
-																		isSelected
-																			? "opacity-100"
-																			: "opacity-70 group-hover:opacity-100",
-																	)}
-																>
-																	<div
-																		aria-hidden="true"
-																		className={cn(
-																			"flex h-4 w-4 items-center justify-center rounded-lg border transition-colors",
-																			isSelected
-																				? "border-primary bg-primary text-primary-foreground"
-																				: "border-input",
-																		)}
-																	>
-																		{isSelected && (
-																			<Check className="h-3 w-3" />
-																		)}
-																	</div>
-																</div>
-															</div>
-
-															{/* Title Overlay */}
-															<div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/50 to-transparent p-2 pt-6 opacity-0 transition-opacity group-hover:opacity-100 flex flex-col justify-end">
-																<p className="text-[10px] font-medium text-white line-clamp-2 leading-tight">
-																	{slide.data.title}
-																</p>
-															</div>
-
-															{/* Selected Overlay */}
-															{isSelected && (
-																<div className="absolute inset-0 bg-primary/10 pointer-events-none" />
-															)}
-														</button>
-													);
-												})}
-											</div>
-										</ScrollArea>
-									</div>
-									<DialogFooter className="flex items-center justify-between sm:justify-between gap-4">
-										<div className="text-sm text-muted-foreground">
-											<span className="font-semibold text-foreground">
-												{selectedSlideIndices.length}
-											</span>{" "}
-											枚選択中
-										</div>
-										<div className="flex gap-2">
-											<Button
-												variant="outline"
-												onClick={() => {
-													setIsExportDialogOpen(false);
+										</>
+									)}
+								/>
+								<form.Field
+									name="useStructuredOutput"
+									children={(field) => (
+										<div className="flex items-center justify-between">
+											<span className="text-xs text-muted-foreground">
+												出力形式
+											</span>
+											<ToggleGroup
+												type="single"
+												value={field.state.value ? "structured" : "raw"}
+												onValueChange={(value) => {
+													if (value) field.handleChange(value === "structured");
 												}}
+												variant="outline"
+												size="sm"
 											>
-												キャンセル
-											</Button>
-											<Button
-												onClick={handleExport}
-												disabled={selectedSlideIndices.length === 0}
-											>
-												{(() => {
-													switch (exportTarget) {
-														case "pptx":
-															return "PPTX";
-														case "pdf":
-															return "PDF";
-													}
-												})()}
-												を出力
-											</Button>
+												<ToggleGroupItem
+													value="structured"
+													className="text-xs px-3"
+												>
+													構造化出力
+												</ToggleGroupItem>
+												<ToggleGroupItem value="raw" className="text-xs px-3">
+													生HTML
+												</ToggleGroupItem>
+											</ToggleGroup>
 										</div>
-									</DialogFooter>
-								</DialogContent>
-							</Dialog>
+									)}
+								/>
+								<div className="flex items-center justify-between">
+									<span className="text-xs text-muted-foreground">
+										トークン
+									</span>
+									<span className="text-xs font-mono">
+										入力 {totalUsage.inputTokens.toLocaleString()} / 出力{" "}
+										{totalUsage.outputTokens.toLocaleString()}
+									</span>
+								</div>
+								<div className="flex items-center justify-between">
+									<span className="text-xs text-muted-foreground">
+										推定コスト
+									</span>
+									<span className="text-xs font-mono font-semibold text-primary">
+										${costInfo.totalCost.toFixed(4)} (¥
+										{Math.round(costInfo.totalCost * 150).toLocaleString()})
+									</span>
+								</div>
+								<div className="flex items-center justify-between">
+									<span className="text-xs text-muted-foreground">
+										生成時間
+									</span>
+									<span className="text-xs font-mono">
+										{generationDurationMs > 0
+											? `${(generationDurationMs / 1000).toFixed(1)}秒`
+											: "-"}
+									</span>
+								</div>
+							</div>
+						</div>
+					)}
+				</div>
+			</aside>
 
-							{orderedSlides.length === 0 ? (
-								form.state.isSubmitting ? (
-									<div className="flex flex-col items-center justify-center py-20 lg:py-32 text-center rounded-xl border-2 border-dashed border-primary/20 bg-primary/5">
-										<div className="flex flex-col items-center gap-4 max-w-md w-full px-6">
-											<Loader2 className="h-12 w-12 animate-spin text-primary" />
-											<h3 className="text-xl font-semibold text-foreground">
-												{plan?.type === "plan:end"
-													? "構成案が完成しました"
-													: "AIが物件情報を分析中..."}
-											</h3>
-											<p className="text-muted-foreground">
-												{plan?.type === "plan:end"
-													? "各スライドの生成を開始します。"
-													: "最適なプレゼンテーション構成を考えています。"}
-											</p>
-
-											{plan?.type === "plan:end" && (
-												<div className="mt-4 p-4 bg-background/80 backdrop-blur rounded-lg text-left text-sm w-full border shadow-sm max-h-60 overflow-y-auto">
-													<p className="font-medium mb-3 text-foreground flex items-center gap-2">
-														<span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
-															{plan.data.plan.length}
-														</span>
-														生成予定のスライド
-													</p>
-													<ul className="space-y-2">
-														{plan.data.plan.map((slideDef, i) => (
-															<li
-																key={i}
-																className="text-muted-foreground flex gap-2 text-xs"
-															>
-																<span className="opacity-50 min-w-4">
-																	{i + 1}.
-																</span>
-																<span>{slideDef.title}</span>
-															</li>
-														))}
-													</ul>
-												</div>
-											)}
-										</div>
+			{/* Main Content: Generated Slides */}
+			<main className="flex-1 overflow-y-auto bg-muted/5 dark:bg-background">
+				<div className="p-6 lg:p-10 min-h-full">
+					<div className="max-w-400 mx-auto space-y-8">
+						<div className="flex items-end justify-between border-b pb-6">
+							<div>
+								<h2 className="text-2xl font-bold tracking-tight">
+									プレビュー
+								</h2>
+								<p className="text-muted-foreground mt-1">
+									AIが生成したスライドの構成を確認できます。
+								</p>
+							</div>
+							{orderedSlides.length > 0 && (
+								<div className="flex items-center gap-4">
+									<div className="text-sm text-muted-foreground mr-auto">
+										<span className="font-semibold text-foreground">
+											{orderedSlides.length}
+										</span>{" "}
+										枚のスライド
 									</div>
-								) : (
-									<div className="flex flex-col items-center justify-center py-20 lg:py-32 text-center rounded-xl border-2 border-dashed border-muted-foreground/10 bg-muted/5">
-										<div className="p-6 bg-background rounded-full shadow-sm mb-6">
-											<PresentationPlaceholder className="w-12 h-12 text-muted-foreground/40" />
-										</div>
-										<h3 className="text-xl font-semibold text-foreground">
-											スライドはまだありません
-										</h3>
-										<p className="text-muted-foreground max-w-sm mt-2 mb-8">
-											左側のフォームから情報を入力して、最初のプレゼンテーションを生成しましょう。
-										</p>
-										<Button variant="outline" disabled className="opacity-50">
-											<Sparkles className="h-4 w-4" />
-											生成待ち...
-										</Button>
-									</div>
-								)
-							) : (
-								<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-8">
-									{orderedSlides.map((slide) => {
-										const isCompleted = slide.type === "slide:end";
-										const isGenerating = slide.type === "slide:generating";
-										const isPending = slide.type === "slide:start";
-										const slideHtml = getSlideHtml(
-											slide.data.index,
-											slide.data.html,
-										);
-
-										return (
-											<div
-												key={slide.data.index}
-												className="flex flex-col gap-3 group"
-											>
-												<div className="flex items-center justify-between px-1">
-													<div className="flex items-center gap-2">
-														<span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-															{slide.data.index}
-														</span>
-														<span className="text-sm font-semibold text-foreground/80 truncate max-w-50">
-															{slide.data.title}
-														</span>
-													</div>
-													<div className="flex items-center gap-2">
-														{isPending && (
-															<Badge
-																variant="secondary"
-																className="text-[10px] animate-pulse"
-															>
-																分析中
-															</Badge>
-														)}
-														{isGenerating && (
-															<Badge className="text-[10px] bg-blue-500 text-white dark:bg-blue-600 dark:text-blue-50 animate-pulse">
-																生成中
-															</Badge>
-														)}
-														{isCompleted && (
-															<Badge
-																variant="outline"
-																className="text-[10px] text-green-600 border-green-200 bg-green-50 dark:text-green-400 dark:border-green-800 dark:bg-green-950/30"
-															>
-																完了
-															</Badge>
-														)}
-													</div>
-												</div>
-
-												{isCompleted ? (
-													<SlidePreview
-														iframeRef={(el) => {
-															if (el)
-																slideIframeRefs.current.set(
-																	slide.data.index,
-																	el,
-																);
-															else
-																slideIframeRefs.current.delete(
-																	slide.data.index,
-																);
-														}}
-														html={slideHtml}
-														originalHtml={slide.data.html}
-														title={slide.data.title}
-														enableEditor
-														onHtmlChange={(nextHtml) => {
-															setEditedHtmlByIndex((prev) => ({
-																...prev,
-																[slide.data.index]: nextHtml,
-															}));
-														}}
-														onHtmlReset={() => {
-															setEditedHtmlByIndex((prev) => {
-																const next = { ...prev };
-																delete next[slide.data.index];
-																return next;
-															});
-														}}
-														className="shadow-sm ring-1 ring-border group-hover:ring-primary/50 transition-all duration-300"
-													/>
-												) : (
-													<div className="aspect-video w-full rounded-lg border bg-background/50 flex flex-col items-center justify-center text-muted-foreground gap-3 relative overflow-hidden">
-														<div className="absolute inset-0 bg-muted/10" />
-														{isPending ? (
-															<>
-																<Loader2 className="h-8 w-8 animate-spin text-primary/40" />
-																<p className="text-xs font-medium relative z-10">
-																	情報を分析しています...
-																</p>
-															</>
-														) : isGenerating ? (
-															<>
-																<Loader2 className="h-8 w-8 animate-spin text-blue-500/40 dark:text-blue-400/60" />
-																<p className="text-xs font-medium relative z-10">
-																	デザインを作成中...
-																</p>
-															</>
-														) : (
-															<p className="text-xs relative z-10">待機中...</p>
-														)}
-													</div>
-												)}
-											</div>
-										);
-									})}
+									<Button
+										onClick={() => openExportDialog("pptx")}
+										disabled={form.state.isSubmitting}
+										size="default"
+										className="shadow-md hover:shadow-lg transition-shadow hidden"
+									>
+										<Download className="h-4 w-4" />
+										PPTXで出力
+									</Button>
+									<Button
+										onClick={() => openExportDialog("pdf")}
+										disabled={form.state.isSubmitting}
+										size="default"
+										className="shadow-md hover:shadow-lg transition-shadow"
+									>
+										<Download className="h-4 w-4" />
+										PDFで出力
+									</Button>
 								</div>
 							)}
 						</div>
+
+						<Dialog
+							open={isExportDialogOpen}
+							onOpenChange={setIsExportDialogOpen}
+						>
+							<DialogContent className="sm:max-w-5xl h-[80vh] flex flex-col">
+								<DialogHeader>
+									<DialogTitle>出力スライドの選択</DialogTitle>
+									<DialogDescription>
+										出力したいスライドを選択してください。
+									</DialogDescription>
+								</DialogHeader>
+								<div className="flex-1 min-h-0 py-2">
+									<ScrollArea className="h-full w-full rounded-md border bg-muted/20">
+										<div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+											{orderedSlides.map((slide) => {
+												const isSelected = selectedSlideIndices.includes(
+													slide.data.index,
+												);
+												// Only show completed slides
+												if (slide.type !== "slide:end") return null;
+												const slideHtml = getSlideHtml(
+													slide.data.index,
+													slide.data.html,
+												);
+
+												return (
+													<button
+														key={slide.data.index}
+														type="button"
+														className={cn(
+															"group relative w-full cursor-pointer rounded-lg border-2 overflow-hidden transition-all duration-200 bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+															isSelected
+																? "border-primary ring-2 ring-primary/20"
+																: "border-transparent ring-1 ring-border hover:ring-primary/50",
+														)}
+														onClick={() => {
+															const slideIndex = slide.data.index;
+															setSelectedSlideIndices((prev) => {
+																const currentlySelected =
+																	prev.includes(slideIndex);
+																return currentlySelected
+																	? prev.filter((i) => i !== slideIndex)
+																	: [...prev, slideIndex];
+															});
+														}}
+													>
+														<div className="pointer-events-none aspect-video w-full">
+															<ScaledFrame html={slideHtml} />
+														</div>
+
+														{/* Index Badge */}
+														<div className="absolute top-2 left-2 z-10">
+															<div
+																className={cn(
+																	"h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md ring-1 ring-white/20",
+																	isSelected
+																		? "bg-primary text-primary-foreground"
+																		: "bg-black/60 text-white backdrop-blur-sm",
+																)}
+															>
+																{slide.data.index}
+															</div>
+														</div>
+
+														{/* Checkbox */}
+														<div className="absolute top-2 right-2 z-10">
+															<div
+																className={cn(
+																	"rounded-sm bg-background/90 shadow-sm transition-all",
+																	isSelected
+																		? "opacity-100"
+																		: "opacity-70 group-hover:opacity-100",
+																)}
+															>
+																<div
+																	aria-hidden="true"
+																	className={cn(
+																		"flex h-4 w-4 items-center justify-center rounded-lg border transition-colors",
+																		isSelected
+																			? "border-primary bg-primary text-primary-foreground"
+																			: "border-input",
+																	)}
+																>
+																	{isSelected && <Check className="h-3 w-3" />}
+																</div>
+															</div>
+														</div>
+
+														{/* Title Overlay */}
+														<div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/50 to-transparent p-2 pt-6 opacity-0 transition-opacity group-hover:opacity-100 flex flex-col justify-end">
+															<p className="text-[10px] font-medium text-white line-clamp-2 leading-tight">
+																{slide.data.title}
+															</p>
+														</div>
+
+														{/* Selected Overlay */}
+														{isSelected && (
+															<div className="absolute inset-0 bg-primary/10 pointer-events-none" />
+														)}
+													</button>
+												);
+											})}
+										</div>
+									</ScrollArea>
+								</div>
+								<DialogFooter className="flex items-center justify-between sm:justify-between gap-4">
+									<div className="text-sm text-muted-foreground">
+										<span className="font-semibold text-foreground">
+											{selectedSlideIndices.length}
+										</span>{" "}
+										枚選択中
+									</div>
+									<div className="flex gap-2">
+										<Button
+											variant="outline"
+											onClick={() => {
+												setIsExportDialogOpen(false);
+											}}
+										>
+											キャンセル
+										</Button>
+										<Button
+											onClick={handleExport}
+											disabled={selectedSlideIndices.length === 0}
+										>
+											{(() => {
+												switch (exportTarget) {
+													case "pptx":
+														return "PPTX";
+													case "pdf":
+														return "PDF";
+												}
+											})()}
+											を出力
+										</Button>
+									</div>
+								</DialogFooter>
+							</DialogContent>
+						</Dialog>
+
+						{orderedSlides.length === 0 ? (
+							form.state.isSubmitting ? (
+								<div className="flex flex-col items-center justify-center py-20 lg:py-32 text-center rounded-xl border-2 border-dashed border-primary/20 bg-primary/5">
+									<div className="flex flex-col items-center gap-4 max-w-md w-full px-6">
+										<Loader2 className="h-12 w-12 animate-spin text-primary" />
+										<h3 className="text-xl font-semibold text-foreground">
+											{plan?.type === "plan:end"
+												? "構成案が完成しました"
+												: "AIが物件情報を分析中..."}
+										</h3>
+										<p className="text-muted-foreground">
+											{plan?.type === "plan:end"
+												? "各スライドの生成を開始します。"
+												: "最適なプレゼンテーション構成を考えています。"}
+										</p>
+
+										{plan?.type === "plan:end" && (
+											<div className="mt-4 p-4 bg-background/80 backdrop-blur rounded-lg text-left text-sm w-full border shadow-sm max-h-60 overflow-y-auto">
+												<p className="font-medium mb-3 text-foreground flex items-center gap-2">
+													<span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+														{plan.data.plan.length}
+													</span>
+													生成予定のスライド
+												</p>
+												<ul className="space-y-2">
+													{plan.data.plan.map((slideDef, i) => (
+														<li
+															key={i}
+															className="text-muted-foreground flex gap-2 text-xs"
+														>
+															<span className="opacity-50 min-w-4">
+																{i + 1}.
+															</span>
+															<span>{slideDef.title}</span>
+														</li>
+													))}
+												</ul>
+											</div>
+										)}
+									</div>
+								</div>
+							) : (
+								<div className="flex flex-col items-center justify-center py-20 lg:py-32 text-center rounded-xl border-2 border-dashed border-muted-foreground/10 bg-muted/5">
+									<div className="p-6 bg-background rounded-full shadow-sm mb-6">
+										<PresentationPlaceholder className="w-12 h-12 text-muted-foreground/40" />
+									</div>
+									<h3 className="text-xl font-semibold text-foreground">
+										スライドはまだありません
+									</h3>
+									<p className="text-muted-foreground max-w-sm mt-2 mb-8">
+										左側のフォームから情報を入力して、最初のプレゼンテーションを生成しましょう。
+									</p>
+									<Button variant="outline" disabled className="opacity-50">
+										<Sparkles className="h-4 w-4" />
+										生成待ち...
+									</Button>
+								</div>
+							)
+						) : (
+							<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-8">
+								{orderedSlides.map((slide) => {
+									const isCompleted = slide.type === "slide:end";
+									const isGenerating = slide.type === "slide:generating";
+									const isPending = slide.type === "slide:start";
+									const slideHtml = getSlideHtml(
+										slide.data.index,
+										slide.data.html,
+									);
+
+									return (
+										<div
+											key={slide.data.index}
+											className="flex flex-col gap-3 group"
+										>
+											<div className="flex items-center justify-between px-1">
+												<div className="flex items-center gap-2">
+													<span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+														{slide.data.index}
+													</span>
+													<span className="text-sm font-semibold text-foreground/80 truncate max-w-50">
+														{slide.data.title}
+													</span>
+												</div>
+												<div className="flex items-center gap-2">
+													{isPending && (
+														<Badge
+															variant="secondary"
+															className="text-[10px] animate-pulse"
+														>
+															分析中
+														</Badge>
+													)}
+													{isGenerating && (
+														<Badge className="text-[10px] bg-blue-500 text-white dark:bg-blue-600 dark:text-blue-50 animate-pulse">
+															生成中
+														</Badge>
+													)}
+													{isCompleted && (
+														<Badge
+															variant="outline"
+															className="text-[10px] text-green-600 border-green-200 bg-green-50 dark:text-green-400 dark:border-green-800 dark:bg-green-950/30"
+														>
+															完了
+														</Badge>
+													)}
+												</div>
+											</div>
+
+											{isCompleted ? (
+												<SlidePreview
+													iframeRef={(el) => {
+														if (el)
+															slideIframeRefs.current.set(slide.data.index, el);
+														else
+															slideIframeRefs.current.delete(slide.data.index);
+													}}
+													html={slideHtml}
+													originalHtml={slide.data.html}
+													title={slide.data.title}
+													enableEditor
+													onHtmlChange={(nextHtml) => {
+														setEditedHtmlByIndex((prev) => ({
+															...prev,
+															[slide.data.index]: nextHtml,
+														}));
+													}}
+													onHtmlReset={() => {
+														setEditedHtmlByIndex((prev) => {
+															const next = { ...prev };
+															delete next[slide.data.index];
+															return next;
+														});
+													}}
+													className="shadow-sm ring-1 ring-border group-hover:ring-primary/50 transition-all duration-300"
+												/>
+											) : (
+												<div className="aspect-video w-full rounded-lg border bg-background/50 flex flex-col items-center justify-center text-muted-foreground gap-3 relative overflow-hidden">
+													<div className="absolute inset-0 bg-muted/10" />
+													{isPending ? (
+														<>
+															<Loader2 className="h-8 w-8 animate-spin text-primary/40" />
+															<p className="text-xs font-medium relative z-10">
+																情報を分析しています...
+															</p>
+														</>
+													) : isGenerating ? (
+														<>
+															<Loader2 className="h-8 w-8 animate-spin text-blue-500/40 dark:text-blue-400/60" />
+															<p className="text-xs font-medium relative z-10">
+																デザインを作成中...
+															</p>
+														</>
+													) : (
+														<p className="text-xs relative z-10">待機中...</p>
+													)}
+												</div>
+											)}
+										</div>
+									);
+								})}
+							</div>
+						)}
 					</div>
-				</main>
-			</div>
+				</div>
+			</main>
 		</div>
 	);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { type UseQueryResult, useQuery } from "@tanstack/react-query";
+import { type DefinedUseQueryResult, useQuery } from "@tanstack/react-query";
 import type { APIError } from "better-auth";
 import { createContext, type ReactNode, useContext } from "react";
 import type { auth } from "@/lib/auth";
@@ -8,7 +8,7 @@ import { authClient } from "@/lib/auth-client";
 
 type Session = typeof auth.$Infer.Session;
 
-type SessionContextType = UseQueryResult<Session, Error | APIError>;
+type SessionContextType = DefinedUseQueryResult<Session, Error | APIError>;
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
