@@ -26,6 +26,9 @@ export const auth = betterAuth({
 		organization({
 			teams: {
 				enabled: true,
+				defaultTeam: {
+					enabled: false,
+				},
 			},
 		}),
 	],
